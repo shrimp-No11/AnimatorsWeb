@@ -1,0 +1,298 @@
+﻿@model AnimatorsWeb.Models.WinnersPageViewModel
+@using AnimatorsWeb.Services
+@using AnimatorsWeb.Models
+
+@{
+    ViewData["Title"] = "Объявление победителей";
+}
+
+<h1>Объявление победителей</h1>
+
+@if (Model.Message != null)
+{
+    <p style="color: darkblue;">@Model.Message</p>
+}
+@if (TempData["Result"] != null)
+{
+    <p style="color: green;">@TempData["Result"]</p>
+}
+@if (TempData["Info"] != null)
+{
+    <p style="color: darkblue;">@TempData["Info"]</p>
+}
+<div asp-validation-summary="All" style="color: red;"></div>
+
+<h3>Выбор аниджема</h3>
+<form method="get" asp-action="AnnounceWinners">
+    <div class="form-group">
+        <label>Аниджем:</label>
+        <select name="animJamNumber" class="form-control" onchange="this.form.submit()">
+            <option value="">-- Выберите аниджем --</option>
+            @foreach (var jam in Model.AllJams)
+            {
+                if (jam.Number == Model.AnimJamNumber)
+                {
+                    <option value="@jam.Number" selected>#@jam.Number — @jam.Theme</option>
+                }
+                else
+                {
+                    <option value="@jam.Number">#@jam.Number — @jam.Theme</option>
+                }
+            }
+        </select>
+    </div>
+</form>
+
+@if (Model.Sections.Any())
+{
+    <hr />
+    <h3>Победители</h3>
+
+    <form asp-action="AnnounceWinners" method="post">
+        <input type="hidden" asp-for="AnimJamNumber" />
+        <input type="hidden" asp-for="Theme" />
+        <input type="hidden" asp-for="PublishChannelId" />
+        <input type="hidden" asp-for="Mode" />
+
+        <div class="form-group">
+            <label>Ссылка на сообщение с объявлением аниджема:</label>
+            <input asp-for="AnnouncementUrl" class="form-control" />
+            <small>Если пустая — вставьте вручную.</small>
+        </div>
+
+        @for (int s = 0; s < Model.Sections.Count; s++)
+        {
+            <div class="section-block" data-section="@s"
+                 style="border: 2px solid #888; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
+                <input type="hidden" name="Sections[@s].Nomination" value="@((int)Model.Sections[s].Nomination)" />
+                <input type="hidden" name="Sections[@s].NominationDisplay" value="@Model.Sections[s].NominationDisplay" />
+
+                <h4>@Html.Raw(Model.Sections[s].NominationDisplayHtml)</h4>
+
+                <div class="teams-container" data-section="@s">
+                    @for (int t = 0; t < Model.Sections[s].Teams.Count; t++)
+                    {
+                        var team = Model.Sections[s].Teams[t];
+                        var hasLinks = !string.IsNullOrEmpty(team.WorkUrl);
+
+                        <div class="team-block" data-section="@s"
+                             style="border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px; display: flex; gap: 15px;">
+
+                            <!-- Левая часть: участники + ссылки -->
+                            <div style="flex: 1;">
+                                <label>Участники:</label>
+                                <div class="participants-container">
+                                    @for (int p = 0; p < team.Participants.Count; p++)
+                                    {
+                                        <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
+                                            <input name="Sections[@s].Teams[@t].Participants[@p]"
+                                                   value="@team.Participants[p]"
+                                                   class="form-control participant-input" style="flex: 1;" />
+                                            <button type="button" onclick="removeParticipant(this)">Удалить</button>
+                                        </div>
+                                    }
+                                </div>
+                                <button type="button" onclick="addParticipant(this)">
+                                    + Добавить участника
+                                </button>
+
+                                <details class="links-block" @(hasLinks ? "" : "open") style="margin-top: 10px;">
+                                    <summary style="cursor: pointer; color: #555;">Ссылки на работу</summary>
+                                    <div style="margin-top: 8px;">
+                                        <div class="form-group">
+                                            <label>Ссылка на работу (YouTube или CDN):</label>
+                                            <input name="Sections[@s].Teams[@t].WorkUrl"
+                                                   value="@team.WorkUrl"
+                                                   class="form-control work-url-input" />
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Ссылка на сообщение в Discord:</label>
+                                            <input name="Sections[@s].Teams[@t].MessageUrl"
+                                                   value="@team.MessageUrl"
+                                                   class="form-control message-url-input" />
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <br />
+                                <button type="button" onclick="removeTeam(this)">Удалить команду</button>
+                            </div>
+
+                            <!-- Правая часть: превью -->
+                            <div style="width: 220px; flex-shrink: 0;">
+                                <div class="preview-wrapper" data-url="@team.WorkUrl"
+                                     style="width: 220px; height: 140px; background: #f0f0f0; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                    @if (!string.IsNullOrEmpty(team.WorkUrl))
+                                    {
+                                        <span style="color: gray; font-size: 13px;">Загрузка...</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: gray; font-size: 12px; text-align: center;">Превью появится<br />после вставки ссылки</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <button type="button" onclick="addTeam(this, @s)">
+                    + Добавить ещё одну команду-победителя
+                </button>
+            </div>
+        }
+
+        <br />
+        <button type="submit" class="btn btn-primary">Опубликовать объявление</button>
+    </form>
+}
+
+<script>
+    function extractYouTubeId(url) {
+        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+        return m ? m[1] : null;
+    }
+
+    function updateWorkPreview(block) {
+        const previewWrapper = block.querySelector('.preview-wrapper');
+        if (!previewWrapper) return;
+
+        const urlInput = block.querySelector('.work-url-input');
+        const url = urlInput ? urlInput.value.trim() : '';
+
+        if (!url) {
+            previewWrapper.style.background = '#f0f0f0';
+            previewWrapper.innerHTML = '<span style="color: gray; font-size: 12px; text-align: center;">Превью появится<br />после вставки ссылки</span>';
+            return;
+        }
+
+        const lower = url.toLowerCase();
+        const ytId = extractYouTubeId(url);
+
+        previewWrapper.style.background = '#000';
+
+        if (ytId) {
+            previewWrapper.innerHTML = `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover;" />`;
+        } else if (lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.mov')) {
+            previewWrapper.innerHTML = `<video preload="metadata" muted style="width:100%;height:100%;object-fit:cover;"><source src="${url}" /></video>`;
+        } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(url)) {
+            previewWrapper.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" />`;
+        } else {
+            previewWrapper.innerHTML = '<span style="color: white; font-size: 24px;">🔗</span>';
+        }
+    }
+
+    function renumberAll() {
+        document.querySelectorAll('.section-block').forEach((sectionEl, s) => {
+            const nomInput = sectionEl.querySelector('input[name^="Sections["][name$=".Nomination"]');
+            const nomDispInput = sectionEl.querySelector('input[name^="Sections["][name$=".NominationDisplay"]');
+            if (nomInput) nomInput.name = `Sections[${s}].Nomination`;
+            if (nomDispInput) nomDispInput.name = `Sections[${s}].NominationDisplay`;
+
+            sectionEl.querySelectorAll('.team-block').forEach((teamEl, t) => {
+                const workInput = teamEl.querySelector('.work-url-input');
+                const msgInput = teamEl.querySelector('.message-url-input');
+                if (workInput) workInput.name = `Sections[${s}].Teams[${t}].WorkUrl`;
+                if (msgInput) msgInput.name = `Sections[${s}].Teams[${t}].MessageUrl`;
+
+                teamEl.querySelectorAll('.participant-row input').forEach((inputEl, p) => {
+                    inputEl.name = `Sections[${s}].Teams[${t}].Participants[${p}]`;
+                });
+            });
+        });
+    }
+
+    function addParticipant(btn) {
+        const teamBlock = btn.closest('.team-block');
+        const container = teamBlock.querySelector('.participants-container');
+
+        const row = document.createElement('div');
+        row.className = 'participant-row';
+        row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 5px;';
+        row.innerHTML = `
+            <input class="form-control participant-input" style="flex: 1;" />
+            <button type="button" onclick="removeParticipant(this)">Удалить</button>
+        `;
+        container.appendChild(row);
+        renumberAll();
+    }
+
+    function removeParticipant(btn) {
+        const row = btn.closest('.participant-row');
+        const container = row.parentElement;
+        if (container.querySelectorAll('.participant-row').length <= 1) {
+            alert('Должен быть хотя бы один участник');
+            return;
+        }
+        row.remove();
+        renumberAll();
+    }
+
+    function addTeam(btn) {
+        const sectionEl = btn.closest('.section-block');
+        const container = sectionEl.querySelector('.teams-container');
+
+        const div = document.createElement('div');
+        div.className = 'team-block';
+        div.style.cssText = 'border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px; display: flex; gap: 15px;';
+        div.innerHTML = `
+            <div style="flex: 1;">
+                <label>Участники:</label>
+                <div class="participants-container">
+                    <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
+                        <input class="form-control participant-input" style="flex: 1;" />
+                        <button type="button" onclick="removeParticipant(this)">Удалить</button>
+                    </div>
+                </div>
+                <button type="button" onclick="addParticipant(this)">+ Добавить участника</button>
+
+                <details class="links-block" open style="margin-top: 10px;">
+                    <summary style="cursor: pointer; color: #555;">Ссылки на работу</summary>
+                    <div style="margin-top: 8px;">
+                        <div class="form-group">
+                            <label>Ссылка на работу (YouTube или CDN):</label>
+                            <input class="form-control work-url-input" />
+                        </div>
+                        <div class="form-group">
+                            <label>Ссылка на сообщение в Discord:</label>
+                            <input class="form-control message-url-input" />
+                        </div>
+                    </div>
+                </details>
+
+                <br />
+                <button type="button" onclick="removeTeam(this)">Удалить команду</button>
+            </div>
+            <div style="width: 220px; flex-shrink: 0;">
+                <div class="preview-wrapper" data-url=""
+                     style="width: 220px; height: 140px; background: #f0f0f0; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                    <span style="color: gray; font-size: 12px; text-align: center;">Превью появится<br />после вставки ссылки</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+        renumberAll();
+    }
+
+    function removeTeam(btn) {
+        const teamBlock = btn.closest('.team-block');
+        const container = teamBlock.parentElement;
+        if (container.querySelectorAll('.team-block').length <= 1) {
+            alert('В каждой номинации должна быть хотя бы одна команда');
+            return;
+        }
+        teamBlock.remove();
+        renumberAll();
+    }
+
+    // Подписка на изменение ссылок для обновления превью
+    document.querySelector('form[action*="AnnounceWinners"]').addEventListener('input', e => {
+        if (e.target.classList.contains('work-url-input')) {
+            updateWorkPreview(e.target.closest('.team-block'));
+        }
+    });
+
+    // Инициализация превью при загрузке
+    document.querySelectorAll('.team-block').forEach(updateWorkPreview);
+</script>

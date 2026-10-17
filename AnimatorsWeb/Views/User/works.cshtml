@@ -1,0 +1,145 @@
+﻿@model AnimatorsWeb.Models.UserWorksViewModel
+
+@{
+    ViewData["Title"] = $@"Работы {@Model.DisplayName}";
+}
+
+<h1>Работы @Model.DisplayName</h1>
+
+@if (!Model.Works.Any())
+{
+    <p>У вас пока нет работ.</p>
+}
+else
+{
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
+        @foreach (var work in Model.Works)
+        {
+            <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; position: relative;">
+
+                @if (!string.IsNullOrEmpty(work.BadgeHtml))
+                {
+                    <div style="position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.9); color: black;
+                        font-size: 16px; padding: 2px 8px; border-radius: 6px; z-index: 1;">
+                        @Html.Raw(work.BadgeHtml)
+                    </div>
+                }
+
+                <div style="height: 140px; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;"
+                     onclick="openWork('@work.WorkUrl', '@work.MessageUrl', @work.Id)">
+                    @if (work.MediaType == "youtube" || work.MediaType == "image")
+                    {
+                        <img data-src="@work.ThumbnailUrl" class="lazy-media"
+                             style="width: 100%; height: 100%; object-fit: cover;" />
+                    }
+                    else if (work.MediaType == "video")
+                    {
+                        <video preload="metadata" muted playsinline class="lazy-media"
+                               data-src="@work.ThumbnailUrl"
+                               style="width: 100%; height: 100%; object-fit: cover;">
+                        </video>
+                    }
+                    else
+                    {
+                        <span style="color: white; font-size: 32px;">🔗</span>
+                    }
+                </div>
+
+                <div style="padding: 10px;">
+                    <div><b>#@work.AnimJamNumber</b> — @work.Theme</div>
+
+                    @if (!string.IsNullOrEmpty(work.NominationDisplayHtml))
+                    {
+                        <div style="color: green; font-size: 12px; margin-top: 5px;">
+                            @Html.Raw(work.NominationDisplayHtml)
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<a asp-action="Profile" style="display: inline-block; margin-top: 20px;">← Назад в профиль</a>
+
+<div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000;">
+    <div id="modal-content" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"></div>
+</div>
+
+<script>
+    // === Ленивая загрузка превью ===
+    const lazyObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+
+            const el = entry.target;
+            const src = el.dataset.src;
+            if (!src) return;
+
+            if (el.tagName === 'VIDEO') {
+                const source = document.createElement('source');
+                source.src = src;
+                el.appendChild(source);
+                el.load();
+            } else {
+                el.src = src;
+            }
+
+            el.classList.remove('lazy-media');
+            observer.unobserve(el);
+        });
+    }, {
+        rootMargin: '200px'
+    });
+
+    document.querySelectorAll('.lazy-media').forEach(el => lazyObserver.observe(el));
+
+    // === Модалка ===
+    function openWork(workUrl, messageUrl, participantId) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content');
+
+        const ytId = extractYouTubeId(workUrl);
+        if (ytId) {
+            content.innerHTML = `<iframe width="800" height="450"
+                src="https://www.youtube.com/embed/${ytId}?autoplay=1"
+                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+        } else if (participantId > 0) {
+            const proxyUrl = `/Media/StreamWork/${participantId}`;
+            const lowerUrl = workUrl.toLowerCase();
+
+            if (lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') || lowerUrl.includes('.mov')) {
+                content.innerHTML = `<video src="${proxyUrl}" controls autoplay
+                    style="max-width:80vw; max-height:80vh;"></video>`;
+            } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(workUrl)) {
+                content.innerHTML = `<img src="${proxyUrl}" style="max-width:80vw; max-height:80vh;" />`;
+            } else if (messageUrl) {
+                window.open(messageUrl, '_blank');
+                return;
+            } else {
+                window.open(workUrl, '_blank');
+                return;
+            }
+        } else if (messageUrl) {
+            window.open(messageUrl, '_blank');
+            return;
+        } else {
+            window.open(workUrl, '_blank');
+            return;
+        }
+
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+        document.getElementById('modal-content').innerHTML = '';
+    }
+
+    document.getElementById('modal').addEventListener('click', closeModal);
+
+    function extractYouTubeId(url) {
+        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+        return m ? m[1] : null;
+    }
+</script>

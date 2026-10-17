@@ -1,0 +1,196 @@
+﻿@model AnimatorsWeb.Models.AnimJamDetailsViewModel
+
+@{
+    ViewData["Title"] = $"Аниджем #{Model.Number}";
+}
+
+<h1>╠══════════ AniJam @Model.Number ══════════╣</h1>
+<h2 style="color: gray; font-weight: normal;">@Model.Theme</h2>
+
+<div style="display: flex; gap: 30px; margin: 20px 0; flex-wrap: wrap;">
+    <div>
+        <div style="color: gray; font-size: 13px;">Начало</div>
+        <div class="local-date" data-utc="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="full">@Model.StartDate.ToString("dd.MM.yyyy HH:mm")</div>
+    </div>
+    <div>
+        <div style="color: gray; font-size: 13px;">Окончание</div>
+        <div class="local-date" data-utc="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="full">@Model.EndDate.ToString("dd.MM.yyyy HH:mm")</div>
+    </div>
+    <div>
+        <div style="color: gray; font-size: 13px;">Участников</div>
+        <div>👥 @Model.ParticipantsCount</div>
+    </div>
+    <div>
+        <div style="color: gray; font-size: 13px;">Победителей</div>
+        <div>🏆 @Model.WinnersCount</div>
+    </div>
+</div>
+
+<div style="display: flex; gap: 15px; margin-bottom: 25px;">
+    <a asp-action="Index">← К списку</a>
+    @if (!string.IsNullOrEmpty(Model.AnnouncementUrl))
+    {
+        <a href="@Model.AnnouncementUrl" target="_blank" class="btn">📢 Объявление</a>
+    }
+    @if (!string.IsNullOrEmpty(Model.ResultsUrl))
+    {
+        <a href="@Model.ResultsUrl" target="_blank" class="btn">🏆 Итоги в Discord</a>
+    }
+</div>
+
+@if (Model.Winners.Any())
+{
+    <h3>Победители</h3>
+
+    @foreach (var group in Model.Winners.GroupBy(g => g.NominationDisplayHtml))
+    {
+        <div style="margin-bottom: 20px;">
+            <div style="font-weight: bold; margin-bottom: 8px;">@Html.Raw(group.Key)</div>
+            <ul style="margin: 0; padding-left: 20px;">
+                @foreach (var w in group.SelectMany(g => g.Winners))
+                {
+                    <li>
+                        <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@w.DiscordUserId">
+                            @w.DisplayName
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+}
+
+<h3>Работы (@Model.Participants.Count)</h3>
+
+@if (!Model.Participants.Any())
+{
+    <p>Работы не найдены.</p>
+}
+else
+{
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
+        @foreach (var work in Model.Participants)
+        {
+            <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; position: relative;">
+
+                @if (!string.IsNullOrEmpty(work.BadgeHtml))
+{
+    <div style="position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.9); color: black;
+        font-size: 16px; padding: 2px 8px; border-radius: 6px; z-index: 1;">
+        @Html.Raw(work.BadgeHtml)
+    </div>
+}
+
+                <div style="height: 140px; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;"
+                     onclick="openWork('@work.WorkUrl', '@work.MessageUrl', @work.Id)">
+                    @if (work.MediaType == "youtube" || work.MediaType == "image")
+                    {
+                        <img src="@work.ThumbnailUrl" style="width: 100%; height: 100%; object-fit: cover;" />
+                    }
+                    else if (work.MediaType == "video")
+                    {
+                        <video preload="metadata" muted style="width: 100%; height: 100%; object-fit: cover;">
+                            <source src="@work.ThumbnailUrl" />
+                        </video>
+                    }
+                    else
+                    {
+                        <span style="color: white; font-size: 32px;">🔗</span>
+                    }
+                </div>
+
+                <div style="padding: 10px;">
+                    @for (int i = 0; i < work.People.Count; i++)
+                    {
+                        var person = work.People[i];
+                        <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@person.DiscordUserId"
+                           style="text-decoration: none; color: inherit;">
+                            <b>@person.DisplayName</b>
+                        </a>
+                        if (i < work.People.Count - 1)
+                        {
+                            <span> и </span>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000;">
+    <div id="modal-content" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"></div>
+</div>
+
+<script>
+    function openWork(workUrl, messageUrl, participantId) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content');
+        const lowerUrl = workUrl.toLowerCase();
+
+        const ytId = extractYouTubeId(workUrl);
+        if (ytId) {
+            content.innerHTML = `<iframe width="800" height="450"
+                    src="https://www.youtube.com/embed/${ytId}?autoplay=1"
+                    frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+        } else if (participantId > 0) {
+            const proxyUrl = `/Media/StreamWork/${participantId}`;
+
+            if (lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') || lowerUrl.includes('.mov')) {
+                content.innerHTML = `<video src="${proxyUrl}" controls autoplay
+                        style="max-width:80vw; max-height:80vh;"></video>`;
+            } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(workUrl)) {
+                content.innerHTML = `<img src="${proxyUrl}" style="max-width:80vw; max-height:80vh;" />`;
+            } else if (messageUrl) {
+                window.open(messageUrl, '_blank');
+                return;
+            } else {
+                window.open(workUrl, '_blank');
+                return;
+            }
+        } else if (messageUrl) {
+            window.open(messageUrl, '_blank');
+            return;
+        } else {
+            window.open(workUrl, '_blank');
+            return;
+        }
+
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+        document.getElementById('modal-content').innerHTML = '';
+    }
+
+    document.getElementById('modal').addEventListener('click', closeModal);
+
+    function extractYouTubeId(url) {
+        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+        return m ? m[1] : null;
+    }
+
+
+    document.querySelectorAll('.local-date').forEach(el => {
+        const utc = el.dataset.utc;
+        const fmt = el.dataset.format;
+        const d = new Date(utc);
+        if (isNaN(d)) return;
+
+        const pad = n => String(n).padStart(2, '0');
+        let result = '';
+
+        if (fmt === 'dd.MM') {
+            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+        } else if (fmt === 'dd.MM.yyyy') {
+            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+        } else if (fmt === 'full') {
+            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        } else {
+            result = d.toLocaleString('ru-RU');
+        }
+
+        el.textContent = result;
+    });
+</script>

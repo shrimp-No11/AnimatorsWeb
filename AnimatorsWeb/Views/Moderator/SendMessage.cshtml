@@ -1,0 +1,19 @@
+﻿@model AnimatorsWeb.Models.ChannelSelectViewModel
+@{
+    ViewData["Title"] = "Отправить сообщение";
+}
+<h1>Отправить сообщение в Discord</h1>
+
+<form asp-controller="Moderator" asp-action="SendAnnouncement" method="post">
+    <div class="form-group">
+        <label asp-for="SelectedChannelId">Канал для публикации:</label>
+        <select asp-for="SelectedChannelId"
+                asp-items="Model.ChannelList"
+                class="form-control">
+            <option value="">-- Выберите канал --</option>
+        </select>
+    </div>
+    <textarea name="text" rows="5" cols="50" placeholder="Введите текст сообщения..."></textarea>
+    <br />
+    <button type="submit">Отправить</button>
+</form>

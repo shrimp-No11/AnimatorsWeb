@@ -1,0 +1,15 @@
+﻿@{
+    ViewData["Title"] = "Отправить сообщение";
+}
+<h1>Отправить сообщение в Discord</h1>
+
+<form asp-controller="Home" asp-action="SendAnnouncement" method="post">
+    <textarea name="text" rows="5" cols="50" placeholder="Введите текст сообщения..."></textarea>
+    <br />
+    <button type="submit">Отправить</button>
+</form>
+
+@if (ViewBag.Result != null)
+{
+    <p style="color: green;">@ViewBag.Result</p>
+}

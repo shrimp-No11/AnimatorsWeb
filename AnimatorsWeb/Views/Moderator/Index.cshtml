@@ -1,0 +1,99 @@
+﻿@model AnimatorsWeb.Models.ChannelSettingsViewModel
+
+@{
+    ViewData["Title"] = "Модераторская";
+}
+
+<h1>Модераторская панель</h1>
+
+@if (TempData["Result"] != null)
+{
+    <p style="color: green;">@TempData["Result"]</p>
+}
+
+<hr />
+
+<h2>Действия</h2>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-bottom: 30px;">
+
+    <div style="border: 2px solid #5a6; border-radius: 10px; padding: 15px;">
+        <h3 style="margin-top: 0;">🎬 Создание аниджема</h3>
+        <a asp-action="ChooseTheme" class="btn btn-primary" style="display: block; margin-bottom: 8px;">
+            Голосование за тему
+        </a>
+        <a asp-action="CreateAnimJam" class="btn btn-primary" style="display: block;">
+            Старт аниджема
+        </a>
+    </div>
+
+    <div style="border: 2px solid #a56; border-radius: 10px; padding: 15px;">
+        <h3 style="margin-top: 0;">🏆 Подведение итогов</h3>
+        <a asp-action="CreateWinnerPoll" class="btn btn-primary" style="display: block; margin-bottom: 8px;">
+            Голосование за победителей
+        </a>
+        <a asp-action="AnnounceWinners" class="btn btn-primary" style="display: block;">
+            Объявить победителей
+        </a>
+    </div>
+
+    <div style="border: 2px solid #68a; border-radius: 10px; padding: 15px;">
+        <h3 style="margin-top: 0;">📣 Прочее</h3>
+        <br />
+        <a asp-action="SendMessage" class="btn btn-primary" style="display: block; margin-bottom: 8px;">
+            Отправить сообщение
+        </a>
+        <a asp-action="Rules" class="btn btn-primary" style="display: block;">
+            Правила
+        </a>
+    </div>
+
+</div>
+
+<hr />
+
+<details>
+    <summary style="cursor: pointer; font-size: 18px; font-weight: bold; padding: 10px 0;">
+        ⚙️ Настройки каналов
+    </summary>
+
+    <p style="margin-top: 15px;">
+        <i>
+            Один раз настраиваются здесь, используются автоматически на всех страницах действий.
+        </i>
+    </p>
+
+    <form asp-action="SaveChannels" method="post">
+        <input type="hidden" asp-for="Settings.Id" />
+
+        <div class="form-group">
+            <label>Канал для голосования за тему</label>
+            <select asp-for="Settings.ThemePollChannelId" asp-items="Model.ChannelList" class="form-control">
+                <option value="">-- Не выбрано --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Канал для старта аниджема</label>
+            <select asp-for="Settings.AnimJamStartChannelId" asp-items="Model.ChannelList" class="form-control">
+                <option value="">-- Не выбрано --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Канал для голосования за победителя</label>
+            <select asp-for="Settings.WinnerPollChannelId" asp-items="Model.ChannelList" class="form-control">
+                <option value="">-- Не выбрано --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Канал для объявления победителей</label>
+            <select asp-for="Settings.WinnersAnnouncementChannelId" asp-items="Model.ChannelList" class="form-control">
+                <option value="">-- Не выбрано --</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Сохранить настройки</button>
+    </form>
+</details>

@@ -1,0 +1,170 @@
+﻿@model AnimatorsWeb.Models.CreateAnimJamViewModel
+
+@{
+    ViewData["Title"] = "Создание аниджема";
+}
+
+<h1>Создание аниджема</h1>
+
+@if (TempData["Result"] != null)
+{
+    <p style="color: green;">@TempData["Result"]</p>
+}
+<div asp-validation-summary="All" style="color: red;"></div>
+
+<div style="display: flex; gap: 30px;">
+    <form asp-action="CreateAnimJam" method="post" style="flex: 1;">
+        <div class="form-group">
+            <label asp-for="Number">Номер:</label>
+            <input asp-for="Number" type="number" class="form-control" id="inputNumber" />
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Theme">Тема:</label>
+            <input asp-for="Theme" class="form-control" id="inputTheme" />
+            @if (Model.WinningThemeFromPoll != null)
+            {
+                <small>
+                    Из опроса: <b>@Model.WinningThemeFromPoll</b>
+                    <button type="button" onclick="usePollTheme('@Model.WinningThemeFromPoll')">Применить</button>
+                </small>
+            }
+            @if (Model.PollError != null)
+            {
+                <small style="color: orange;">@Model.PollError</small>
+            }
+        </div>
+
+        <div class="form-group">
+            <label>Дата и время окончания (ваш часовой пояс):</label>
+            <input type="datetime-local" id="inputEndDate" class="form-control" />
+            <input type="hidden" name="EndDate" id="hiddenEndDate"
+                    value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" />
+        </div>
+
+        <div class="form-group">
+            <label asp-for="ChannelId">Канал для публикации:</label>
+            <select asp-for="ChannelId" asp-items="Model.ChannelList" class="form-control"></select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Опубликовать</button>
+    </form>
+
+    <div style="flex: 1; border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+        <h3>Предпросмотр</h3>
+        <div id="preview" style="white-space: pre-wrap; font-family: monospace;"></div>
+    </div>
+</div>
+
+<script>
+    const initialUtc = "@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ss")";
+
+    const inputNumber = document.getElementById('inputNumber');
+    const inputTheme = document.getElementById('inputTheme');
+    const inputEndDate = document.getElementById('inputEndDate');
+    const hiddenEndDate = document.getElementById('hiddenEndDate');
+    const preview = document.getElementById('preview');
+
+    function utcToLocalInputValue(utcString) {
+        const d = new Date(utcString + 'Z');
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function localInputValueToUtc(localValue) {
+        const d = new Date(localValue);
+        return d.toISOString();
+    }
+
+    function formatLocalReadable(localValue) {
+        if (!localValue) return '(дата не указана)';
+        const d = new Date(localValue);
+        const pad = n => String(n).padStart(2, '0');
+        const days = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+        const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+            'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+        return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} г. ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function plural(n, one, few, many) {
+        const abs = Math.abs(n) % 100;
+        const last = abs % 10;
+        if (abs > 10 && abs < 20) return many;
+        if (last > 1 && last < 5) return few;
+        if (last === 1) return one;
+        return many;
+    }
+
+    function formatRelative(localValue) {
+        if (!localValue) return '';
+        const diff = new Date(localValue).getTime() - Date.now();
+        const sec = Math.floor(diff / 1000);
+        const min = Math.floor(sec / 60);
+        const hr = Math.floor(min / 60);
+        const day = Math.floor(hr / 24);
+        const abs = Math.abs;
+
+        if (abs(day) >= 1) {
+            const word = plural(day, 'день', 'дня', 'дней');
+            return day >= 0 ? `через ${day} ${word}` : `${abs(day)} ${word} назад`;
+        }
+        if (abs(hr) >= 1) {
+            const word = plural(hr, 'час', 'часа', 'часов');
+            return hr >= 0 ? `через ${hr} ${word}` : `${abs(hr)} ${word} назад`;
+        }
+        if (abs(min) >= 1) {
+            const word = plural(min, 'минуту', 'минуты', 'минут');
+            return min >= 0 ? `через ${min} ${word}` : `${abs(min)} ${word} назад`;
+        }
+        return 'сейчас';
+    }
+
+    function updatePreview() {
+        const num = inputNumber.value || '?';
+        const theme = inputTheme.value || '(тема не указана)';
+
+        // Для предпросмотра показываем читаемое локальное время
+        const endLinePreview = inputEndDate.value
+            ? `${formatLocalReadable(inputEndDate.value)} (${formatRelative(inputEndDate.value)})`
+            : '(дата не указана)';
+
+        preview.textContent =
+            `@@2d Аниматор  @@3d Аниматор\n` +
+            `${num} AniJam начинается !\n\n` +
+            `Дедлайн - ${endLinePreview}\n` +
+            `Тема - ${theme}\n\n` +
+            `Правила:\n` +
+            `1) Следовать теме (хоть как-то)\n` +
+            `2) Новая анимация, сделана специально для AniJam\n` +
+            `3) Звук - желательно, не обязательно\n` +
+            `4) Главное - веселье, а не качество\n\n` +
+            `Номинации:\n` +
+            `✨Лучшая идея\n` +
+            `🔨Лучшее техническое исполнение\n` +
+            `:187_20240928180406:Золотая какаха\n\n` +
+            `Скидывать работы в этот канал.\n` +
+            `Комментарии к анимациям - в ветках\n` +
+            `*Анимации могут быть использованы в видеобзоре аниджема для ютуб-канала "Сообщество Аниматоров"`;
+    }
+
+    function usePollTheme(theme) {
+        inputTheme.value = theme;
+        updatePreview();
+    }
+
+    // Инициализация
+    inputEndDate.value = utcToLocalInputValue(initialUtc);
+    hiddenEndDate.value = initialUtc;
+
+    inputEndDate.addEventListener('input', () => {
+        if (!inputEndDate.value) return;
+        hiddenEndDate.value = localInputValueToUtc(inputEndDate.value);
+        updatePreview();
+    });
+
+    inputNumber.addEventListener('input', updatePreview);
+    inputTheme.addEventListener('input', updatePreview);
+
+    updatePreview();
+</script>

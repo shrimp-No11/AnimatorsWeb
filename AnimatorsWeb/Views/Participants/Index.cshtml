@@ -1,0 +1,161 @@
+﻿@model AnimatorsWeb.Models.ParticipantsListViewModel
+@using AnimatorsWeb.Services
+
+@{
+    ViewData["Title"] = "Участники";
+}
+
+<h1>Участники <span style="color: gray; font-size: 20px;">(@Model.Rows.Count)</span></h1>
+
+<p style="color: gray; font-size: 14px;">Клик по заголовку столбца — сортировка.</p>
+
+<div style="margin-bottom: 15px;">
+    <input type="text" id="searchInput" placeholder="Поиск по имени..." 
+           class="form-control" style="max-width: 400px;" />
+</div>
+
+<table id="participants-table" style="width: 100%; border-collapse: collapse;">
+    <thead>
+        <tr style="background: #f0f0f0;">
+            <th data-sort="name" style="padding: 8px; border: 1px solid #ccc; text-align: left;">Имя</th>
+            <th data-sort="participations" style="padding: 8px; border: 1px solid #ccc;">Участий</th>
+            <th data-sort="works" style="padding: 8px; border: 1px solid #ccc;">Работ</th>
+            <th data-sort="wins" style="padding: 8px; border: 1px solid #ccc;">Побед</th>
+            <th data-sort="absolute" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Medal абс.</th>
+            <th data-sort="idea" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Star идея</th>
+            <th data-sort="tech" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Hammer техника</th>
+            <th data-sort="legacy" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Trophy старый</th>
+            <th data-sort="honorable" style="padding: 8px; border: 1px solid #ccc;">@Html.Raw(EmojiHelper.GoldPoopHtml)</th>
+            <th data-sort="first" style="padding: 8px; border: 1px solid #ccc;">Первое</th>
+            <th data-sort="last" style="padding: 8px; border: 1px solid #ccc;">Последнее</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr data-name="@row.DisplayName.ToLower()"
+                data-participations="@row.ParticipationsCount"
+                data-works="@row.WorksCount"
+                data-wins="@row.WinsCount"
+                data-absolute="@row.AbsoluteVictories"
+                data-idea="@row.IdeaWins"
+                data-tech="@row.TechnicalWins"
+                data-legacy="@row.LegacyWins"
+                data-honorable="@row.HonorableMentions"
+                data-first="@row.FirstAnimJam"
+                data-last="@row.LastAnimJam"
+                style="border-bottom: 1px solid #eee;">
+                <td style="padding: 8px; border: 1px solid #eee;">
+                    <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@row.DiscordUserId"
+                       style="text-decoration: none; color: inherit;">
+                        @row.DisplayName
+                    </a>
+                </td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.ParticipationsCount</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.WorksCount</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center; font-weight: bold;">@row.WinsCount</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.AbsoluteVictories</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.IdeaWins</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.TechnicalWins</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.LegacyWins</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.HonorableMentions</td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">
+                    @if (row.FirstAnimJam > 0)
+                    {
+                        <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@row.FirstAnimJam"
+                           title="@row.FirstDate.ToString("dd.MM.yyyy")"
+                           style="text-decoration: none; color: inherit;">
+                            #@row.FirstAnimJam
+                        </a>
+                    }
+                    else
+                    {
+                        <span style="color: gray;">—</span>
+                    }
+                </td>
+                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">
+                    @if (row.LastAnimJam > 0)
+                    {
+                        <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@row.LastAnimJam"
+                           title="@row.LastDate.ToString("dd.MM.yyyy")"
+                           style="text-decoration: none; color: inherit;">
+                            #@row.LastAnimJam
+                        </a>
+                    }
+                    else
+                    {
+                        <span style="color: gray;">—</span>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const tableRows = () => Array.from(document.querySelectorAll('#participants-table tbody tr'));
+
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        tableRows().forEach(row => {
+            const name = row.dataset.name ?? '';
+            row.style.display = !q || name.includes(q) ? '' : 'none';
+        });
+    });
+    // Сортировка
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.title = 'Сортировать';
+
+        th.addEventListener('click', () => {
+            const key = th.dataset.sort;
+            const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+
+            document.querySelectorAll('th[data-sort]').forEach(h => {
+                if (h !== th) h.dataset.dir = '';
+            });
+            th.dataset.dir = dir;
+
+            const tbody = document.querySelector('#participants-table tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                const av = a.dataset[key] ?? '';
+                const bv = b.dataset[key] ?? '';
+
+                const an = parseFloat(av);
+                const bn = parseFloat(bv);
+
+                if (!isNaN(an) && !isNaN(bn)) {
+                    return dir === 'asc' ? an - bn : bn - an;
+                }
+
+                return dir === 'asc'
+                    ? av.localeCompare(bv, 'ru')
+                    : bv.localeCompare(av, 'ru');
+            });
+
+            rows.forEach(r => tbody.appendChild(r));
+        });
+    });
+
+    // Локальные даты
+    document.querySelectorAll('.local-date').forEach(el => {
+        const utc = el.dataset.utc;
+        const fmt = el.dataset.format;
+        const d = new Date(utc);
+        if (isNaN(d)) return;
+
+        const pad = n => String(n).padStart(2, '0');
+        let result = '';
+
+        if (fmt === 'dd.MM.yyyy') {
+            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+        } else {
+            result = d.toLocaleDateString('ru-RU');
+        }
+
+        el.textContent = result;
+    });
+</script>

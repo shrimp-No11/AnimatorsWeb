@@ -1,0 +1,47 @@
+﻿@model AnimatorsWeb.Models.RulesViewModel
+
+@{
+    ViewData["Title"] = "Правила";
+}
+
+<h1>Правила</h1>
+
+@if (TempData["Result"] != null)
+{
+    <p style="color: green;">@TempData["Result"]</p>
+}
+@if (TempData["Error"] != null)
+{
+    <p style="color: red;">@TempData["Error"]</p>
+}
+<div asp-validation-summary="All" style="color: red;"></div>
+
+<form asp-action="SaveRules" method="post">
+    <input type="hidden" asp-for="Settings.Id" />
+    <input type="hidden" asp-for="Settings.LastMessageId" />
+    <input type="hidden" asp-for="Settings.AllMessageIds" />
+    <input type="hidden" asp-for="Settings.GuildId" />
+
+    <div class="form-group">
+        <label>Канал для правил:</label>
+        <select asp-for="Settings.ChannelId" asp-items="Model.ChannelList" class="form-control">
+            <option value="">-- Выберите канал --</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>ID роли для выдачи:</label>
+        <input asp-for="Settings.RoleId" class="form-control" />
+        <small>Узнать ID: включи режим разработчика в Discord, правый клик по роли → Copy Role ID</small>
+    </div>
+
+    <div class="form-group">
+        <label>Текст правил:</label>
+        <textarea asp-for="Settings.Content" class="form-control" rows="20"></textarea>
+        <small>Discord разбивает текст на сообщения по 2000 символов — бот сделает это автоматически.</small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Сохранить и опубликовать</button>
+</form>
+
+<p><a asp-action="Index">← Назад к модераторской</a></p>

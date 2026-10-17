@@ -1,0 +1,62 @@
+﻿@model AnimatorsWeb.Models.UserProfileViewModel
+@using AnimatorsWeb.Services
+
+@{
+    ViewData["Title"] = "Профиль";
+}
+
+<h1>Профиль</h1>
+
+<div style="display: flex; gap: 30px; align-items: flex-start;">
+    <div>
+        @if (!string.IsNullOrEmpty(Model.AvatarUrl))
+        {
+            <img src="@Model.AvatarUrl" alt="avatar"
+                 style="width: 128px; height: 128px; border-radius: 50%;" />
+        }
+        else
+        {
+            <div style="width: 128px; height: 128px; border-radius: 50%; background: #ccc;"></div>
+        }
+    </div>
+
+    <div>
+        <h2>@Model.DisplayName</h2>
+        <p style="color: gray;">@@@Model.Username</p>
+        @if (Model.FirstParticipationDate > 0)
+        {
+            <p>В сообществе с аниджема #@Model.FirstParticipationDate</p>
+        }
+    </div>
+</div>
+
+<hr />
+
+<div style="display: flex; gap: 40px; flex-wrap: wrap;">
+    <div>
+        <h4>Участий</h4>
+        <p style="font-size: 32px; margin: 0;">@Model.ParticipationsCount</p>
+    </div>
+    <div>
+        <h4>Побед</h4>
+        <p style="font-size: 32px; margin: 0;">@Model.WinsCount</p>
+    </div>
+</div>
+
+<h4>Как считаются победы</h4>
+<ul style="color: #555;">
+    <li>@EmojiHelper.Star Лучшая идея: <b>@Model.IdeaWins</b></li>
+    <li>@EmojiHelper.Hammer Лучшее техническое исполнение: <b>@Model.TechnicalWins</b></li>
+    <li>@EmojiHelper.Medal Абсолютная победа: <b>@Model.AbsoluteVictoriesCount</b></li>
+    <li>@EmojiHelper.Trophy Победа старого формата: <b>@Model.LegacyVictoriesCount</b></li>
+    <li>@Html.Raw(EmojiHelper.GoldPoopHtml) Почётное упоминание (не победа): <b>@Model.HonorableWins</b></li>
+</ul>
+
+<hr />
+
+<a asp-action="Works" asp-route-id="@Model.DiscordUserId" class="btn btn-primary">Работы →</a>
+
+@if (TempData["Info"] != null)
+{
+    <p style="color: gray;">@TempData["Info"]</p>
+}

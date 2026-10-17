@@ -1,0 +1,111 @@
+﻿@model AnimatorsWeb.Models.AnimJamListViewModel
+@using AnimatorsWeb.Models
+
+@{
+    ViewData["Title"] = "Аниджемы";
+}
+
+<h1>Аниджемы <span style="color: gray; font-size: 20px;">(@Model.TotalCount)</span></h1>
+
+<div style="margin-bottom: 20px;">
+    <input type="text" id="searchInput" placeholder="Поиск по теме или номеру..."
+           class="form-control" style="max-width: 400px;" />
+</div>
+
+@foreach (var year in Model.Years)
+{
+    <section class="year-section" data-year="@year.Year">
+        <h2 style="border-bottom: 2px solid #888; padding-bottom: 5px;">@year.Year</h2>
+
+        <div class="jam-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 30px;">
+            @foreach (var jam in year.Jams)
+            {
+                <div class="jam-card"
+                     data-number="@jam.Number"
+                     data-theme="@jam.Theme.ToLower()"
+                     onclick="location.href='@Url.Action("Details", new { number = jam.Number })'"
+                     style="border: 1px solid #ddd; border-radius: 10px; padding: 14px; background: #fafafa; cursor: pointer; transition: transform 0.15s;">
+
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <span style="font-size: 20px; font-weight: bold;">#@jam.Number</span>
+                        <span style="color: gray; font-size: 12px;">
+                            <span class="local-date" data-utc="@jam.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM">@jam.StartDate.ToString("dd.MM")</span>
+                            —
+                            <span class="local-date" data-utc="@jam.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM">@jam.EndDate.ToString("dd.MM")</span>
+                        </span>
+                    </div>
+
+                    <div style="font-size: 16px; margin: 8px 0; min-height: 40px;">
+                        @jam.Theme
+                    </div>
+
+                    <div style="display: flex; gap: 15px; font-size: 13px; color: #555;">
+                        <span>👥 @jam.ParticipantsCount</span>
+                        <span>🏆 @jam.WinnersCount</span>
+                    </div>
+
+                    @if (jam.TopWinners.Any())
+                    {
+                        <div style="margin-top: 8px; font-size: 13px; color: #3a7;">
+                            @string.Join(", ", jam.TopWinners)
+                            @if (jam.WinnersCount > jam.TopWinners.Count)
+                            {
+                                <span style="color: gray;">и ещё @(jam.WinnersCount - jam.TopWinners.Count)</span>
+                            }
+                        </div>
+                    }
+
+                </div>
+            }
+        </div>
+    </section>
+}
+
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const cards = document.querySelectorAll('.jam-card');
+    const sections = document.querySelectorAll('.year-section');
+
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+
+        cards.forEach(card => {
+            const num = card.dataset.number;
+            const theme = card.dataset.theme;
+            const match = !q || num.includes(q) || theme.includes(q);
+            card.style.display = match ? '' : 'none';
+        });
+
+        // Прячем пустые годы
+        sections.forEach(section => {
+            const visible = section.querySelectorAll('.jam-card:not([style*="display: none"])').length;
+            section.style.display = visible > 0 ? '' : 'none';
+        });
+    });
+
+    // Лёгкий hover-эффект
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-2px)');
+        card.addEventListener('mouseleave', () => card.style.transform = '');
+    });
+
+    document.querySelectorAll('.local-date').forEach(el => {
+        const utc = el.dataset.utc;
+        const fmt = el.dataset.format;
+        const d = new Date(utc);
+        if (isNaN(d)) return;
+
+        const pad = n => String(n).padStart(2, '0');
+        let result = '';
+
+        if (fmt === 'dd.MM') {
+            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+        } else if (fmt === 'dd.MM.yyyy') {
+            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+        } else {
+            result = d.toLocaleString('ru-RU');
+        }
+
+        el.textContent = result;
+    });
+</script>

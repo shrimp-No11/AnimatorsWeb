@@ -1,0 +1,388 @@
+﻿@model AnimatorsWeb.Models.WinnerPollViewModel
+@using AnimatorsWeb.Models
+
+@{
+    ViewData["Title"] = "Голосование за победителя";
+}
+
+<h1>Голосование за победителя</h1>
+
+@if (Model.Message != null) { <p style="color: darkblue;">@Model.Message</p> }
+@if (TempData["Result"] != null) { <p style="color: green;">@TempData["Result"]</p> }
+@if (TempData["Info"] != null) { <p style="color: darkblue;">@TempData["Info"]</p> }
+<div asp-validation-summary="All" style="color: red;"></div>
+
+<form asp-action="CreateWinnerPoll" method="post">
+    <input type="hidden" asp-for="AnimJamNumber" />
+
+    <div class="form-group">
+        <label>Номер аниджема:</label>
+        <input asp-for="AnimJamNumber" type="number" class="form-control" id="inputAnimJamNumber" />
+    </div>
+
+    <div class="form-group">
+        <label>Режим:</label><br />
+        <label><input type="radio" asp-for="Mode" value="TwoNominations" id="modeTwo" /> Две номинации</label>
+        <label style="margin-left: 20px;"><input type="radio" asp-for="Mode" value="Combined" id="modeCombined" /> Одна общая</label>
+    </div>
+
+    <div id="combined-block" style="display: none;">
+        <div class="form-group">
+            <input asp-for="PollTitle" class="form-control" id="inputPollTitle" placeholder="Заголовок опроса" />
+        </div>
+    </div>
+
+    <div id="two-nominations-block" style="display: none;">
+        <div class="form-group">
+            <input asp-for="IdeaTitle" class="form-control" id="inputIdeaTitle" placeholder="Заголовок: лучшая идея" />
+        </div>
+        <div class="form-group">
+            <input asp-for="TechnicalTitle" class="form-control" id="inputTechnicalTitle" placeholder="Заголовок: техническое исполнение" />
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Канал:</label>
+        <select asp-for="ChannelId" asp-items="Model.ChannelList" class="form-control"></select>
+    </div>
+
+    <div class="form-group">
+        <label>Длительность (часов):</label>
+        <input asp-for="DurationHours" type="number" min="1" max="168" class="form-control" id="inputDuration" />
+    </div>
+
+    <h3>Работы</h3>
+
+    <div style="display: flex; gap: 30px; align-items: flex-start;">
+        <div style="flex: 1.4;">
+            <div id="teams-container">
+                @for (int t = 0; t < Model.Sections[0].Teams.Count; t++)
+                {
+                    var team = Model.Sections[0].Teams[t];
+                    var hasLinks = !string.IsNullOrEmpty(team.WorkUrl) || !string.IsNullOrEmpty(team.MessageUrl);
+
+                    <div class="team-block" style="border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px;">
+
+                        <div class="work-preview" style="margin-bottom: 10px;">
+                            @if (!string.IsNullOrEmpty(team.WorkUrl))
+                            {
+                                <div class="preview-wrapper" data-url="@team.WorkUrl" style="height: 140px; background: #000; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                    <span style="color: gray; font-size: 13px;">Загрузка превью...</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="preview-wrapper" data-url="" style="height: 60px; background: #f0f0f0; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                    <span style="color: gray; font-size: 13px;">Превью появится после вставки ссылки</span>
+                                </div>
+                            }
+                        </div>
+
+                        <label>Участники:</label>
+                        <div class="participants-container">
+                            @for (int p = 0; p < team.Participants.Count; p++)
+                            {
+                                <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
+                                    <input class="form-control participant-name"
+                                           name="Sections[0].Teams[@t].Participants[@p].DisplayName"
+                                           value="@team.Participants[p].DisplayName"
+                                           list="guild-members-list" autocomplete="off"
+                                           placeholder="Имя участника" />
+                                    <input type="hidden"
+                                           name="Sections[0].Teams[@t].Participants[@p].DiscordUserId"
+                                           value="@team.Participants[p].DiscordUserId"
+                                           class="participant-id" />
+                                    <button type="button" onclick="removeParticipant(this)">Удалить</button>
+                                </div>
+                            }
+                        </div>
+                        <button type="button" onclick="addParticipant(this)">+ Добавить участника</button>
+
+                        <details class="links-block" @(hasLinks ? "" : "open") style="margin-top: 10px;">
+                            <summary style="cursor: pointer; color: #555;">Ссылки на работу</summary>
+                            <div style="margin-top: 8px;">
+                                <div class="form-group">
+                                    <label>Ссылка на работу (YouTube или CDN):</label>
+                                    <input name="Sections[0].Teams[@t].WorkUrl" value="@team.WorkUrl"
+                                           class="form-control work-url-input" />
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Ссылка на сообщение в Discord:</label>
+                                    <input name="Sections[0].Teams[@t].MessageUrl" value="@team.MessageUrl"
+                                           class="form-control message-url-input" />
+                                </div>
+                            </div>
+                        </details>
+
+                        <br />
+                        <button type="button" onclick="removeTeam(this)">Удалить работу</button>
+                    </div>
+                }
+            </div>
+            <button type="button" onclick="addTeam()">+ Добавить работу</button>
+        </div>
+
+        <div style="flex: 1; position: sticky; top: 20px;">
+            <h4>Предпросмотр</h4>
+            <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px; background: #f8f9fa;">
+                <div style="font-weight: bold; font-size: 14px; margin-bottom: 12px; color: #333;">голосование</div>
+                <div id="preview-options"></div>
+                <div style="margin-top: 15px; font-size: 12px; color: gray;">
+                    Длительность: <span id="preview-duration">24</span> ч.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br />
+    <button type="submit" class="btn btn-primary">Опубликовать опрос</button>
+</form>
+
+<datalist id="guild-members-list">
+    @foreach (var m in Model.GuildMembers)
+    {
+        <option data-id="@m.Id" value="@m.Name"></option>
+    }
+</datalist>
+
+<script>
+    const guildMembersById = {};
+    const guildMembersByName = {};
+
+    document.querySelectorAll('#guild-members-list option').forEach(opt => {
+        guildMembersById[opt.dataset.id] = opt.value;
+        guildMembersByName[opt.value.toLowerCase()] = opt.dataset.id;
+    });
+
+    const modeTwo = document.getElementById('modeTwo');
+    const modeCombined = document.getElementById('modeCombined');
+    const combinedBlock = document.getElementById('combined-block');
+    const twoNominationsBlock = document.getElementById('two-nominations-block');
+    const inputPollTitle = document.getElementById('inputPollTitle');
+    const inputIdeaTitle = document.getElementById('inputIdeaTitle');
+    const inputTechnicalTitle = document.getElementById('inputTechnicalTitle');
+    const inputDuration = document.getElementById('inputDuration');
+    const teamsContainer = document.getElementById('teams-container');
+
+    function updateModeUI() {
+        const isTwo = modeTwo.checked;
+        combinedBlock.style.display = isTwo ? 'none' : 'block';
+        twoNominationsBlock.style.display = isTwo ? 'block' : 'none';
+        updatePreview();
+    }
+
+    function getTeams() {
+        return Array.from(teamsContainer.querySelectorAll('.team-block')).map(block => {
+            const names = Array.from(block.querySelectorAll('.participant-name'))
+                .map(i => i.value.trim())
+                .filter(v => v);
+            return { block, names };
+        });
+    }
+
+    function formatNames(names) {
+        if (names.length === 0) return '';
+        if (names.length === 1) return names[0];
+        if (names.length === 2) return `${names[0]} и ${names[1]}`;
+        return names.slice(0, -1).join(', ') + ' и ' + names[names.length - 1];
+    }
+
+    function updatePreview() {
+        const list = document.getElementById('preview-options');
+        list.innerHTML = '';
+
+        document.getElementById('preview-duration').textContent = inputDuration.value || '24';
+
+        const teams = getTeams().filter(t => t.names.length > 0);
+
+        if (teams.length === 0) {
+            const div = document.createElement('div');
+            div.textContent = '(варианты не указаны)';
+            div.style.color = 'gray';
+            div.style.fontSize = '13px';
+            list.appendChild(div);
+        } else {
+            teams.forEach(t => {
+                const div = document.createElement('div');
+                div.textContent = formatNames(t.names);
+                div.style.cssText = 'border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; margin-bottom: 6px; background: white; font-size: 14px;';
+                list.appendChild(div);
+            });
+        }
+    }
+
+    // === Превью работы ===
+    function extractYouTubeId(url) {
+        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+        return m ? m[1] : null;
+    }
+
+    function updateWorkPreview(block) {
+        const previewWrapper = block.querySelector('.preview-wrapper');
+        if (!previewWrapper) return;
+
+        const urlInput = block.querySelector('.work-url-input');
+        const url = urlInput ? urlInput.value.trim() : '';
+
+        if (!url) {
+            previewWrapper.style.height = '60px';
+            previewWrapper.style.background = '#f0f0f0';
+            previewWrapper.innerHTML = '<span style="color: gray; font-size: 13px;">Превью появится после вставки ссылки</span>';
+            return;
+        }
+
+        const lower = url.toLowerCase();
+        const ytId = extractYouTubeId(url);
+
+        previewWrapper.style.height = '140px';
+        previewWrapper.style.background = '#000';
+
+        if (ytId) {
+            previewWrapper.innerHTML = `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover;" />`;
+        } else if (lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.mov')) {
+            previewWrapper.innerHTML = `<video preload="metadata" muted style="width:100%;height:100%;object-fit:cover;"><source src="${url}" /></video>`;
+        } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(url)) {
+            previewWrapper.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" />`;
+        } else {
+            previewWrapper.innerHTML = '<span style="color: white; font-size: 24px;">🔗</span>';
+        }
+    }
+
+    function renumberAll() {
+        const teamBlocks = teamsContainer.querySelectorAll('.team-block');
+        teamBlocks.forEach((teamEl, t) => {
+            const workUrl = teamEl.querySelector('.work-url-input');
+            const messageUrl = teamEl.querySelector('.message-url-input');
+            if (workUrl) workUrl.name = `Sections[0].Teams[${t}].WorkUrl`;
+            if (messageUrl) messageUrl.name = `Sections[0].Teams[${t}].MessageUrl`;
+
+            const rows = teamEl.querySelectorAll('.participant-row');
+            rows.forEach((row, p) => {
+                const nameInput = row.querySelector('.participant-name');
+                const idInput = row.querySelector('.participant-id');
+                if (nameInput) nameInput.name = `Sections[0].Teams[${t}].Participants[${p}].DisplayName`;
+                if (idInput) idInput.name = `Sections[0].Teams[${t}].Participants[${p}].DiscordUserId`;
+            });
+        });
+    }
+
+    function syncUserId(input) {
+        const name = input.value.trim().toLowerCase();
+        const row = input.closest('.participant-row');
+        const idInput = row.querySelector('.participant-id');
+        if (guildMembersByName[name]) {
+            idInput.value = guildMembersByName[name];
+        } else {
+            idInput.value = 0;
+        }
+    }
+
+    function addParticipant(btn) {
+        const teamBlock = btn.closest('.team-block');
+        const container = teamBlock.querySelector('.participants-container');
+
+        const row = document.createElement('div');
+        row.className = 'participant-row';
+        row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 5px;';
+        row.innerHTML = `
+            <input class="form-control participant-name" list="guild-members-list" autocomplete="off" placeholder="Имя участника" />
+            <input type="hidden" class="participant-id" value="0" />
+            <button type="button" onclick="removeParticipant(this)">Удалить</button>
+        `;
+        container.appendChild(row);
+        renumberAll();
+        updatePreview();
+    }
+
+    function removeParticipant(btn) {
+        const row = btn.closest('.participant-row');
+        const container = row.parentElement;
+        if (container.querySelectorAll('.participant-row').length <= 1) {
+            alert('Должен быть хотя бы один участник');
+            return;
+        }
+        row.remove();
+        renumberAll();
+        updatePreview();
+    }
+
+    function addTeam() {
+        const t = teamsContainer.querySelectorAll('.team-block').length;
+        const block = document.createElement('div');
+        block.className = 'team-block';
+        block.style.cssText = 'border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px;';
+        block.innerHTML = `
+            <div class="work-preview" style="margin-bottom: 10px;">
+                <div class="preview-wrapper" data-url="" style="height: 60px; background: #f0f0f0; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                    <span style="color: gray; font-size: 13px;">Превью появится после вставки ссылки</span>
+                </div>
+            </div>
+
+            <label>Участники:</label>
+            <div class="participants-container">
+                <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
+                    <input class="form-control participant-name" list="guild-members-list" autocomplete="off" placeholder="Имя участника" />
+                    <input type="hidden" class="participant-id" value="0" />
+                    <button type="button" onclick="removeParticipant(this)">Удалить</button>
+                </div>
+            </div>
+            <button type="button" onclick="addParticipant(this)">+ Добавить участника</button>
+
+            <details class="links-block" open style="margin-top: 10px;">
+                <summary style="cursor: pointer; color: #555;">Ссылки на работу</summary>
+                <div style="margin-top: 8px;">
+                    <div class="form-group">
+                        <label>Ссылка на работу (YouTube или CDN):</label>
+                        <input class="form-control work-url-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Ссылка на сообщение в Discord:</label>
+                        <input class="form-control message-url-input" />
+                    </div>
+                </div>
+            </details>
+
+            <br />
+            <button type="button" onclick="removeTeam(this)">Удалить работу</button>
+        `;
+        teamsContainer.appendChild(block);
+        renumberAll();
+        updatePreview();
+    }
+
+    function removeTeam(btn) {
+        const block = btn.closest('.team-block');
+        const container = block.parentElement;
+        if (container.querySelectorAll('.team-block').length <= 1) {
+            alert('Должна быть хотя бы одна работа');
+            return;
+        }
+        block.remove();
+        renumberAll();
+        updatePreview();
+    }
+
+    // === Подписки ===
+    modeTwo.addEventListener('change', updateModeUI);
+    modeCombined.addEventListener('change', updateModeUI);
+    inputPollTitle.addEventListener('input', updatePreview);
+    inputIdeaTitle.addEventListener('input', updatePreview);
+    inputDuration.addEventListener('input', updatePreview);
+
+    teamsContainer.addEventListener('input', e => {
+        if (e.target.classList.contains('participant-name')) {
+            syncUserId(e.target);
+        }
+        if (e.target.classList.contains('work-url-input')) {
+            updateWorkPreview(e.target.closest('.team-block'));
+        }
+        updatePreview();
+    });
+
+    // Инициализация превью для существующих работ
+    document.querySelectorAll('.team-block').forEach(updateWorkPreview);
+
+    updateModeUI();
+    updatePreview();
+</script>
