@@ -106,6 +106,10 @@ builder.Services.ConfigureEventHandlers(handling => handling
     .AddEventHandlers<RulesReactionHandler>(ServiceLifetime.Transient)
 );
 
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<PaletteExtractionService>();
+builder.Services.AddScoped<DesignSettingsService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -125,7 +129,7 @@ app.MapStaticAssets();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=AnimJams}/{action=Index}/{id?}")
+    pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
 

@@ -1,0 +1,40 @@
+﻿@model List<AnimatorsWeb.Models.FeaturedWorkItem>
+
+@if (!Model.Any())
+{
+    <p style="color: gray; font-size: 14px; margin: 0;">
+        Ничего не выбрано — на главной показываются 9 последних работ автоматически.
+    </p>
+}
+else
+{
+    @foreach (var w in Model)
+    {
+        <div class="fw-mini" data-participant-id="@w.ParticipantId">
+            <div class="thumb" style="cursor:pointer;"
+                 onclick="openWork('@w.WorkUrl', '@w.MessageUrl', @w.ParticipantId)">
+                @if (w.MediaType == "youtube" || w.MediaType == "image")
+                {
+                    <img src="@w.ThumbnailUrl" loading="lazy" alt="" />
+                }
+                else if (w.MediaType == "video")
+                {
+                    <video preload="metadata" muted src="@w.ThumbnailUrl"></video>
+                }
+                else
+                {
+                    <div class="link-icon">🔗</div>
+                }
+            </div>
+            <div class="meta">
+                <div class="jam">#@w.AnimJamNumber</div>
+                <div class="name">@w.DisplayName</div>
+            </div>
+            <div class="actions">
+                <button type="button" data-action="up" data-id="@w.FeaturedId" title="Выше">↑</button>
+                <button type="button" data-action="down" data-id="@w.FeaturedId" title="Ниже">↓</button>
+                <button type="button" data-action="remove" data-id="@w.FeaturedId" class="remove" title="Убрать">✕</button>
+            </div>
+        </div>
+    }
+}

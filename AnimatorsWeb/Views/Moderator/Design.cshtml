@@ -1,0 +1,173 @@
+﻿@model AnimatorsWeb.Models.DesignSettingsViewModel
+@{
+    ViewData["Title"] = "Дизайн сайта";
+}
+
+<h1>Дизайн сайта</h1>
+
+@if (TempData["Result"] != null)
+{
+    <p style="color: green;">@TempData["Result"]</p>
+}
+@if (TempData["Error"] != null)
+{
+    <p style="color: red;">@TempData["Error"]</p>
+}
+
+<hr />
+
+<h2>Аватарка сервера</h2>
+
+<div style="display: flex; gap: 30px; align-items: center; margin: 15px 0 30px;">
+    @if (!string.IsNullOrEmpty(Model.AvatarUrl))
+    {
+        <img src="@Model.AvatarUrl" alt="Аватарка"
+             style="width: 128px; height: 128px; border-radius: 50%; object-fit: cover;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />
+    }
+    else
+    {
+        <div style="width: 128px; height: 128px; border-radius: 50%; background: #ddd;
+                    display: flex; align-items: center; justify-content: center; color: #666;">
+            Нет иконки
+        </div>
+    }
+
+    <div>
+        <form method="post" asp-action="UpdatePaletteFromAvatar" style="display: inline;">
+            <button type="submit" class="btn btn-primary">
+                🎨 Обновить палитру из аватарки
+            </button>
+        </form>
+        <p style="color: gray; font-size: 13px; margin-top: 10px;">
+            Скачает текущую аватарку сервера, сохранит её локально (для быстрой загрузки сайта)
+            и заменит все цвета ниже на извлечённые из неё.
+            Текущие ручные настройки будут перезаписаны.
+        </p>
+        @if (Model.Design.PaletteUpdatedAt.HasValue)
+        {
+            <p style="color: gray; font-size: 13px;">
+                Последнее обновление палитры: @Model.Design.PaletteUpdatedAt.Value.ToString("dd.MM.yyyy HH:mm") UTC
+            </p>
+        }
+        else
+        {
+            <p style="color: gray; font-size: 13px;">Палитра из аватарки ещё не извлекалась.</p>
+        }
+    </div>
+</div>
+
+<hr />
+
+<h2>Цвета</h2>
+<p style="color: gray; font-size: 14px;">
+    Клик по цветному квадрату открывает палитру. Ручные изменения не сбрасываются автоматически.
+</p>
+
+<form method="post" asp-action="SaveDesign">
+    <input type="hidden" asp-for="Design.Id" />
+    <input type="hidden" asp-for="Design.PaletteUpdatedAt" />
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px;">
+
+        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Фон страницы</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" asp-for="Design.BackgroundColor"
+                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
+                <input type="text" asp-for="Design.BackgroundColor" class="form-control"
+                       style="font-family: monospace; flex: 1;" />
+            </div>
+            <p style="color: gray; font-size: 12px; margin-top: 6px;">Основной фон всех страниц</p>
+        </div>
+
+        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Текст</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" asp-for="Design.TextColor"
+                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
+                <input type="text" asp-for="Design.TextColor" class="form-control"
+                       style="font-family: monospace; flex: 1;" />
+            </div>
+            <p style="color: gray; font-size: 12px; margin-top: 6px;">Основной цвет текста</p>
+        </div>
+
+        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Основной акцент</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" asp-for="Design.PrimaryColor"
+                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
+                <input type="text" asp-for="Design.PrimaryColor" class="form-control"
+                       style="font-family: monospace; flex: 1;" />
+            </div>
+            <p style="color: gray; font-size: 12px; margin-top: 6px;">Кнопки, ссылки, активные элементы</p>
+        </div>
+
+        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Акцент (hover)</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" asp-for="Design.PrimaryHoverColor"
+                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
+                <input type="text" asp-for="Design.PrimaryHoverColor" class="form-control"
+                       style="font-family: monospace; flex: 1;" />
+            </div>
+            <p style="color: gray; font-size: 12px; margin-top: 6px;">Цвет акцента при наведении</p>
+        </div>
+
+        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Дополнительный акцент</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" asp-for="Design.AccentColor"
+                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
+                <input type="text" asp-for="Design.AccentColor" class="form-control"
+                       style="font-family: monospace; flex: 1;" />
+            </div>
+            <p style="color: gray; font-size: 12px; margin-top: 6px;">Яркие бейджи, декор, выделения</p>
+        </div>
+
+        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
+            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Фон карточек</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" asp-for="Design.CardColor"
+                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
+                <input type="text" asp-for="Design.CardColor" class="form-control"
+                       style="font-family: monospace; flex: 1;" />
+            </div>
+            <p style="color: gray; font-size: 12px; margin-top: 6px;">Фон карточек, блоков, секций</p>
+        </div>
+
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="padding: 12px 30px; font-size: 16px;">
+        💾 Сохранить настройки
+    </button>
+</form>
+
+<hr style="margin-top: 40px;" />
+
+<h2>Предпросмотр</h2>
+<p style="color: gray; font-size: 14px;">Мини-пример того, как цвета смотрятся вместе:</p>
+
+<div style="background: @Model.Design.BackgroundColor; padding: 30px; border-radius: 12px;
+            border: 1px solid #ddd; margin-top: 15px;">
+    <h3 style="color: @Model.Design.TextColor; margin-top: 0;">Заголовок на фоне</h3>
+    <p style="color: @Model.Design.TextColor;">
+        Обычный текст. <a href="#" style="color: @Model.Design.PrimaryColor; text-decoration: underline;">Ссылка</a>
+        — так выглядит основной акцент.
+    </p>
+    <div style="background: @Model.Design.CardColor; padding: 20px; border-radius: 12px; margin-top: 15px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <p style="color: @Model.Design.TextColor; margin: 0 0 12px 0;">
+            Карточка с текстом на своём фоне.
+        </p>
+        <button type="button"
+                style="background: @Model.Design.PrimaryColor; color: white; border: none;
+                       padding: 10px 20px; border-radius: 999px; font-weight: 600;">
+            Кнопка
+        </button>
+        <span style="display: inline-block; background: @Model.Design.AccentColor; color: #1a1a1a;
+                     padding: 6px 14px; border-radius: 999px; font-size: 13px; margin-left: 8px;">
+            Бейдж
+        </span>
+    </div>
+</div>

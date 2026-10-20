@@ -82,6 +82,68 @@ namespace AnimatorsWeb.Migrations
                     b.ToTable("ChannelSettings");
                 });
 
+            modelBuilder.Entity("AnimatorsWeb.Models.DesignSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccentColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BackgroundColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CardColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PaletteUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PrimaryColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PrimaryHoverColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TextColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DesignSettings");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.LandingFeaturedWork", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ParticipantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId")
+                        .IsUnique();
+
+                    b.ToTable("LandingFeaturedWorks");
+                });
+
             modelBuilder.Entity("AnimatorsWeb.Models.LinkedAccount", b =>
                 {
                     b.Property<int>("Id")

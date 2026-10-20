@@ -1,15 +1,215 @@
-﻿@{
-    ViewData["Title"] = "Отправить сообщение";
+﻿@model AnimatorsWeb.Models.LandingViewModel
+
+@{
+    ViewData["Title"] = "Сообщество Аниматоров";
 }
-<h1>Отправить сообщение в Discord</h1>
 
-<form asp-controller="Home" asp-action="SendAnnouncement" method="post">
-    <textarea name="text" rows="5" cols="50" placeholder="Введите текст сообщения..."></textarea>
-    <br />
-    <button type="submit">Отправить</button>
-</form>
+<style>
+    .landing-hero { padding: 60px 20px 40px; text-align: center; }
+    .landing-hero h1 { font-size: 42px; font-weight: 800; margin: 20px 0 10px; }
+    .landing-hero .subtitle { font-size: 18px; color: #666; max-width: 600px; margin: 0 auto 30px; line-height: 1.6; }
+    .landing-avatar { width: 140px; height: 140px; border-radius: 50%; box-shadow: 0 8px 24px rgba(0,0,0,0.12); object-fit: cover; }
+    .landing-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .landing-cta a { padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 16px; transition: all .15s; }
+    .landing-cta .primary { background: var(--brand-primary); color: white; }
+    .landing-cta .primary:hover { background: var(--brand-primary-hover); color: white; }
+    .landing-cta .secondary { background: transparent; color: var(--brand-text); border: 2px solid var(--brand-text); }
+    .landing-cta .secondary:hover { background: var(--brand-text); color: var(--brand-bg); }
 
-@if (ViewBag.Result != null)
+    .landing-section { padding: 60px 20px; max-width: 1200px; margin: 0 auto; }
+    .landing-section h2 { font-size: 32px; font-weight: 800; text-align: center; margin-bottom: 40px; }
+
+    .landing-mosaic { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .landing-mosaic-item { aspect-ratio: 16/10; border-radius: 12px; overflow: hidden; background: var(--brand-card); box-shadow: 0 4px 12px rgba(0,0,0,0.08); cursor: pointer; transition: transform .2s, box-shadow .2s; }
+    .landing-mosaic-item:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.14); }
+    .landing-mosaic-item img, .landing-mosaic-item video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .landing-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 30px; text-align: center; }
+    .landing-stat-num { font-size: 48px; font-weight: 800; color: var(--brand-primary); line-height: 1; font-family: var(--font-heading); }
+    .landing-stat-label { color: #666; margin-top: 8px; font-size: 14px; }
+
+    .landing-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
+    .landing-step { background: var(--brand-card); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); text-align: center; }
+    .landing-step-icon { font-size: 48px; margin-bottom: 12px; }
+    .landing-step h3 { font-size: 18px; margin-bottom: 8px; }
+    .landing-step p { color: #666; font-size: 14px; margin: 0; line-height: 1.5; }
+
+    .landing-about { background: var(--brand-card); border-radius: 20px; padding: 40px; max-width: 720px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .landing-about p { font-size: 16px; line-height: 1.7; }
+    .landing-about p:last-child { margin-bottom: 0; }
+    .landing-about strong { color: var(--brand-primary); }
+
+    .landing-final { text-align: center; padding: 60px 20px 80px; }
+    .landing-final h2 { font-size: 36px; margin-bottom: 16px; }
+    .landing-final p { color: #666; margin-bottom: 30px; font-size: 16px; }
+
+    @@media (max-width: 600px) {
+        .landing-hero h1 { font-size: 32px; }
+        .landing-hero .subtitle { font-size: 16px; }
+        .landing-section { padding: 40px 16px; }
+        .landing-section h2 { font-size: 26px; margin-bottom: 28px; }
+        .landing-about { padding: 24px; }
+        .landing-stat-num { font-size: 36px; }
+        .landing-final h2 { font-size: 28px; }
+    }
+</style>
+
+<section class="landing-hero">
+    @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
+    {
+        <img src="@Model.GuildIconUrl" alt="Аватарка сервера" class="landing-avatar" />
+    }
+    <h1>Сообщество Аниматоров</h1>
+    <p class="subtitle">
+        Еженедельные аниджемы, тёплое комьюнити и обратная связь от таких же творческих людей, как и ты.
+    </p>
+    <div class="landing-cta">
+        <a href="@Model.InviteUrl" class="primary" target="_blank" rel="noopener">Присоединиться</a>
+        <a href="/AnimJams" class="secondary">Смотреть аниджемы</a>
+    </div>
+</section>
+
+@if (Model.RecentWorks.Any())
 {
-    <p style="color: green;">@ViewBag.Result</p>
+    <section class="landing-section">
+        <h2>Что у нас получается</h2>
+        <div class="landing-mosaic">
+            @foreach (var work in Model.RecentWorks)
+            {
+                <div class="landing-mosaic-item" onclick="openWork('@work.WorkUrl', '@work.MessageUrl', @work.ParticipantId)">
+                    @if (work.MediaType == "youtube" || work.MediaType == "image")
+                    {
+                        <img src="@work.ThumbnailUrl" loading="lazy" alt="" />
+                    }
+                    else if (work.MediaType == "video")
+                    {
+                        <video preload="metadata" muted playsinline src="@work.ThumbnailUrl"></video>
+                    }
+                    else
+                    {
+                        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:32px;">🔗</div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
 }
+
+<div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000;">
+    <div id="modal-content" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"></div>
+</div>
+
+<script>
+    function openWork(workUrl, messageUrl, participantId) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content');
+        const ytId = extractYouTubeId(workUrl);
+
+        if (ytId) {
+            content.innerHTML = `<iframe width="800" height="450"
+                src="https://www.youtube.com/embed/${ytId}?autoplay=1"
+                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+        } else if (participantId > 0) {
+            const proxyUrl = `/Media/StreamWork/${participantId}`;
+            const lowerUrl = workUrl.toLowerCase();
+
+            if (lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') || lowerUrl.includes('.mov')) {
+                content.innerHTML = `<video src="${proxyUrl}" controls autoplay
+                    style="max-width:80vw; max-height:80vh;"></video>`;
+            } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(workUrl)) {
+                content.innerHTML = `<img src="${proxyUrl}" style="max-width:80vw; max-height:80vh;" />`;
+            } else if (messageUrl) {
+                window.open(messageUrl, '_blank');
+                return;
+            } else {
+                window.open(workUrl, '_blank');
+                return;
+            }
+        } else if (messageUrl) {
+            window.open(messageUrl, '_blank');
+            return;
+        } else {
+            window.open(workUrl, '_blank');
+            return;
+        }
+
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+        document.getElementById('modal-content').innerHTML = '';
+    }
+
+    document.getElementById('modal').addEventListener('click', closeModal);
+
+    function extractYouTubeId(url) {
+        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+        return m ? m[1] : null;
+    }
+</script>
+
+<section class="landing-section">
+    <h2>Как это работает</h2>
+    <div class="landing-steps">
+        <div class="landing-step">
+            <div class="landing-step-icon">💬</div>
+            <h3>Заходи на сервер</h3>
+            <p>Всё происходит в Discord. Присоединяйся, знакомься, смотри работы других.</p>
+        </div>
+        <div class="landing-step">
+            <div class="landing-step-icon">🎨</div>
+            <h3>Жди аниджем</h3>
+            <p>Каждую неделю — новая тема. Её выбирают голосованием сами участники.</p>
+        </div>
+        <div class="landing-step">
+            <div class="landing-step-icon">🚀</div>
+            <h3>Скидывай работу</h3>
+            <p>Анимация, гифка, что угодно — главное по теме и с душой.</p>
+        </div>
+        <div class="landing-step">
+            <div class="landing-step-icon">🏆</div>
+            <h3>Получай фидбек</h3>
+            <p>Участники голосуют за лучшие работы. Победители получают роль и место в истории.</p>
+        </div>
+    </div>
+</section>
+
+<section class="landing-section">
+    <h2>Что такое аниджем</h2>
+    <div class="landing-about">
+        <p>
+            <strong>Аниджем</strong> — это как джем-сейшн, только для аниматоров. Каждую неделю участники сообщества получают тему и делают по ней небольшую анимацию.
+            К концу недели все работы собираются в одном канале, а сообщество голосованием выбирает лучшие — за идею, за технику и за «Золотую какаху».
+        </p>
+        <p>
+            Не важно, новичок ты или уже несколько лет в анимации. <strong>Главное — что ты что-то сделал.</strong> Не идеально, но своё.
+        </p>
+    </div>
+</section>
+
+<section class="landing-section">
+    <h2>Мы уже</h2>
+    <div class="landing-stats">
+        <div>
+            <div class="landing-stat-num">@Model.ParticipantsCount</div>
+            <div class="landing-stat-label">участников</div>
+        </div>
+        <div>
+            <div class="landing-stat-num">@Model.AnimJamsCount</div>
+            <div class="landing-stat-label">аниджемов</div>
+        </div>
+        <div>
+            <div class="landing-stat-num">@Model.WorksCount</div>
+            <div class="landing-stat-label">работ</div>
+        </div>
+    </div>
+</section>
+
+<section class="landing-final">
+    <h2>Мы не кусаемся</h2>
+    <p>Здесь рады всем, кто хоть раз что-то нарисовал или анимировал. Заходи — посмотри, что происходит.</p>
+    <div class="landing-cta">
+        <a href="@Model.InviteUrl" class="primary" target="_blank" rel="noopener">Присоединиться к Discord</a>
+    </div>
+</section>

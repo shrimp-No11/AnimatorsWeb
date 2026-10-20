@@ -1,0 +1,383 @@
+﻿@model AnimatorsWeb.Models.FeaturedWorksViewModel
+@{
+    ViewData["Title"] = "Работы на главной";
+}
+
+<style>
+    .fw-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    @@media (max-width: 900px) {
+        .fw-layout { grid-template-columns: 1fr; }
+        .fw-sidebar { position: static !important; max-height: none !important; }
+    }
+
+    .fw-sidebar {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 14px;
+    }
+    .fw-sidebar h3 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .fw-sidebar .counter {
+        color: gray;
+        font-size: 13px;
+        font-weight: normal;
+    }
+
+    .fw-mini {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px;
+        border-radius: 8px;
+        border: 1px solid #eee;
+        margin-bottom: 6px;
+        background: #fafafa;
+    }
+    .fw-mini .thumb {
+        width: 60px;
+        height: 45px;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #000;
+        flex-shrink: 0;
+    }
+    .fw-mini .thumb img,
+    .fw-mini .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fw-mini .thumb .link-icon { display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 16px; }
+    .fw-mini .meta { flex: 1; min-width: 0; font-size: 12px; }
+    .fw-mini .meta .jam { color: #666; }
+    .fw-mini .meta .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fw-mini .actions { display: flex; flex-direction: column; gap: 2px; }
+    .fw-mini .actions button {
+        width: 22px; height: 22px;
+        border: 1px solid #ccc; background: white;
+        border-radius: 4px; cursor: pointer;
+        font-size: 12px; padding: 0;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .fw-mini .actions button:hover { background: #f0f0f0; }
+    .fw-mini .actions button.remove { color: #b3261e; border-color: #b3261e; }
+
+    .fw-main h3 { margin-top: 0; }
+    .fw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+    .fw-card {
+        border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: white;
+        transition: box-shadow .15s;
+    }
+    .fw-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .fw-card .thumb { aspect-ratio: 16/10; background: #000; overflow: hidden; }
+    .fw-card .thumb img,
+    .fw-card .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fw-card .thumb .link-icon { display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 28px; }
+    .fw-card .info { padding: 6px 10px; font-size: 12px; }
+    .fw-card .info .jam { color: #666; }
+    .fw-card .info .name { font-weight: 600; margin-top: 1px; }
+    .fw-card .actions { padding: 4px 10px 10px; }
+    .fw-card .actions button {
+        width: 100%; padding: 5px 10px; font-size: 12px;
+        border: 1px solid #1a7f37; color: #1a7f37;
+        background: white; border-radius: 6px; cursor: pointer;
+    }
+    .fw-card .actions button:hover { background: #f0fff4; }
+    .fw-card .actions button.added {
+        border-color: #ccc; color: #999; cursor: default;
+    }
+
+    .fw-loader { text-align: center; padding: 20px; color: gray; font-size: 14px; display: none; }
+    .fw-end { text-align: center; padding: 20px; color: gray; font-size: 14px; }
+</style>
+
+<h1>Работы на главной</h1>
+
+<div id="statusMsg" style="display: none; padding: 8px 14px; border-radius: 6px; margin-bottom: 15px;"></div>
+
+<div class="fw-layout">
+
+    <div class="fw-sidebar">
+        <h3>
+            Выбранные
+            <span class="counter" id="selectedCounter">@Model.Selected.Count</span>
+        </h3>
+        <div id="selectedSidebar">
+            @await Html.PartialAsync("_FeaturedSelected", Model.Selected)
+        </div>
+        @if (Model.Selected.Any())
+        {
+            <button type="button" id="clearBtn"
+                    style="width: 100%; margin-top: 10px; padding: 6px; background: white;
+                           color: #b3261e; border: 1px solid #b3261e; border-radius: 6px;
+                           font-size: 12px; cursor: pointer;">
+                Очистить всё
+            </button>
+        }
+    </div>
+
+    <div class="fw-main">
+        <h3>Все работы <span style="color: gray; font-weight: normal; font-size: 14px;">— прокрутите вниз, чтобы подгрузить ещё</span></h3>
+        <div id="availableGrid" class="fw-grid"></div>
+        <div id="loader" class="fw-loader">Загрузка...</div>
+        <div id="endMsg" class="fw-end" style="display: none;">Больше работ нет</div>
+    </div>
+
+</div>
+
+<div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000;">
+    <div id="modal-content" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"></div>
+</div>
+
+<script>
+    const availableGrid = document.getElementById('availableGrid');
+    const loader = document.getElementById('loader');
+    const endMsg = document.getElementById('endMsg');
+    const selectedSidebar = document.getElementById('selectedSidebar');
+    const selectedCounter = document.getElementById('selectedCounter');
+    const statusMsg = document.getElementById('statusMsg');
+    const modalEl = document.getElementById('modal');
+
+    let offset = 0;
+    const limit = 24;
+    let loading = false;
+    let noMore = false;
+    let selectedIds = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Selected.Select(s => s.ParticipantId).ToList()));
+
+    function showStatus(text, isError) {
+        statusMsg.textContent = text;
+        statusMsg.style.background = isError ? '#fdecea' : '#e7f7ec';
+        statusMsg.style.color = isError ? '#b3261e' : '#1a7f37';
+        statusMsg.style.display = 'block';
+        setTimeout(() => { statusMsg.style.display = 'none'; }, 2500);
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function buildCard(item) {
+        const div = document.createElement('div');
+        div.className = 'fw-card';
+        div.dataset.participantId = item.participantId;
+
+        let thumb;
+        if (item.mediaType === 'youtube' || item.mediaType === 'image') {
+            thumb = `<img src="${item.thumbnailUrl}" loading="lazy" alt="" />`;
+        } else if (item.mediaType === 'video') {
+            thumb = `<video preload="metadata" muted src="${item.thumbnailUrl}"></video>`;
+        } else {
+            thumb = `<div class="link-icon">🔗</div>`;
+        }
+
+        const already = selectedIds.includes(item.participantId);
+
+        div.innerHTML = `
+            <div class="thumb" style="cursor:pointer;">${thumb}</div>
+            <div class="info">
+                <div class="jam">#${item.animJamNumber}</div>
+                <div class="name">${escapeHtml(item.displayName)}</div>
+            </div>
+            <div class="actions">
+                <button type="button" class="addBtn ${already ? 'added' : ''}" ${already ? 'disabled' : ''}>
+                    ${already ? '✓ На главной' : '+ На главную'}
+                </button>
+            </div>
+        `;
+
+        div.querySelector('.thumb').addEventListener('click', () => {
+            openWork(item.workUrl || '', item.messageUrl || '', item.participantId);
+        });
+
+        const btn = div.querySelector('.addBtn');
+        btn.addEventListener('click', async () => {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            await postAction('/Moderator/AddFeaturedWork', { participantId: item.participantId }, btn);
+        });
+
+        return div;
+    }
+
+    function openWork(workUrl, messageUrl, participantId) {
+        const content = document.getElementById('modal-content');
+        const ytId = extractYouTubeId(workUrl);
+
+        if (ytId) {
+            content.innerHTML = `<iframe width="800" height="450"
+                src="https://www.youtube.com/embed/${ytId}?autoplay=1"
+                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+        } else if (participantId > 0) {
+            const proxyUrl = `/Media/StreamWork/${participantId}`;
+            const lowerUrl = workUrl.toLowerCase();
+
+            if (lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') || lowerUrl.includes('.mov')) {
+                content.innerHTML = `<video src="${proxyUrl}" controls autoplay
+                    style="max-width:80vw; max-height:80vh;"></video>`;
+            } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(workUrl)) {
+                content.innerHTML = `<img src="${proxyUrl}" style="max-width:80vw; max-height:80vh;" />`;
+            } else if (messageUrl) {
+                window.open(messageUrl, '_blank');
+                return;
+            } else {
+                window.open(workUrl, '_blank');
+                return;
+            }
+        } else if (messageUrl) {
+            window.open(messageUrl, '_blank');
+            return;
+        } else {
+            window.open(workUrl, '_blank');
+            return;
+        }
+
+        modalEl.style.display = 'block';
+    }
+
+    function closeModal() {
+        modalEl.style.display = 'none';
+        document.getElementById('modal-content').innerHTML = '';
+    }
+
+    function extractYouTubeId(url) {
+        if (!url) return null;
+        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+        return m ? m[1] : null;
+    }
+
+    async function postAction(url, params, buttonEl) {
+        try {
+            const r = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(params)
+            });
+            const data = await r.json();
+            if (data.success) {
+                await refreshSelected();
+                updateAllAddButtons();
+            } else {
+                showStatus(data.error || 'Ошибка', true);
+                if (buttonEl) buttonEl.disabled = false;
+            }
+        } catch {
+            showStatus('Сетевая ошибка', true);
+            if (buttonEl) buttonEl.disabled = false;
+        }
+    }
+
+    async function refreshSelected() {
+        const r = await fetch('/Moderator/RenderSelectedPartial');
+        const html = await r.text();
+        selectedSidebar.innerHTML = html;
+
+        selectedIds = Array.from(selectedSidebar.querySelectorAll('.fw-mini'))
+            .map(el => Number(el.dataset.participantId))
+            .filter(n => !isNaN(n));
+
+        selectedCounter.textContent = selectedSidebar.querySelectorAll('.fw-mini').length;
+        toggleClearBtn();
+    }
+
+    function updateAllAddButtons() {
+        availableGrid.querySelectorAll('.fw-card').forEach(card => {
+            const pid = Number(card.dataset.participantId);
+            const btn = card.querySelector('.addBtn');
+            if (!btn) return;
+            if (selectedIds.includes(pid)) {
+                btn.classList.add('added');
+                btn.disabled = true;
+                btn.textContent = '✓ На главной';
+            } else {
+                btn.classList.remove('added');
+                btn.disabled = false;
+                btn.textContent = '+ На главную';
+            }
+        });
+    }
+
+    function toggleClearBtn() {
+        const existing = document.getElementById('clearBtn');
+        if (selectedIds.length > 0 && !existing) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.id = 'clearBtn';
+            b.style.cssText = 'width:100%;margin-top:10px;padding:6px;background:white;color:#b3261e;border:1px solid #b3261e;border-radius:6px;font-size:12px;cursor:pointer;';
+            b.textContent = 'Очистить всё';
+            b.addEventListener('click', clearAll);
+            selectedSidebar.parentElement.appendChild(b);
+        } else if (selectedIds.length === 0 && existing) {
+            existing.remove();
+        }
+    }
+
+    async function clearAll() {
+        if (!confirm('Очистить весь список?')) return;
+        await postAction('/Moderator/ClearFeaturedWorks', {});
+    }
+
+    async function loadMore() {
+        if (loading || noMore) return;
+        loading = true;
+        loader.style.display = 'block';
+
+        try {
+            const r = await fetch(`/Moderator/SearchFeaturedWorks?offset=${offset}&limit=${limit}`);
+            const data = await r.json();
+
+            data.items.forEach(item => {
+                availableGrid.appendChild(buildCard(item));
+            });
+
+            offset += data.items.length;
+            if (!data.hasMore) {
+                noMore = true;
+                endMsg.style.display = 'block';
+            }
+        } catch {
+            showStatus('Ошибка загрузки', true);
+        } finally {
+            loading = false;
+            loader.style.display = 'none';
+        }
+    }
+
+    selectedSidebar.addEventListener('click', async e => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+
+        if (action === 'up') await postAction('/Moderator/MoveFeaturedWork', { id, delta: -1 });
+        else if (action === 'down') await postAction('/Moderator/MoveFeaturedWork', { id, delta: 1 });
+        else if (action === 'remove') await postAction('/Moderator/RemoveFeaturedWork', { id });
+    });
+
+    const sentinel = document.createElement('div');
+    sentinel.style.height = '1px';
+    availableGrid.parentElement.appendChild(sentinel);
+
+    const observer = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting) loadMore();
+    }, { rootMargin: '400px' });
+    observer.observe(sentinel);
+
+    const clearBtnInit = document.getElementById('clearBtn');
+    if (clearBtnInit) clearBtnInit.addEventListener('click', clearAll);
+
+    modalEl.addEventListener('click', closeModal);
+</script>

@@ -21,22 +21,25 @@ namespace AnimatorsWeb.Controllers
         private readonly DiscordClient _discordClient;
         private readonly ChannelSettingsService _settingsService;
         private readonly RulesService _rulesService;
+        private readonly DesignSettingsService _designService;
         const ulong role2dId = 1126390388006072380UL; // ← сюда ID роли 2d Аниматор
         const ulong role3dId = 1536428705105051808UL; // ← сюда ID роли 3d Аниматор
         const ulong ActiveRoleId = 1507425845558509718UL; // роль "Актив"
 
         public ModeratorController(
-                DiscordClient discordClient,
-                AppDbContext db,
-                DiscordMessageService discord,
-                ChannelSettingsService settingsService,
-                RulesService rulesService)
+            DiscordClient discordClient,
+            AppDbContext db,
+            DiscordMessageService discord,
+            ChannelSettingsService settingsService,
+            RulesService rulesService,
+            DesignSettingsService designService)
         {
             _discordClient = discordClient;
             _db = db;
             _discord = discord;
             _settingsService = settingsService;
             _rulesService = rulesService;
+            _designService = designService;
         }
 
         // Главная модераторская — настройки каналов
@@ -1541,6 +1544,228 @@ namespace AnimatorsWeb.Controllers
             TempData["Result"] = "Связь удалена";
             return RedirectToAction(nameof(LinkedAccounts));
         }
+
+        // ====== ДИЗАЙН ======
+
+        [HttpGet]
+        public async Task<IActionResult> Design()
+        {
+            var model = new DesignSettingsViewModel
+            {
+                Design = await _designService.GetAsync(),
+                AvatarUrl = _designService.GetLocalAvatarUrl() ?? _designService.GetGuildIconUrl()
+            };
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SaveDesign(DesignSettings design)
+        {
+            var current = await _designService.GetAsync();
+            design.PaletteUpdatedAt = current.PaletteUpdatedAt;
+
+            await _designService.SaveAsync(design);
+            TempData["Result"] = "Настройки дизайна сохранены";
+            return RedirectToAction(nameof(Design));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdatePaletteFromAvatar()
+        {
+            var error = await _designService.UpdateFromAvatarAsync();
+            if (error == null)
+                TempData["Result"] = "Палитра обновлена из аватарки сервера";
+            else
+                TempData["Error"] = error;
+
+            return RedirectToAction(nameof(Design));
+        }
+
+        // ====== РАБОТЫ НА ГЛАВНОЙ ======
+
+        [HttpGet]
+        public async Task<IActionResult> FeaturedWorks()
+        {
+            var selected = await GetSelectedOrderedAsync();
+            var model = new FeaturedWorksViewModel
+            {
+                Selected = await BuildFeaturedItemsAsync(selected)
+            };
+            return View(model);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> SearchFeaturedWorks(int offset = 0, int limit = 24)
+        {
+            // ID по одному на уникальный WorkUrl (последняя по номеру аниджема)
+            var distinctIds = _db.Participants
+                .Where(p => !string.IsNullOrEmpty(p.WorkUrl))
+                .GroupBy(p => p.WorkUrl)
+                .Select(g => g.Max(x => x.Id));
+
+            var page = await _db.Participants
+                .Where(p => distinctIds.Contains(p.Id))
+                .OrderByDescending(p => p.AnimJamNumber)
+                .ThenByDescending(p => p.Id)
+                .Skip(offset)
+                .Take(limit + 1)
+                .ToListAsync();
+
+            var hasMore = page.Count > limit;
+            if (hasMore) page = page.Take(limit).ToList();
+
+            var items = page.Select(p => BuildFeaturedItem(p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName, null)).ToList();
+
+            return Json(new { items, hasMore });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> RenderSelectedPartial()
+        {
+            var selected = await GetSelectedOrderedAsync();
+            var items = await BuildFeaturedItemsAsync(selected);
+            return PartialView("_FeaturedSelected", items);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddFeaturedWork(int participantId)
+        {
+            if (await _db.LandingFeaturedWorks.AnyAsync(f => f.ParticipantId == participantId))
+                return Json(new { success = false, error = "Уже добавлено" });
+
+            var maxOrder = await _db.LandingFeaturedWorks.AnyAsync()
+                ? await _db.LandingFeaturedWorks.MaxAsync(f => f.Order)
+                : 0;
+
+            _db.LandingFeaturedWorks.Add(new LandingFeaturedWork
+            {
+                ParticipantId = participantId,
+                Order = maxOrder + 1
+            });
+            await _db.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RemoveFeaturedWork(int id)
+        {
+            var f = await _db.LandingFeaturedWorks.FirstOrDefaultAsync(x => x.Id == id);
+            if (f == null) return Json(new { success = false });
+
+            _db.LandingFeaturedWorks.Remove(f);
+            await _db.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> MoveFeaturedWork(int id, int delta)
+        {
+            var all = await _db.LandingFeaturedWorks.OrderBy(x => x.Order).ToListAsync();
+            var idx = all.FindIndex(x => x.Id == id);
+            if (idx < 0) return Json(new { success = false });
+
+            var newIdx = idx + delta;
+            if (newIdx < 0 || newIdx >= all.Count) return Json(new { success = false });
+
+            var tmp = all[idx].Order;
+            all[idx].Order = all[newIdx].Order;
+            all[newIdx].Order = tmp;
+
+            await _db.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ClearFeaturedWorks()
+        {
+            var all = await _db.LandingFeaturedWorks.ToListAsync();
+            _db.LandingFeaturedWorks.RemoveRange(all);
+            await _db.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        // --- Хелперы ---
+
+        private async Task<List<LandingFeaturedWork>> GetSelectedOrderedAsync()
+        {
+            var selected = await _db.LandingFeaturedWorks.OrderBy(f => f.Order).ToListAsync();
+            if (selected.Count == 0) return selected;
+
+            var existingIds = (await _db.Participants.Select(p => p.Id).ToListAsync()).ToHashSet();
+            var dead = selected.Where(f => !existingIds.Contains(f.ParticipantId)).ToList();
+            if (dead.Any())
+            {
+                _db.LandingFeaturedWorks.RemoveRange(dead);
+                await _db.SaveChangesAsync();
+                selected = selected.Where(f => existingIds.Contains(f.ParticipantId)).ToList();
+            }
+            return selected;
+        }
+
+        private async Task<List<FeaturedWorkItem>> BuildFeaturedItemsAsync(List<LandingFeaturedWork> selected)
+        {
+            if (selected.Count == 0) return new();
+
+            var ids = selected.Select(f => f.ParticipantId).ToList();
+            var parts = await _db.Participants
+                .Where(p => ids.Contains(p.Id))
+                .ToListAsync();
+            var byId = parts.ToDictionary(p => p.Id);
+
+            var result = new List<FeaturedWorkItem>();
+            foreach (var f in selected)
+            {
+                if (!byId.TryGetValue(f.ParticipantId, out var p)) continue;
+                result.Add(BuildFeaturedItem(p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName, f.Id));
+            }
+            return result;
+        }
+
+        private FeaturedWorkItem BuildFeaturedItem(int participantId, int jam, string workUrl, string messageUrl, string name, int? featuredId)
+        {
+            var item = new FeaturedWorkItem
+            {
+                FeaturedId = featuredId,
+                ParticipantId = participantId,
+                AnimJamNumber = jam,
+                WorkUrl = workUrl,
+                MessageUrl = messageUrl,
+                DisplayName = name
+            };
+
+            var ytId = GetYouTubeId(workUrl);
+            if (ytId != null)
+            {
+                item.MediaType = "youtube";
+                item.ThumbnailUrl = $"https://img.youtube.com/vi/{ytId}/mqdefault.jpg";
+            }
+            else if (workUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                     workUrl.Contains(".webm", StringComparison.OrdinalIgnoreCase) ||
+                     workUrl.Contains(".mov", StringComparison.OrdinalIgnoreCase))
+            {
+                item.MediaType = "video";
+                item.ThumbnailUrl = $"/Media/StreamWork/{participantId}";
+            }
+            else if (System.Text.RegularExpressions.Regex.IsMatch(workUrl,
+                @"\.(gif|png|jpg|jpeg)(\?|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                item.MediaType = "image";
+                item.ThumbnailUrl = $"/Media/StreamWork/{participantId}";
+            }
+            else
+            {
+                item.MediaType = "link";
+            }
+
+            return item;
+        }
+        private static string? GetYouTubeId(string url)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(url,
+                @"(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|v/))([a-zA-Z0-9_-]{11})");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
 
     }
 

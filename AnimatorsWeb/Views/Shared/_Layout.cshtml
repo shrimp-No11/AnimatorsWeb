@@ -1,62 +1,299 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@inject AnimatorsWeb.Services.DesignSettingsService DesignService
+@{
+    var __design = await DesignService.GetAsync();
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    string ActiveClass(string c) => c == currentController ? "nav-link active" : "nav-link";
+}
+<!DOCTYPE html>
+<html lang="ru">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - AnimatorsWeb</title>
+    <title>@ViewData["Title"] — AnimatorsWeb</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AnimatorsWeb.styles.css" asp-append-version="true" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-bg: @__design.BackgroundColor;
+            --brand-text: @__design.TextColor;
+            --brand-primary: @__design.PrimaryColor;
+            --brand-primary-hover: @__design.PrimaryHoverColor;
+            --brand-accent: @__design.AccentColor;
+            --brand-card: @__design.CardColor;
+            --font-heading: 'Nunito', system-ui, -apple-system, sans-serif;
+            --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        html, body {
+            min-height: 100%;
+        }
+        body {
+            background-color: var(--brand-bg);
+            color: var(--brand-text);
+            font-family: var(--font-body);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-heading);
+            font-weight: 700;
+        }
+        a {
+            color: var(--brand-primary);
+        }
+        a:hover {
+            color: var(--brand-primary-hover);
+        }
+        .btn-primary {
+            background-color: var(--brand-primary) !important;
+            border-color: var(--brand-primary) !important;
+        }
+        .btn-primary:hover,
+        .btn-primary:focus {
+            background-color: var(--brand-primary-hover) !important;
+            border-color: var(--brand-primary-hover) !important;
+        }
+
+        /* ===== Шапка ===== */
+        .site-header {
+            background: var(--brand-card);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: transform .3s ease, box-shadow .3s ease;
+        }
+        .site-header.hidden {
+            transform: translateY(-100%);
+            box-shadow: none;
+        }
+        .site-header .navbar {
+            padding: 10px 0;
+        }
+        .site-header .navbar-brand {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 20px;
+            color: var(--brand-text) !important;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .site-header .navbar-brand img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .site-header .nav-link {
+            color: var(--brand-text) !important;
+            font-weight: 500;
+            padding: 8px 14px !important;
+            border-radius: 8px;
+            transition: background-color .15s, color .15s;
+        }
+        .site-header .nav-link:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .site-header .nav-link.active {
+            color: var(--brand-primary) !important;
+            background: rgba(0, 0, 0, 0.03);
+        }
+        .site-header .nav-link.cta {
+            background: var(--brand-primary);
+            color: white !important;
+            padding: 8px 18px !important;
+        }
+        .site-header .nav-link.cta:hover {
+            background: var(--brand-primary-hover);
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.04);
+            color: var(--brand-text);
+            font-size: 14px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .user-chip:hover {
+            background: rgba(0, 0, 0, 0.08);
+            color: var(--brand-text);
+        }
+
+        /* ===== Контент ===== */
+        .site-main {
+            flex: 1;
+        }
+        .site-main .container {
+            padding-top: 24px;
+            padding-bottom: 24px;
+        }
+
+        /* ===== Футер ===== */
+        .site-footer {
+            background: var(--brand-card);
+            border-top: 1px solid rgba(0, 0, 0, 0.07);
+            padding: 24px 0;
+            margin-top: 40px;
+            color: rgba(0, 0, 0, 0.55);
+            font-size: 14px;
+            text-align: center;
+        }
+        .site-footer a {
+            color: var(--brand-primary);
+            text-decoration: none;
+        }
+        .site-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ===== Мобильное меню ===== */
+        @@media (max-width: 767.98px) {
+            .site-header .navbar-collapse {
+                padding-top: 12px;
+            }
+            .site-header .navbar-nav {
+                gap: 4px;
+            }
+            .site-header .nav-link {
+                padding: 10px 14px !important;
+            }
+            .user-chip {
+                width: 100%;
+                justify-content: center;
+                margin-top: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="AnimJams" asp-action="Index">Сообщество Аниматоров</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+    <header class="site-header">
+        <nav class="navbar navbar-expand-md">
+            <div class="container">
+
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                    @{
+                        var brandAvatar = DesignService.GetLocalAvatarUrl() ?? DesignService.GetGuildIconUrl();
+                    }
+                    @if (!string.IsNullOrEmpty(brandAvatar))
+                    {
+                        <img src="@brandAvatar" alt="" />
+                    }
+                    Сообщество Аниматоров
+                </a>
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#mainNav" aria-controls="mainNav"
+                        aria-expanded="false" aria-label="Меню">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <nav>
-                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+
+                <div class="navbar-collapse collapse" id="mainNav">
+                    <ul class="navbar-nav me-auto mb-2 mb-md-0">
+                        <li class="nav-item">
+                            <a class="@ActiveClass("AnimJams")" asp-controller="AnimJams" asp-action="Index">Аниджемы</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="@ActiveClass("Participants")" asp-controller="Participants" asp-action="Index">Участники</a>
+                        </li>
+                        @if (User.HasClaim("is_moderator", "true"))
                         {
-                            <span>приветствует тебя, @User.Identity.Name!</span>                
+                            <li class="nav-item">
+                                <a class="@ActiveClass("Moderator")" asp-controller="Moderator" asp-action="Index">Модераторская</a>
+                            </li>
                         }
-                        <a asp-controller="AnimJams" asp-action="Index">Аниджемы</a>
+                    </ul>
 
+                    <ul class="navbar-nav">
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
                         {
-
-                            @* Кнопка модератора видна только модераторам *@
-                            @if (User.HasClaim("is_moderator", "true"))
-                            {
-                                <a asp-controller="Moderator" asp-action="Index">Модераторская</a>
-                            }
-
-                            <a asp-controller="User" asp-action="Profile">Профиль</a>
-                            <a asp-controller="Account" asp-action="Logout">Выйти</a>
+                            <li class="nav-item">
+                                <a class="user-chip" asp-controller="User" asp-action="Profile">
+                                    👤 @User.Identity.Name
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Account" asp-action="Logout">Выйти</a>
+                            </li>
                         }
                         else
                         {
-                            <a asp-controller="Account" asp-action="Login">Войти через Discord</a>
+                            <li class="nav-item">
+                                <a class="nav-link cta" asp-controller="Account" asp-action="Login">Войти через Discord</a>
+                            </li>
                         }
-                        <a asp-controller="Participants" asp-action="Index">Участники</a>
-                        <a href="https://discord.com/invite/AfK6h3rpDh">Наш Сервер</a>
+                    </ul>
                 </div>
+
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
+
+    <div class="site-main">
+        <main role="main" class="container">
             @RenderBody()
         </main>
     </div>
 
+    <footer class="site-footer">
+        <div class="container">
+            Сообщество Аниматоров —
+            <a href="https://discord.com/invite/AfK6h3rpDh" target="_blank" rel="noopener">наш Discord-сервер</a>
+        </div>
+    </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    <script>
+        (function () {
+            const header = document.querySelector('.site-header');
+            if (!header) return;
+
+            let lastScroll = window.scrollY;
+            const threshold = 10;        // на сколько пикселей надо прокрутить, чтобы среагировать
+            const showAtTop = 80;        // до этой позиции шапка всегда видна
+
+            window.addEventListener('scroll', () => {
+                const current = window.scrollY;
+
+                // У самого верха — всегда показываем
+                if (current <= showAtTop) {
+                    header.classList.remove('hidden');
+                    lastScroll = current;
+                    return;
+                }
+
+                const diff = current - lastScroll;
+
+                if (Math.abs(diff) < threshold) return;
+
+                if (diff > 0) {
+                    // Скролл вниз — прячем
+                    header.classList.add('hidden');
+                } else {
+                    // Скролл вверх — показываем
+                    header.classList.remove('hidden');
+                }
+
+                lastScroll = current;
+            }, { passive: true });
+        })();
+    </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
