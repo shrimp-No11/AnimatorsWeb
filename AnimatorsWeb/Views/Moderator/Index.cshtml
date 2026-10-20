@@ -43,9 +43,30 @@
         <a asp-action="SendMessage" class="btn btn-primary" style="display: block; margin-bottom: 8px;">
             Отправить сообщение
         </a>
-        <a asp-action="Rules" class="btn btn-primary" style="display: block;">
+        <a asp-action="Rules" class="btn btn-primary" style="display: block; margin-bottom: 8px;">
             Правила
         </a>
+        @{
+            int pendingLinks = ViewBag.PendingLinksCount is int c ? c : 0;
+        }
+        @if (pendingLinks > 0)
+        {
+            <a asp-action="LinkedAccounts" class="btn"
+               style="display: block; margin-bottom: 8px; background: #e67e22; color: white; border: 2px solid #b35f14; position: relative;">
+                🔗 Связи аккаунтов
+                <span style="position: absolute; top: -8px; right: -8px; background: #e74c3c; color: white;
+                             border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: bold;
+                             border: 2px solid white;">
+                    @pendingLinks
+                </span>
+            </a>
+        }
+        else
+        {
+            <a asp-action="LinkedAccounts" class="btn btn-primary" style="display: block; margin-bottom: 8px;">
+                Связи аккаунтов
+            </a>
+        }
     </div>
 
 </div>

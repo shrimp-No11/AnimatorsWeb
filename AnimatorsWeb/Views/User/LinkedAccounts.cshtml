@@ -1,0 +1,64 @@
+﻿@model AnimatorsWeb.Models.UserLinkedAccountsViewModel
+@{
+    ViewData["Title"] = "Связанные аккаунты";
+}
+
+<h1>Связанные аккаунты</h1>
+
+@if (TempData["Result"] != null)
+{
+    <div style="color: green; margin: 10px 0;">@TempData["Result"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div style="color: red; margin: 10px 0;">@TempData["Error"]</div>
+}
+
+<h3>Добавить аккаунт</h3>
+<form method="post" asp-action="AddLinkedAccount" style="margin-bottom: 20px;">
+    <input type="text" name="input" placeholder="Discord ID или ник" style="width: 300px;" />
+    <button type="submit" class="btn">Отправить на проверку</button>
+</form>
+<p style="color: gray; font-size: 13px;">
+    Введите ID старого аккаунта (лучше) или его ник на сервере. Заявку рассмотрит модератор в течении недели.
+</p>
+
+<h3>Ваши связи</h3>
+@if (!Model.Connected.Any())
+{
+    <p>Пока нет подтверждённых связей.</p>
+}
+else
+{
+    <ul>
+        @foreach (var c in Model.Connected)
+        {
+            <li>@c.Tag</li>
+        }
+    </ul>
+}
+
+<h3>Заявки на рассмотрении</h3>
+@if (!Model.Pending.Any())
+{
+    <p>Нет активных заявок.</p>
+}
+else
+{
+    <ul>
+        @foreach (var p in Model.Pending)
+        {
+            <li>
+                @if (p.LinkedDiscordId.HasValue)
+                {
+                    <span>ID @p.LinkedDiscordId</span>
+                }
+                else
+                {
+                    <span>Ник: @p.LinkedName</span>
+                }
+                <span style="color: gray;"> (ожидает модератора)</span>
+            </li>
+        }
+    </ul>
+}   

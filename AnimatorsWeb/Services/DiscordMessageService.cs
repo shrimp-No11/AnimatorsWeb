@@ -917,5 +917,33 @@ public class DiscordMessageService
     {
         return _client.Guilds.Values.FirstOrDefault()?.Id ?? 0;
     }
+    public async Task<HashSet<ulong>> FilterUsersWithRoleAsync(IEnumerable<ulong> userIds, ulong roleId)
+    {
+        var result = new HashSet<ulong>();
+        var guild = _client.Guilds.Values.FirstOrDefault();
+        if (guild == null || roleId == 0) return result;
+
+        foreach (var userId in userIds.Distinct())
+        {
+            // 1. Пробуем кэш
+            if (guild.Members.TryGetValue(userId, out var cached) && cached != null)
+            {
+                if (cached.Roles.Any(r => r.Id == roleId))
+                    result.Add(userId);
+                continue;
+            }
+
+            // 2. Fallback — REST
+            try
+            {
+                var member = await guild.GetMemberAsync(userId);
+                if (member != null && member.Roles.Any(r => r.Id == roleId))
+                    result.Add(userId);
+            }
+            catch { }
+        }
+
+        return result;
+    }
 
 }

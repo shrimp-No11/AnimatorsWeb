@@ -82,6 +82,35 @@ namespace AnimatorsWeb.Migrations
                     b.ToTable("ChannelSettings");
                 });
 
+            modelBuilder.Entity("AnimatorsWeb.Models.LinkedAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsConfirmed")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("LinkedDiscordId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("LinkedName")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("PrimaryDiscordId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrimaryDiscordId", "LinkedDiscordId")
+                        .IsUnique()
+                        .HasFilter("\"LinkedDiscordId\" IS NOT NULL");
+
+                    b.ToTable("LinkedAccounts");
+                });
+
             modelBuilder.Entity("AnimatorsWeb.Models.RulesSettings", b =>
                 {
                     b.Property<int>("Id")
@@ -162,6 +191,10 @@ namespace AnimatorsWeb.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AnimJamNumber", "DiscordUserId", "Nomination", "WorkUrl")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Winners_AnimJamNumber_DiscordUserId_Nomination_WorkUrl");
 
                     b.ToTable("Winners");
                 });

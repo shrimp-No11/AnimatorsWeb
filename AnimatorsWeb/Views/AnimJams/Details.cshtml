@@ -107,7 +107,11 @@ else
                            style="text-decoration: none; color: inherit;">
                             <b>@person.DisplayName</b>
                         </a>
-                        if (i < work.People.Count - 1)
+                        if (i < work.People.Count - 2)
+                        {
+                            <span>, </span>
+                        }
+                        else if (i == work.People.Count - 2)
                         {
                             <span> и </span>
                         }

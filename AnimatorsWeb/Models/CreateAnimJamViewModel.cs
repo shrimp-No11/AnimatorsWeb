@@ -18,5 +18,7 @@ namespace AnimatorsWeb.Models
 
         [ValidateNever]
         public string? PollError { get; set; }
+        [ValidateNever]
+        public List<string> TieCandidates { get; set; } = new();
     }
 }

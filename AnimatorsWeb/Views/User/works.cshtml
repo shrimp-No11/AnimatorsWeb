@@ -46,7 +46,12 @@ else
                 </div>
 
                 <div style="padding: 10px;">
-                    <div><b>#@work.AnimJamNumber</b> — @work.Theme</div>
+                    <div>
+                        <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@work.AnimJamNumber"
+                           style="color: inherit; text-decoration: none;">
+                            <b>#@work.AnimJamNumber</b>
+                        </a> — @work.Theme
+                    </div>
 
                     @if (!string.IsNullOrEmpty(work.NominationDisplayHtml))
                     {

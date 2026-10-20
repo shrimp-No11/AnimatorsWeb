@@ -23,6 +23,24 @@
     <div>
         <h2>@Model.DisplayName</h2>
         <p style="color: gray;">@@@Model.Username</p>
+        @if (Model.LinkedAccounts.Any())
+        {
+            <div style="margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; color: gray; font-size: 14px;">
+                @foreach (var la in Model.LinkedAccounts)
+                {
+                    <span>@la.Tag</span>
+                }
+            </div>
+        }
+        @{
+            var currentDiscordId = User.FindFirst("discord_id")?.Value;
+            bool isOwnProfile = currentDiscordId == Model.DiscordUserId.ToString();
+        }
+
+        @if (isOwnProfile)
+        {
+            <a asp-controller="User" asp-action="LinkedAccounts">🔗 Связанные аккаунты</a>
+        }
         @if (Model.FirstParticipationDate > 0)
         {
             <p>В сообществе с аниджема #@Model.FirstParticipationDate</p>

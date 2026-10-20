@@ -21,5 +21,7 @@
         public int HonorableWins { get; set; }
 
         public int FirstParticipationDate { get; set; }
+
+        public List<LinkedAccountDisplay> LinkedAccounts { get; set; } = new();
     }
 }

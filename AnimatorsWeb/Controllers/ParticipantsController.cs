@@ -25,56 +25,116 @@ namespace AnimatorsWeb.Controllers
                 .Select(j => new { j.Number, j.StartDate })
                 .ToDictionaryAsync(j => j.Number, j => j.StartDate);
 
+            // === Подтверждённые связи (только с известным LinkedDiscordId) ===
+            var links = await _db.LinkedAccounts
+                .Where(la => la.IsConfirmed && la.LinkedDiscordId != null)
+                .Select(la => new { la.PrimaryDiscordId, Linked = la.LinkedDiscordId!.Value })
+                .ToListAsync();
+
+            // Двунаправленный граф связей
+            var adjacency = new Dictionary<ulong, HashSet<ulong>>();
+            void AddEdge(ulong a, ulong b)
+            {
+                if (!adjacency.TryGetValue(a, out var sa)) adjacency[a] = sa = new HashSet<ulong>();
+                if (!adjacency.TryGetValue(b, out var sb)) adjacency[b] = sb = new HashSet<ulong>();
+                sa.Add(b);
+                sb.Add(a);
+            }
+            foreach (var l in links) AddEdge(l.PrimaryDiscordId, l.Linked);
+
+            // Все id, у которых есть хоть какие-то данные
             var allUserIds = participants.Select(p => p.DiscordUserId)
                 .Concat(winners.Select(w => w.DiscordUserId))
                 .Distinct()
                 .ToList();
 
-            var rows = new List<ParticipantRow>();
+            // Обход в ширину — компоненты связности
+            var clusters = new List<List<ulong>>();
+            var visited = new HashSet<ulong>();
 
             foreach (var userId in allUserIds)
             {
-                var userParticipations = participants.Where(p => p.DiscordUserId == userId).ToList();
-                var userWins = winners.Where(w => w.DiscordUserId == userId).ToList();
+                if (visited.Contains(userId)) continue;
 
-                // Имя — из последнего участия (свежий снимок ника)
-                var lastParticipation = userParticipations
+                var cluster = new List<ulong>();
+                var queue = new Queue<ulong>();
+                queue.Enqueue(userId);
+                visited.Add(userId);
+
+                while (queue.Count > 0)
+                {
+                    var cur = queue.Dequeue();
+                    cluster.Add(cur);
+
+                    if (adjacency.TryGetValue(cur, out var neighbors))
+                        foreach (var n in neighbors)
+                            if (visited.Add(n)) queue.Enqueue(n);
+                }
+
+                clusters.Add(cluster);
+            }
+
+            var rows = new List<ParticipantRow>();
+
+            foreach (var cluster in clusters)
+            {
+                var idSet = cluster.ToHashSet();
+
+                // --- представитель: у кого самая свежая запись (Participants, потом Winners) ---
+                ulong repId = cluster[0];
+                int bestJam = -1;
+
+                foreach (var id in cluster)
+                {
+                    int lastP = participants.Where(p => p.DiscordUserId == id)
+                        .Select(p => p.AnimJamNumber).DefaultIfEmpty(0).Max();
+                    int lastW = winners.Where(w => w.DiscordUserId == id)
+                        .Select(w => w.AnimJamNumber).DefaultIfEmpty(0).Max();
+                    int last = Math.Max(lastP, lastW);
+
+                    if (last > bestJam)
+                    {
+                        bestJam = last;
+                        repId = id;
+                    }
+                }
+
+                // --- статистика по ВСЕМ id кластера ---
+                var clusterParticipations = participants.Where(p => idSet.Contains(p.DiscordUserId)).ToList();
+                var clusterWins = winners.Where(w => idSet.Contains(w.DiscordUserId)).ToList();
+
+                // Имя — из самой свежей записи в кластере
+                var lastParticipation = clusterParticipations
                     .OrderByDescending(p => p.AnimJamNumber)
                     .FirstOrDefault();
+                string displayName = lastParticipation?.DisplayName ?? $"ID {repId}";
 
-                string displayName = lastParticipation?.DisplayName ?? $"ID {userId}";
+                var winsByJam = clusterWins.GroupBy(w => w.AnimJamNumber).ToList();
 
-                // Победы по аниджемам
-                var winsByJam = userWins.GroupBy(w => w.AnimJamNumber).ToList();
-
-                // Абсолютные — там, где и Idea, и Technical
                 var absoluteJamNumbers = winsByJam
                     .Where(g => g.Any(w => w.Nomination == NominationType.Idea) &&
                                 g.Any(w => w.Nomination == NominationType.Technical))
                     .Select(g => g.Key)
                     .ToHashSet();
 
-                // Аниджемы, где есть хоть одна победа (кроме HonorableMention)
                 int winsCount = winsByJam.Count(g => g.Any(w =>
                     w.Nomination == NominationType.Idea ||
                     w.Nomination == NominationType.Technical ||
                     w.Nomination == NominationType.Winner));
 
-                // Разбивка по номинациям без абсолютных
-                int ideaWins = userWins.Count(w =>
+                int ideaWins = clusterWins.Count(w =>
                     w.Nomination == NominationType.Idea &&
                     !absoluteJamNumbers.Contains(w.AnimJamNumber));
 
-                int techWins = userWins.Count(w =>
+                int techWins = clusterWins.Count(w =>
                     w.Nomination == NominationType.Technical &&
                     !absoluteJamNumbers.Contains(w.AnimJamNumber));
 
-                int legacyWins = userWins.Count(w => w.Nomination == NominationType.Winner);
-                int honorable = userWins.Count(w => w.Nomination == NominationType.HonorableMention);
+                int legacyWins = clusterWins.Count(w => w.Nomination == NominationType.Winner);
+                int honorable = clusterWins.Count(w => w.Nomination == NominationType.HonorableMention);
 
-                // Первое и последнее появление
-                var allJamNumbers = userParticipations.Select(p => p.AnimJamNumber)
-                    .Concat(userWins.Select(w => w.AnimJamNumber))
+                var allJamNumbers = clusterParticipations.Select(p => p.AnimJamNumber)
+                    .Concat(clusterWins.Select(w => w.AnimJamNumber))
                     .Distinct()
                     .ToList();
 
@@ -83,10 +143,10 @@ namespace AnimatorsWeb.Controllers
 
                 rows.Add(new ParticipantRow
                 {
-                    DiscordUserId = userId,
+                    DiscordUserId = repId,
                     DisplayName = displayName,
-                    ParticipationsCount = userParticipations.Select(p => p.AnimJamNumber).Distinct().Count(),
-                    WorksCount = userParticipations.Count,
+                    ParticipationsCount = clusterParticipations.Select(p => p.AnimJamNumber).Distinct().Count(),
+                    WorksCount = clusterParticipations.Count,
                     WinsCount = winsCount,
                     AbsoluteVictories = absoluteJamNumbers.Count,
                     IdeaWins = ideaWins,

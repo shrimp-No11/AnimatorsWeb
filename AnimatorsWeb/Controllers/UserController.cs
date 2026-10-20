@@ -92,8 +92,31 @@ namespace AnimatorsWeb.Controllers
                 model.DisplayName = fallbackName ?? $"ID {discordId}";
             }
 
+            // === Связанные аккаунты (все подтверждённые, достижимые по цепочке) ===
+            var connectedIds = await GetConnectedIdsAsync(discordId);
+            var guildForLinks = _discordClient.Guilds.Values.FirstOrDefault();
+            foreach (var id in connectedIds)
+            {
+                string? tag = null;
+                if (guildForLinks != null)
+                {
+                    try
+                    {
+                        var member = await guildForLinks.GetMemberAsync(id);
+                        if (member != null) tag = "@" + member.Username;
+                    }
+                    catch { }
+                }
+                if (!string.IsNullOrEmpty(tag))
+                    model.LinkedAccounts.Add(new LinkedAccountDisplay { DiscordId = id, Tag = tag });
+            }
+
+            // Все id для статистики — связанные + сам
+            var allIds = new HashSet<ulong>(connectedIds) { discordId };
+
+            // === Участия ===
             var participations = await _db.Participants
-                .Where(p => p.DiscordUserId == discordId)
+                .Where(p => allIds.Contains(p.DiscordUserId))
                 .ToListAsync();
 
             model.ParticipationsCount = participations
@@ -104,21 +127,18 @@ namespace AnimatorsWeb.Controllers
             if (participations.Any())
                 model.FirstParticipationDate = participations.Min(p => p.AnimJamNumber);
 
+            // === Победы ===
             var wins = await _db.Winners
-                .Where(w => w.DiscordUserId == discordId)
+                .Where(w => allIds.Contains(w.DiscordUserId))
                 .ToListAsync();
 
-            // Группируем по аниджему — одна победа = один аниджем
-            // Группируем по аниджему — одна победа = один аниджем
             var winsByJam = wins.GroupBy(w => w.AnimJamNumber).ToList();
 
-            // Абсолютные победы — там, где есть и Idea, и Technical
             var absoluteJams = winsByJam
                 .Where(g => g.Any(w => w.Nomination == NominationType.Idea) &&
                             g.Any(w => w.Nomination == NominationType.Technical))
                 .ToList();
 
-            // Старый формат — там, где есть Winner
             var legacyJams = winsByJam
                 .Where(g => g.Any(w => w.Nomination == NominationType.Winner))
                 .ToList();
@@ -126,14 +146,11 @@ namespace AnimatorsWeb.Controllers
             model.AbsoluteVictoriesCount = absoluteJams.Count;
             model.LegacyVictoriesCount = legacyJams.Count;
 
-            // Уникальные аниджемы с победами (без HonorableMention)
             model.WinsCount = winsByJam.Count(g => g.Any(w =>
                 w.Nomination == NominationType.Idea ||
                 w.Nomination == NominationType.Technical ||
                 w.Nomination == NominationType.Winner));
 
-            // Разбивка по номинациям — без учёта абсолютных
-            // Считаем записи, которые НЕ относятся к абсолютным аниджемам
             var absoluteJamNumbers = absoluteJams.Select(g => g.Key).ToHashSet();
 
             model.IdeaWins = wins.Count(w =>
@@ -152,13 +169,25 @@ namespace AnimatorsWeb.Controllers
 
         private async Task<UserWorksViewModel> BuildWorksModel(ulong discordId, string? fallbackName)
         {
-            var participations = await _db.Participants
-                .Where(p => p.DiscordUserId == discordId)
+            var connectedIds = await GetConnectedIdsAsync(discordId);
+            var allIds = new HashSet<ulong>(connectedIds) { discordId };
+
+            // === Участия (связанные + сам) ===
+            var rawParticipations = await _db.Participants
+                .Where(p => allIds.Contains(p.DiscordUserId))
                 .OrderByDescending(p => p.AnimJamNumber)
                 .ToListAsync();
 
+            // Дедуп по (AnimJamNumber, WorkUrl): если несколько связанных указаны авторами одной работы — одна карточка
+            var participations = rawParticipations
+                .GroupBy(p => new { p.AnimJamNumber, p.WorkUrl })
+                .Select(g => g.First())
+                .OrderByDescending(p => p.AnimJamNumber)
+                .ToList();
+
+            // === Победы (связанные + сам) ===
             var wins = await _db.Winners
-                .Where(w => w.DiscordUserId == discordId)
+                .Where(w => allIds.Contains(w.DiscordUserId))
                 .ToListAsync();
 
             var jamNumbers = participations.Select(p => p.AnimJamNumber).Distinct().ToList();
@@ -166,10 +195,7 @@ namespace AnimatorsWeb.Controllers
                 .Where(j => jamNumbers.Contains(j.Number))
                 .ToDictionaryAsync(j => j.Number, j => j.Theme);
 
-
             var displayName = fallbackName;
-
-            // Если имя не передали — тянем из Discord
             if (string.IsNullOrEmpty(displayName))
             {
                 var guild = _discordClient.Guilds.Values.FirstOrDefault();
@@ -183,20 +209,24 @@ namespace AnimatorsWeb.Controllers
                     }
                     catch { }
                 }
-
                 if (string.IsNullOrEmpty(displayName))
                     displayName = $"ID {discordId}";
             }
 
-            var model = new UserWorksViewModel
-            {
-                DisplayName = displayName
-            };
+            var model = new UserWorksViewModel { DisplayName = displayName };
 
             foreach (var p in participations)
             {
-                // Все номинации, полученные за этот аниджем
-                var jamWins = wins.Where(w => w.AnimJamNumber == p.AnimJamNumber).ToList();
+                // Победы привязываем к конкретной работе по WorkUrl (с учётом всех связанных id)
+                var jamWins = wins
+                    .Where(w => w.AnimJamNumber == p.AnimJamNumber &&
+                                !string.IsNullOrEmpty(w.WorkUrl) &&
+                                w.WorkUrl == p.WorkUrl)
+                    .ToList();
+
+                // Fallback: если WorkUrl в Winner пуст/устарел — берём все победы по этому аниджему
+                if (jamWins.Count == 0)
+                    jamWins = wins.Where(w => w.AnimJamNumber == p.AnimJamNumber).ToList();
 
                 var item = new UserWorkItem
                 {
@@ -230,7 +260,7 @@ namespace AnimatorsWeb.Controllers
                 else if (Regex.IsMatch(p.WorkUrl, @"\.(gif|png|jpg|jpeg)(\?|$)", RegexOptions.IgnoreCase))
                 {
                     item.MediaType = "image";
-                    item.ThumbnailUrl = p.WorkUrl;
+                    item.ThumbnailUrl = $"/Media/StreamWork/{p.Id}";
                 }
                 else
                 {
@@ -310,6 +340,156 @@ namespace AnimatorsWeb.Controllers
             if (hasHonorable) return EmojiHelper.GoldPoopHtml;
 
             return "";
+        }
+
+
+        // ====== СВЯЗАННЫЕ АККАУНТЫ ======
+
+        [HttpGet]
+        public async Task<IActionResult> LinkedAccounts()
+        {
+            var discordIdStr = User.FindFirst("discord_id")?.Value;
+            if (!ulong.TryParse(discordIdStr, out var me))
+                return RedirectToAction("Login", "Account");
+
+            var model = new UserLinkedAccountsViewModel();
+
+            model.Pending = await _db.LinkedAccounts
+                .Where(la => la.PrimaryDiscordId == me && !la.IsConfirmed)
+                .OrderBy(la => la.Id)
+                .ToListAsync();
+
+            var connectedIds = await GetConnectedIdsAsync(me);
+            var guild = _discordClient.Guilds.Values.FirstOrDefault();
+
+            foreach (var id in connectedIds)
+            {
+                string? tag = null;
+                if (guild != null)
+                {
+                    try
+                    {
+                        var member = await guild.GetMemberAsync(id);
+                        if (member != null) tag = "@" + member.Username;
+                    }
+                    catch { }
+                }
+                model.Connected.Add(new LinkedAccountDisplay
+                {
+                    DiscordId = id,
+                    Tag = tag ?? $"ID {id}"
+                });
+            }
+
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddLinkedAccount(string input)
+        {
+            var discordIdStr = User.FindFirst("discord_id")?.Value;
+            if (!ulong.TryParse(discordIdStr, out var me))
+                return RedirectToAction("Login", "Account");
+
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                TempData["Error"] = "Введите ID или ник";
+                return RedirectToAction(nameof(LinkedAccounts));
+            }
+
+            input = input.Trim();
+            ulong? targetId = null;
+            string? targetName = null;
+
+            if (ulong.TryParse(input, out var parsedId))
+            {
+                if (parsedId == me)
+                {
+                    TempData["Error"] = "Нельзя связать аккаунт с самим собой";
+                    return RedirectToAction(nameof(LinkedAccounts));
+                }
+
+                var exists = await _db.Participants.AnyAsync(p => p.DiscordUserId == parsedId);
+                if (!exists)
+                {
+                    TempData["Error"] = "Указанный ID не найден среди участников";
+                    return RedirectToAction(nameof(LinkedAccounts));
+                }
+
+                targetId = parsedId;
+            }
+            else
+            {
+                targetName = input;
+
+                var myNames = await _db.Participants
+                    .Where(p => p.DiscordUserId == me)
+                    .Select(p => p.DisplayName)
+                    .ToListAsync();
+
+                if (myNames.Any(n => string.Equals(n, targetName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    TempData["Error"] = "Нельзя связать аккаунт с самим собой";
+                    return RedirectToAction(nameof(LinkedAccounts));
+                }
+            }
+
+            // Проверка на дубль пары в любом направлении
+            if (targetId.HasValue)
+            {
+                var existsEither = await _db.LinkedAccounts.AnyAsync(la =>
+                    (la.PrimaryDiscordId == me && la.LinkedDiscordId == targetId) ||
+                    (la.PrimaryDiscordId == targetId && la.LinkedDiscordId == me));
+                if (existsEither)
+                {
+                    TempData["Error"] = "Связь между этими аккаунтами уже существует или подана";
+                    return RedirectToAction(nameof(LinkedAccounts));
+                }
+            }
+
+            _db.LinkedAccounts.Add(new LinkedAccount
+            {
+                PrimaryDiscordId = me,
+                LinkedDiscordId = targetId,
+                LinkedName = targetName,
+                IsConfirmed = false
+            });
+            await _db.SaveChangesAsync();
+
+            TempData["Result"] = "Заявка на связь отправлена модератору";
+            return RedirectToAction(nameof(LinkedAccounts));
+        }
+
+        // Все подтверждённые id, достижимые из discordId (не включая сам discordId)
+        private async Task<HashSet<ulong>> GetConnectedIdsAsync(ulong discordId)
+        {
+            var confirmed = await _db.LinkedAccounts
+                .Where(la => la.IsConfirmed && la.LinkedDiscordId != null)
+                .ToListAsync();
+
+            var result = new HashSet<ulong>();
+            var queue = new Queue<ulong>();
+            queue.Enqueue(discordId);
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                foreach (var link in confirmed)
+                {
+                    ulong other;
+                    if (link.PrimaryDiscordId == current)
+                        other = link.LinkedDiscordId!.Value;
+                    else if (link.LinkedDiscordId == current)
+                        other = link.PrimaryDiscordId;
+                    else
+                        continue;
+
+                    if (other != discordId && result.Add(other))
+                        queue.Enqueue(other);
+                }
+            }
+
+            return result;
         }
     }
 }

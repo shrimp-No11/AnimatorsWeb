@@ -31,7 +31,22 @@
             }
             @if (Model.PollError != null)
             {
-                <small style="color: orange;">@Model.PollError</small>
+                <div style="margin-top: 5px;">
+                    <small style="color: orange;">@Model.PollError</small>
+                </div>
+                @if (Model.TieCandidates.Any())
+                {
+                    <div style="margin-top: 5px; display: flex; gap: 5px; flex-wrap: wrap;">
+                        @foreach (var t in Model.TieCandidates)
+                        {
+                            <button type="button" class="btn btn-primary"
+                                    data-theme="@t"
+                                    onclick="usePollTheme(this.dataset.theme)">
+                                @t
+                            </button>
+                        }
+                    </div>
+                }
             }
         </div>
 

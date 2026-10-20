@@ -1,0 +1,150 @@
+﻿@model AnimatorsWeb.Models.ModeratorLinkedAccountsViewModel
+@{
+    ViewData["Title"] = "Связанные аккаунты";
+}
+
+<h1>Связанные аккаунты</h1>
+
+@if (TempData["Result"] != null)
+{
+    <div style="color: green; margin: 10px 0;">@TempData["Result"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div style="color: red; margin: 10px 0;">@TempData["Error"]</div>
+}
+
+@if (!Model.Rows.Any())
+{
+    <p>Заявок и связей пока нет.</p>
+}
+else
+{
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f0f0f0;">
+                <th style="padding: 8px; text-align: left;">Статус</th>
+                <th style="padding: 8px; text-align: left;">Пользователь</th>
+                <th style="padding: 8px; text-align: left;">Связь с</th>
+                <th style="padding: 8px; text-align: left;">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                var la = row.Link;
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px;">
+                        @if (la.IsConfirmed)
+                        {
+                            <span style="color: green;">✔ Подтверждено</span>
+                        }
+                        else
+                        {
+                            <span style="color: orange;">⏳ Ожидает</span>
+                        }
+                    </td>
+                    <td style="padding: 8px;">
+                        <code>@la.PrimaryDiscordId</code>
+                        @if (!string.IsNullOrEmpty(row.PrimaryName))
+                        {
+                            <div style="color: gray; font-size: 13px;">@row.PrimaryName</div>
+                        }
+                    </td>
+                    <td style="padding: 8px;">
+                        @if (la.LinkedDiscordId.HasValue)
+                        {
+                            <code>@la.LinkedDiscordId</code>
+                            @if (!string.IsNullOrEmpty(row.LinkedNameResolved))
+                            {
+                                <div style="color: gray; font-size: 13px;">@row.LinkedNameResolved</div>
+                            }
+                        }
+                        else
+                        {
+                            <span>Ник: </span>
+                            <input type="text"
+                                   class="name-input form-control"
+                                   data-link-id="@la.Id"
+                                   value="@la.LinkedName"
+                                   placeholder="Начните вводить ник..."
+                                   style="display: inline-block; width: 220px;" />
+                            <div class="name-results" data-link-id="@la.Id" style="margin-top: 6px;"></div>
+                        }
+                    </td>
+                    <td style="padding: 8px;">
+                        @if (!la.IsConfirmed && la.LinkedDiscordId.HasValue)
+                        {
+                            <form method="post" asp-action="ApproveLinkedAccount" style="display: inline;">
+                                <input type="hidden" name="id" value="@la.Id" />
+                                <button type="submit" class="btn">Подтвердить</button>
+                            </form>
+                        }
+                        <form method="post" asp-action="RejectLinkedAccount" style="display: inline; margin-left: 6px;">
+                            <input type="hidden" name="id" value="@la.Id" />
+                            <button type="submit" class="btn">
+                                @(la.IsConfirmed ? "Удалить связь" : "Отклонить")
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+
+    <script>
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function renderResults(container, linkId, items) {
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div style="color: #c00; font-size: 13px;">Совпадений не найдено</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(m => `
+                <div style="font-size: 13px; margin: 4px 0;">
+                    <code>${m.discordUserId}</code> — ${escapeHtml(m.displayName)}
+                    <span style="color: gray;">(работ: ${m.worksCount}, посл. аниджем: ${m.lastAnimJam})</span>
+                    <form method="post" action="/Moderator/ApproveLinkedAccount" style="display: inline;">
+                        <input type="hidden" name="id" value="${linkId}" />
+                        <input type="hidden" name="resolvedId" value="${m.discordUserId}" />
+                        <button type="submit" class="btn">Связать с этим</button>
+                    </form>
+                </div>
+            `).join('');
+        }
+
+        document.querySelectorAll('.name-input').forEach(input => {
+            const linkId = input.dataset.linkId;
+            const results = document.querySelector(`.name-results[data-link-id="${linkId}"]`);
+            if (!results) return;
+
+            let timer;
+
+            const run = async () => {
+                const q = input.value.trim();
+                if (q.length < 2) { results.innerHTML = ''; return; }
+                try {
+                    const res = await fetch(`/Moderator/SearchParticipants?query=${encodeURIComponent(q)}`);
+                    const data = await res.json();
+                    renderResults(results, linkId, data);
+                } catch {
+                    results.innerHTML = '<div style="color: #c00; font-size: 13px;">Ошибка поиска</div>';
+                }
+            };
+
+            input.addEventListener('input', () => {
+                clearTimeout(timer);
+                timer = setTimeout(run, 300);
+            });
+
+            // Автозапуск при загрузке, если ник уже есть
+            if (input.value.trim().length >= 2) run();
+        });
+    </script>
+}

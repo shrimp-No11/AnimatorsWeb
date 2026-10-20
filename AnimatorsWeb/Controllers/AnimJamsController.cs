@@ -320,7 +320,7 @@ namespace AnimatorsWeb.Controllers
                 else if (Regex.IsMatch(p.WorkUrl, @"\.(gif|png|jpg|jpeg)(\?|$)", RegexOptions.IgnoreCase))
                 {
                     item.MediaType = "image";
-                    item.ThumbnailUrl = p.WorkUrl;
+                    item.ThumbnailUrl = $"/Media/StreamWork/{p.Id}";
                 }
                 else
                 {

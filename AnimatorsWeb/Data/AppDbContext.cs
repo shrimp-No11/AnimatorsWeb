@@ -14,12 +14,18 @@ namespace AnimatorsWeb.Data
         public DbSet<Winner> Winners { get; set; }
         public DbSet<Participant> Participants { get; set; }
         public DbSet<RulesSettings> RulesSettings { get; set; }
+        public DbSet<LinkedAccount> LinkedAccounts { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Winner>()
                 .HasIndex(w => new { w.AnimJamNumber, w.DiscordUserId, w.Nomination, w.WorkUrl })
                 .IsUnique()
                 .HasDatabaseName("IX_Winners_AnimJamNumber_DiscordUserId_Nomination_WorkUrl");
+
+            modelBuilder.Entity<LinkedAccount>()
+                .HasIndex(la => new { la.PrimaryDiscordId, la.LinkedDiscordId })
+                .IsUnique()
+                .HasFilter("\"LinkedDiscordId\" IS NOT NULL");
 
             base.OnModelCreating(modelBuilder);
         }

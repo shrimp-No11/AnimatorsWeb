@@ -16,6 +16,7 @@ namespace AnimatorsWeb.Services
             };
         }
 
+
         public static string GetDisplayHtml(NominationType nom, int jamNumber)
         {
             return nom switch
@@ -30,7 +31,7 @@ namespace AnimatorsWeb.Services
 
         public static string GetCombinedDisplay(int jamNumber)
         {
-            return $"🏆 победитель  ";
+            return $"✨🔨 победитель в номинациях  ";
         }
     }
 }
