@@ -11,13 +11,15 @@ namespace AnimatorsWeb.Controllers
     {
         private readonly AppDbContext _db;
         private readonly DesignSettingsService _design;
+        FeaturedThumbnailService _thumbService;
         private readonly IConfiguration _config;
 
-        public HomeController(AppDbContext db, DesignSettingsService design, IConfiguration config)
+        public HomeController(AppDbContext db, DesignSettingsService design, IConfiguration config, FeaturedThumbnailService thumb)
         {
             _db = db;
             _design = design;
             _config = config;
+            _thumbService = thumb;
         }
 
         public async Task<IActionResult> Index()
@@ -90,6 +92,15 @@ namespace AnimatorsWeb.Controllers
                     DisplayName = w.DisplayName
                 };
                 FillMedia(item);
+
+                var local = _thumbService.GetUrl(item.ParticipantId);
+                if (!string.IsNullOrEmpty(local))
+                {
+                    item.ThumbnailUrl = local;
+                    // если обложка есть — считаем её «image», даже если исходник видео
+                    if (item.MediaType == "video") item.MediaType = "image";
+                }
+
                 model.RecentWorks.Add(item);
             }
 

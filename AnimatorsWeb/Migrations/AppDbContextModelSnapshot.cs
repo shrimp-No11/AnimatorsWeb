@@ -201,6 +201,10 @@ namespace AnimatorsWeb.Migrations
                     b.Property<decimal>("RoleId")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<string>("SectionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("RulesSettings");

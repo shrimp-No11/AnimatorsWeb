@@ -33,6 +33,8 @@ ScaffoldingReadMe.txt
 *.binlog
 wwwroot/images/guild-avatar.png
 wwwroot/images/guild-avatar.png.tmp
+wwwroot/featured/*.jpg
+wwwroot/featured/*.tmp
 
 # Локальные конфиги и секреты
 appsettings.Development.json

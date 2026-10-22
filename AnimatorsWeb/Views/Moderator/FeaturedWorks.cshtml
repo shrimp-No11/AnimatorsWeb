@@ -104,6 +104,13 @@
 
 <h1>Работы на главной</h1>
 
+<form method="post" asp-action="RefreshThumbnails" style="margin-bottom: 15px;">
+    <button type="submit" class="btn btn-primary"
+            onclick="return confirm('Перекачать все обложки? Может занять несколько секунд.');">
+        🔄 Обновить все обложки
+    </button>
+</form>
+
 <div id="statusMsg" style="display: none; padding: 8px 14px; border-radius: 6px; margin-bottom: 15px;"></div>
 
 <div class="fw-layout">

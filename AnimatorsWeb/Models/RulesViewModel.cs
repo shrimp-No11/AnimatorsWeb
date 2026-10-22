@@ -9,5 +9,6 @@ namespace AnimatorsWeb.Models
 
         [ValidateNever]
         public SelectList ChannelList { get; set; }
+        public List<RuleSection> Sections { get; set; } = new();
     }
 }

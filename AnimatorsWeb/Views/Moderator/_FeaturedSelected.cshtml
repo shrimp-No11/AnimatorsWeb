@@ -15,7 +15,22 @@ else
                  onclick="openWork('@w.WorkUrl', '@w.MessageUrl', @w.ParticipantId)">
                 @if (w.MediaType == "youtube" || w.MediaType == "image")
                 {
-                    <img src="@w.ThumbnailUrl" loading="lazy" alt="" />
+                    @if (!string.IsNullOrEmpty(w.ThumbnailUrl) && w.ThumbnailUrl.StartsWith("/featured/"))
+                    {
+                        <img src="@w.ThumbnailUrl" loading="lazy" alt="" />
+                    }
+                    else if (w.MediaType == "youtube" || w.MediaType == "image")
+                    {
+                        <img src="@w.ThumbnailUrl" loading="lazy" alt="" />
+                    }
+                    else if (w.MediaType == "video")
+                    {
+                        <video preload="metadata" muted src="@w.ThumbnailUrl"></video>
+                    }
+                    else
+                    {
+                        <div class="link-icon">🔗</div>
+                    }
                 }
                 else if (w.MediaType == "video")
                 {

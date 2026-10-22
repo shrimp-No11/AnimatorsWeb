@@ -800,6 +800,54 @@ public class DiscordMessageService
         return resultIds;
     }
 
+    public async Task<List<ulong>> PublishRulesChunksAsync(
+    ulong channelId, List<string> chunks, List<ulong>? existingMessageIds = null)
+    {
+        var channel = await _client.GetChannelAsync(channelId);
+        if (channel == null)
+            throw new InvalidOperationException($"Канал {channelId} не найден.");
+
+        var resultIds = new List<ulong>();
+        existingMessageIds ??= new List<ulong>();
+
+        for (int i = 0; i < chunks.Count; i++)
+        {
+            ulong msgId;
+            if (i < existingMessageIds.Count)
+            {
+                var msg = await channel.GetMessageAsync(existingMessageIds[i]);
+                if (msg != null)
+                {
+                    await msg.ModifyAsync(chunks[i]);
+                    msgId = msg.Id;
+                }
+                else
+                {
+                    var newMsg = await channel.SendMessageAsync(chunks[i]);
+                    msgId = newMsg.Id;
+                }
+            }
+            else
+            {
+                var newMsg = await channel.SendMessageAsync(chunks[i]);
+                msgId = newMsg.Id;
+            }
+            resultIds.Add(msgId);
+        }
+
+        for (int i = chunks.Count; i < existingMessageIds.Count; i++)
+        {
+            try
+            {
+                var msg = await channel.GetMessageAsync(existingMessageIds[i]);
+                if (msg != null) await msg.DeleteAsync();
+            }
+            catch { }
+        }
+
+        return resultIds;
+    }
+
     // Разбивает текст на куски по maxLen, не разрезая слова/строки
     private static List<string> SplitIntoChunks(string text, int maxLen)
     {

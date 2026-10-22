@@ -4,6 +4,44 @@
     ViewData["Title"] = "Правила";
 }
 
+<style>
+    .rules-section {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background: #fafafa;
+    }
+    .rules-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .rules-section-header .title {
+        font-weight: 600;
+        color: #555;
+        font-size: 14px;
+    }
+    .rules-section-header .actions button {
+        width: 28px;
+        height: 28px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-left: 4px;
+        font-size: 14px;
+    }
+    .rules-section-header .actions button:hover { background: #f0f0f0; }
+    .rules-section textarea {
+        width: 100%;
+        box-sizing: border-box;
+        font-family: monospace;
+        font-size: 13px;
+    }
+</style>
+
 <h1>Правила</h1>
 
 @if (TempData["Result"] != null)
@@ -21,6 +59,7 @@
     <input type="hidden" asp-for="Settings.LastMessageId" />
     <input type="hidden" asp-for="Settings.AllMessageIds" />
     <input type="hidden" asp-for="Settings.GuildId" />
+    <input type="hidden" asp-for="Settings.SectionsJson" />
 
     <div class="form-group">
         <label>Канал для правил:</label>
@@ -35,13 +74,86 @@
         <small>Узнать ID: включи режим разработчика в Discord, правый клик по роли → Copy Role ID</small>
     </div>
 
-    <div class="form-group">
-        <label>Текст правил:</label>
-        <textarea asp-for="Settings.Content" class="form-control" rows="20"></textarea>
-        <small>Discord разбивает текст на сообщения по 2000 символов — бот сделает это автоматически.</small>
+    <hr />
+
+    <h3>Разделы правил</h3>
+    <p style="color: gray; font-size: 14px;">
+        Каждый раздел — отдельный блок текста. Бот публикует разделы подряд и переносит на новое сообщение
+        <b>между</b> разделами (раздел никогда не разрывается, если только сам по себе не превышает лимит Discord в 1900 символов).
+    </p>
+
+    <div id="sections">
+        @for (int i = 0; i < Model.Sections.Count; i++)
+        {
+            <div class="rules-section">
+                <div class="rules-section-header">
+                    <span class="title">Раздел @(i + 1)</span>
+                    <div class="actions">
+                        <button type="button" onclick="moveUp(this)" title="Выше">↑</button>
+                        <button type="button" onclick="moveDown(this)" title="Ниже">↓</button>
+                        <button type="button" onclick="removeSection(this)" title="Удалить">✕</button>
+                    </div>
+                </div>
+                <textarea name="Sections[@i].Content" rows="8" class="form-control">@Model.Sections[i].Content</textarea>
+            </div>
+        }
     </div>
+
+    <button type="button" onclick="addSection()" style="margin-bottom: 15px;">
+        + Добавить раздел
+    </button>
+
+    <br />
 
     <button type="submit" class="btn btn-primary">Сохранить и опубликовать</button>
 </form>
 
-<p><a asp-action="Index">← Назад к модераторской</a></p>
+<p style="margin-top: 20px;"><a asp-action="Index">← Назад к модераторской</a></p>
+
+<script>
+    function reindex() {
+        document.querySelectorAll('#sections .rules-section').forEach((el, i) => {
+            el.querySelector('.title').textContent = 'Раздел ' + (i + 1);
+            el.querySelector('textarea').name = 'Sections[' + i + '].Content';
+        });
+    }
+
+    function addSection() {
+        const container = document.getElementById('sections');
+        const div = document.createElement('div');
+        div.className = 'rules-section';
+        div.innerHTML = `
+            <div class="rules-section-header">
+                <span class="title">Раздел</span>
+                <div class="actions">
+                    <button type="button" onclick="moveUp(this)" title="Выше">↑</button>
+                    <button type="button" onclick="moveDown(this)" title="Ниже">↓</button>
+                    <button type="button" onclick="removeSection(this)" title="Удалить">✕</button>
+                </div>
+            </div>
+            <textarea rows="8" class="form-control"></textarea>
+        `;
+        container.appendChild(div);
+        reindex();
+        div.querySelector('textarea').focus();
+    }
+
+    function removeSection(btn) {
+        btn.closest('.rules-section').remove();
+        reindex();
+    }
+
+    function moveUp(btn) {
+        const el = btn.closest('.rules-section');
+        const prev = el.previousElementSibling;
+        if (prev) el.parentNode.insertBefore(el, prev);
+        reindex();
+    }
+
+    function moveDown(btn) {
+        const el = btn.closest('.rules-section');
+        const next = el.nextElementSibling;
+        if (next) el.parentNode.insertBefore(next, el);
+        reindex();
+    }
+</script>

@@ -13,5 +13,6 @@
 
         // ID всех сообщений с правилами (если разбито на несколько)
         public string AllMessageIds { get; set; } = ""; // "123,456,789"
+        public string SectionsJson { get; set; } = "";
     }
 }

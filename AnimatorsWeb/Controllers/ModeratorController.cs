@@ -22,6 +22,7 @@ namespace AnimatorsWeb.Controllers
         private readonly ChannelSettingsService _settingsService;
         private readonly RulesService _rulesService;
         private readonly DesignSettingsService _designService;
+        private readonly FeaturedThumbnailService _thumbService;
         const ulong role2dId = 1126390388006072380UL; // ← сюда ID роли 2d Аниматор
         const ulong role3dId = 1536428705105051808UL; // ← сюда ID роли 3d Аниматор
         const ulong ActiveRoleId = 1507425845558509718UL; // роль "Актив"
@@ -32,7 +33,8 @@ namespace AnimatorsWeb.Controllers
             DiscordMessageService discord,
             ChannelSettingsService settingsService,
             RulesService rulesService,
-            DesignSettingsService designService)
+            DesignSettingsService designService,
+            FeaturedThumbnailService thumbService)
         {
             _discordClient = discordClient;
             _db = db;
@@ -40,6 +42,7 @@ namespace AnimatorsWeb.Controllers
             _settingsService = settingsService;
             _rulesService = rulesService;
             _designService = designService;
+            _thumbService = thumbService;
         }
 
         // Главная модераторская — настройки каналов
@@ -1376,17 +1379,34 @@ namespace AnimatorsWeb.Controllers
                 Settings = settings,
                 ChannelList = GetChannelSelectList(settings.ChannelId)
             };
+
+            if (!string.IsNullOrEmpty(settings.SectionsJson))
+            {
+                try
+                {
+                    model.Sections = System.Text.Json.JsonSerializer
+                        .Deserialize<List<RuleSection>>(settings.SectionsJson) ?? new();
+                }
+                catch { }
+            }
+
+            if (model.Sections.Count == 0 && !string.IsNullOrWhiteSpace(settings.Content))
+                model.Sections.Add(new RuleSection { Content = settings.Content });
+
+            if (model.Sections.Count == 0)
+                model.Sections.Add(new RuleSection());
+
             return View(model);
         }
 
         [HttpPost]
         public async Task<IActionResult> SaveRules(RulesViewModel model)
         {
-            await _rulesService.SaveAsync(model.Settings);
+            await _rulesService.SaveAsync(model.Settings, model.Sections);
             TempData["Result"] = "Правила сохранены и опубликованы";
             return RedirectToAction("Rules");
         }
-       
+
 
         private static string FormatNames(List<string> names)
         {
@@ -1643,6 +1663,14 @@ namespace AnimatorsWeb.Controllers
                 Order = maxOrder + 1
             });
             await _db.SaveChangesAsync();
+
+            var participant = await _db.Participants.FirstOrDefaultAsync(p => p.Id == participantId);
+            if (participant != null)
+            {
+                var mediaType = DetectMediaType(participant.WorkUrl);
+                await _thumbService.EnsureAsync(participant.Id, participant.WorkUrl, participant.MessageUrl, mediaType);
+            }
+
             return Json(new { success = true });
         }
 
@@ -1654,6 +1682,7 @@ namespace AnimatorsWeb.Controllers
 
             _db.LandingFeaturedWorks.Remove(f);
             await _db.SaveChangesAsync();
+            _thumbService.Remove(f.ParticipantId);
             return Json(new { success = true });
         }
 
@@ -1681,10 +1710,39 @@ namespace AnimatorsWeb.Controllers
             var all = await _db.LandingFeaturedWorks.ToListAsync();
             _db.LandingFeaturedWorks.RemoveRange(all);
             await _db.SaveChangesAsync();
+            _thumbService.ClearAll();
             return Json(new { success = true });
+        }
+        [HttpPost]
+        public async Task<IActionResult> RefreshThumbnails()
+        {
+            var selected = await GetSelectedOrderedAsync();
+            var ids = selected.Select(f => f.ParticipantId).ToList();
+            var parts = await _db.Participants.Where(p => ids.Contains(p.Id)).ToListAsync();
+
+            foreach (var p in parts)
+            {
+                var mediaType = DetectMediaType(p.WorkUrl);
+                await _thumbService.EnsureAsync(p.Id, p.WorkUrl, p.MessageUrl, mediaType);
+            }
+
+            TempData["Result"] = $"Обложки обновлены ({parts.Count})";
+            return RedirectToAction(nameof(FeaturedWorks));
         }
 
         // --- Хелперы ---
+        private static string DetectMediaType(string workUrl)
+        {
+            if (string.IsNullOrEmpty(workUrl)) return "link";
+            var lower = workUrl.ToLowerInvariant();
+
+            if (lower.Contains("youtube.com") || lower.Contains("youtu.be")) return "youtube";
+            if (lower.Contains(".mp4") || lower.Contains(".webm") || lower.Contains(".mov")) return "video";
+            if (System.Text.RegularExpressions.Regex.IsMatch(workUrl,
+                @"\.(gif|png|jpg|jpeg)(\?|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                return "image";
+            return "link";
+        }
 
         private async Task<List<LandingFeaturedWork>> GetSelectedOrderedAsync()
         {
