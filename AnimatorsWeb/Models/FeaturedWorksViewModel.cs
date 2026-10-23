@@ -16,5 +16,6 @@
         public string ThumbnailUrl { get; set; } = "";
         public string MediaType { get; set; } = "";
         public string MessageUrl { get; set; } = "";
+        public bool HasLocalThumbnail { get; set; }
     }
 }

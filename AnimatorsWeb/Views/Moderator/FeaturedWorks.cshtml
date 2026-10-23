@@ -10,10 +10,46 @@
         gap: 24px;
         align-items: start;
     }
+
     @@media (max-width: 900px) {
-        .fw-layout { grid-template-columns: 1fr; }
-        .fw-sidebar { position: static !important; max-height: none !important; }
+        .fw-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .fw-sidebar {
+            position: static !important;
+            max-height: none !important;
+        }
     }
+
+    .fw-filters {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+        .fw-filters input {
+            max-width: 280px;
+        }
+
+            .fw-filters input[type=number] {
+                max-width: 140px;
+            }
+
+        .fw-filters button {
+            padding: 8px 14px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+            .fw-filters button:hover {
+                background: #f0f0f0;
+            }
 
     .fw-sidebar {
         position: sticky;
@@ -25,18 +61,20 @@
         border-radius: 12px;
         padding: 14px;
     }
-    .fw-sidebar h3 {
-        margin: 0 0 10px 0;
-        font-size: 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .fw-sidebar .counter {
-        color: gray;
-        font-size: 13px;
-        font-weight: normal;
-    }
+
+        .fw-sidebar h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .fw-sidebar .counter {
+            color: gray;
+            font-size: 13px;
+            font-weight: normal;
+        }
 
     .fw-mini {
         display: flex;
@@ -48,73 +86,209 @@
         margin-bottom: 6px;
         background: #fafafa;
     }
-    .fw-mini .thumb {
-        width: 60px;
-        height: 45px;
-        border-radius: 6px;
-        overflow: hidden;
-        background: #000;
-        flex-shrink: 0;
-    }
-    .fw-mini .thumb img,
-    .fw-mini .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .fw-mini .thumb .link-icon { display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 16px; }
-    .fw-mini .meta { flex: 1; min-width: 0; font-size: 12px; }
-    .fw-mini .meta .jam { color: #666; }
-    .fw-mini .meta .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .fw-mini .actions { display: flex; flex-direction: column; gap: 2px; }
-    .fw-mini .actions button {
-        width: 22px; height: 22px;
-        border: 1px solid #ccc; background: white;
-        border-radius: 4px; cursor: pointer;
-        font-size: 12px; padding: 0;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .fw-mini .actions button:hover { background: #f0f0f0; }
-    .fw-mini .actions button.remove { color: #b3261e; border-color: #b3261e; }
 
-    .fw-main h3 { margin-top: 0; }
-    .fw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+        .fw-mini .thumb {
+            width: 60px;
+            height: 45px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #000;
+            flex-shrink: 0;
+        }
+
+            .fw-mini .thumb img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+            .fw-mini .thumb .link-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                color: #999;
+                font-size: 18px;
+                background: #1a1a1a;
+            }
+
+        .fw-mini .meta {
+            flex: 1;
+            min-width: 0;
+            font-size: 12px;
+        }
+
+            .fw-mini .meta .jam {
+                color: #666;
+            }
+
+            .fw-mini .meta .name {
+                font-weight: 600;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+        .fw-mini .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+            .fw-mini .actions button {
+                width: 22px;
+                height: 22px;
+                border: 1px solid #ccc;
+                background: white;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                padding: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+                .fw-mini .actions button:hover {
+                    background: #f0f0f0;
+                }
+
+                .fw-mini .actions button.remove {
+                    color: #b3261e;
+                    border-color: #b3261e;
+                }
+
+    .fw-main h3 {
+        margin-top: 0;
+    }
+
+    .fw-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 12px;
+    }
+
     .fw-card {
-        border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        background: white;
         transition: box-shadow .15s;
-    }
-    .fw-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .fw-card .thumb { aspect-ratio: 16/10; background: #000; overflow: hidden; }
-    .fw-card .thumb img,
-    .fw-card .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .fw-card .thumb .link-icon { display: flex; align-items: center; justify-content: center; height: 100%; color: #999; font-size: 28px; }
-    .fw-card .info { padding: 6px 10px; font-size: 12px; }
-    .fw-card .info .jam { color: #666; }
-    .fw-card .info .name { font-weight: 600; margin-top: 1px; }
-    .fw-card .actions { padding: 4px 10px 10px; }
-    .fw-card .actions button {
-        width: 100%; padding: 5px 10px; font-size: 12px;
-        border: 1px solid #1a7f37; color: #1a7f37;
-        background: white; border-radius: 6px; cursor: pointer;
-    }
-    .fw-card .actions button:hover { background: #f0fff4; }
-    .fw-card .actions button.added {
-        border-color: #ccc; color: #999; cursor: default;
+        content-visibility: auto;
+        contain-intrinsic-size: 170px 220px;
     }
 
-    .fw-loader { text-align: center; padding: 20px; color: gray; font-size: 14px; display: none; }
-    .fw-end { text-align: center; padding: 20px; color: gray; font-size: 14px; }
+        .fw-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .fw-card .thumb {
+            aspect-ratio: 16/10;
+            background: #000;
+            overflow: hidden;
+        }
+
+            .fw-card .thumb img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+            .fw-card .thumb .link-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                color: #999;
+                font-size: 32px;
+                background: #1a1a1a;
+            }
+
+        .fw-card .info {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+            .fw-card .info .jam {
+                color: #666;
+            }
+
+            .fw-card .info .name {
+                font-weight: 600;
+                margin-top: 1px;
+            }
+
+        .fw-card .actions {
+            padding: 4px 10px 10px;
+        }
+
+            .fw-card .actions button {
+                width: 100%;
+                padding: 5px 10px;
+                font-size: 12px;
+                border: 1px solid #1a7f37;
+                color: #1a7f37;
+                background: white;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+
+                .fw-card .actions button:hover {
+                    background: #f0fff4;
+                }
+
+                .fw-card .actions button.added {
+                    border-color: #ccc;
+                    color: #999;
+                    cursor: default;
+                }
+
+    .fw-loader {
+        text-align: center;
+        padding: 20px;
+        color: gray;
+        font-size: 14px;
+        display: none;
+    }
+
+    .fw-end {
+        text-align: center;
+        padding: 20px;
+        color: gray;
+        font-size: 14px;
+    }
 </style>
 
 <h1>Работы на главной</h1>
 
-<form method="post" asp-action="RefreshThumbnails" style="margin-bottom: 15px;">
-    <button type="submit" class="btn btn-primary"
-            onclick="return confirm('Перекачать все обложки? Может занять несколько секунд.');">
-        🔄 Обновить все обложки
-    </button>
-</form>
-
 <div id="statusMsg" style="display: none; padding: 8px 14px; border-radius: 6px; margin-bottom: 15px;"></div>
 
-<div class="fw-layout">
+<div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+    <form method="post" asp-action="RefreshThumbnails" style="margin: 0;">
+        <button type="submit" class="btn btn-primary"
+                onclick="return confirm('Перекачать обложки для выбранных работ?');">
+            🔄 Обновить обложки выбранных
+        </button>
+    </form>
+    <form method="post" asp-action="GenerateAllThumbnails" style="margin: 0;">
+        <button type="submit" class="btn btn-primary"
+                onclick="return confirm('Сгенерировать обложки для всех работ, у которых их нет? Может занять несколько минут в фоне.');">
+            🔧 Сгенерировать недостающие обложки
+        </button>
+    </form>
+</div>
 
+<div class="fw-filters">
+    <input type="text" id="filterParticipant" class="form-control"
+           placeholder="Участник: id или ник" />
+    <input type="number" id="filterAnimJam" class="form-control"
+           placeholder="Аниджем #" min="1" />
+    <button type="button" id="filterReset">Сбросить</button>
+</div>
+
+<div class="fw-layout">
     <div class="fw-sidebar">
         <h3>
             Выбранные
@@ -127,8 +301,8 @@
         {
             <button type="button" id="clearBtn"
                     style="width: 100%; margin-top: 10px; padding: 6px; background: white;
-                           color: #b3261e; border: 1px solid #b3261e; border-radius: 6px;
-                           font-size: 12px; cursor: pointer;">
+                color: #b3261e; border: 1px solid #b3261e; border-radius: 6px;
+                font-size: 12px; cursor: pointer;">
                 Очистить всё
             </button>
         }
@@ -140,7 +314,6 @@
         <div id="loader" class="fw-loader">Загрузка...</div>
         <div id="endMsg" class="fw-end" style="display: none;">Больше работ нет</div>
     </div>
-
 </div>
 
 <div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000;">
@@ -155,6 +328,8 @@
     const selectedCounter = document.getElementById('selectedCounter');
     const statusMsg = document.getElementById('statusMsg');
     const modalEl = document.getElementById('modal');
+    const filterParticipant = document.getElementById('filterParticipant');
+    const filterAnimJam = document.getElementById('filterAnimJam');
 
     let offset = 0;
     const limit = 24;
@@ -176,24 +351,26 @@
         }[c]));
     }
 
+    function buildThumb(item) {
+        if (item.hasLocalThumbnail || (item.mediaType === 'youtube' && item.thumbnailUrl)) {
+            return `<img src="${escapeHtml(item.thumbnailUrl)}" loading="lazy" decoding="async" alt="" />`;
+        }
+        if (item.mediaType === 'video') return `<div class="link-icon">🎬</div>`;
+        if (item.mediaType === 'image') return `<div class="link-icon">🖼</div>`;
+        return `<div class="link-icon">🔗</div>`;
+    }
+
     function buildCard(item) {
         const div = document.createElement('div');
         div.className = 'fw-card';
         div.dataset.participantId = item.participantId;
 
-        let thumb;
-        if (item.mediaType === 'youtube' || item.mediaType === 'image') {
-            thumb = `<img src="${item.thumbnailUrl}" loading="lazy" alt="" />`;
-        } else if (item.mediaType === 'video') {
-            thumb = `<video preload="metadata" muted src="${item.thumbnailUrl}"></video>`;
-        } else {
-            thumb = `<div class="link-icon">🔗</div>`;
-        }
-
         const already = selectedIds.includes(item.participantId);
+        const needsThumb = !item.hasLocalThumbnail && (item.mediaType === 'video' || item.mediaType === 'image');
+        if (needsThumb) div.dataset.needsThumb = '1';
 
         div.innerHTML = `
-            <div class="thumb" style="cursor:pointer;">${thumb}</div>
+            <div class="thumb" style="cursor:pointer;">${buildThumb(item)}</div>
             <div class="info">
                 <div class="jam">#${item.animJamNumber}</div>
                 <div class="name">${escapeHtml(item.displayName)}</div>
@@ -342,7 +519,13 @@
         loader.style.display = 'block';
 
         try {
-            const r = await fetch(`/Moderator/SearchFeaturedWorks?offset=${offset}&limit=${limit}`);
+            const params = new URLSearchParams({ offset, limit });
+            const pq = filterParticipant.value.trim();
+            if (pq) params.set('participantQuery', pq);
+            const aj = filterAnimJam.value;
+            if (aj) params.set('animJamNumber', aj);
+
+            const r = await fetch(`/Moderator/SearchFeaturedWorks?${params.toString()}`);
             const data = await r.json();
 
             data.items.forEach(item => {
@@ -353,6 +536,7 @@
             if (!data.hasMore) {
                 noMore = true;
                 endMsg.style.display = 'block';
+                observer.unobserve(sentinel);
             }
         } catch {
             showStatus('Ошибка загрузки', true);
@@ -360,7 +544,31 @@
             loading = false;
             loader.style.display = 'none';
         }
+        ensureThumbPolling();
     }
+
+    function resetGrid() {
+        offset = 0;
+        noMore = false;
+        loading = false;
+        availableGrid.innerHTML = '';
+        endMsg.style.display = 'none';
+        observer.observe(sentinel);
+        loadMore();
+    }
+
+    function debounce(fn, ms) {
+        let t;
+        return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
+    filterParticipant.addEventListener('input', debounce(resetGrid, 400));
+    filterAnimJam.addEventListener('input', debounce(resetGrid, 400));
+    document.getElementById('filterReset').addEventListener('click', () => {
+        filterParticipant.value = '';
+        filterAnimJam.value = '';
+        resetGrid();
+    });
 
     selectedSidebar.addEventListener('click', async e => {
         const btn = e.target.closest('button[data-action]');
@@ -385,6 +593,42 @@
 
     const clearBtnInit = document.getElementById('clearBtn');
     if (clearBtnInit) clearBtnInit.addEventListener('click', clearAll);
+
+        // ===== Поллинг превью =====
+    let thumbPollTimer = null;
+
+    async function pollThumbnails() {
+        const cards = availableGrid.querySelectorAll('.fw-card[data-needs-thumb="1"]');
+        if (cards.length === 0) { thumbPollTimer = null; return; }
+
+        const ids = Array.from(cards).map(c => c.dataset.participantId).join(',');
+
+        try {
+            const r = await fetch(`/Moderator/GetThumbnails?ids=${ids}`);
+            const data = await r.json();
+
+            for (const card of cards) {
+                const id = Number(card.dataset.participantId);
+                const url = data[id];
+                if (!url) continue;
+
+                const thumb = card.querySelector('.thumb');
+                if (thumb) {
+                    thumb.innerHTML = `<img src="${url}" loading="lazy" decoding="async" alt="" />`;
+                    card.dataset.needsThumb = '0';
+                }
+            }
+        } catch { }
+
+        thumbPollTimer = setTimeout(pollThumbnails, 2000);
+    }
+
+    function ensureThumbPolling() {
+        if (thumbPollTimer === null &&
+            availableGrid.querySelector('.fw-card[data-needs-thumb="1"]')) {
+            thumbPollTimer = setTimeout(pollThumbnails, 2000);
+        }
+    }
 
     modalEl.addEventListener('click', closeModal);
 </script>

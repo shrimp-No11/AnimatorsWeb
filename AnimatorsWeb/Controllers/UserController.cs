@@ -97,18 +97,18 @@ namespace AnimatorsWeb.Controllers
             var guildForLinks = _discordClient.Guilds.Values.FirstOrDefault();
             foreach (var id in connectedIds)
             {
-                string? tag = null;
+                string? name = null;
                 if (guildForLinks != null)
                 {
                     try
                     {
                         var member = await guildForLinks.GetMemberAsync(id);
-                        if (member != null) tag = "@" + member.Username;
+                        if (member != null) name = member.DisplayName ?? member.Username;
                     }
                     catch { }
                 }
-                if (!string.IsNullOrEmpty(tag))
-                    model.LinkedAccounts.Add(new LinkedAccountDisplay { DiscordId = id, Tag = tag });
+                if (!string.IsNullOrEmpty(name))
+                    model.LinkedAccounts.Add(new LinkedAccountDisplay { DiscordId = id, Name = name });
             }
 
             // Все id для статистики — связанные + сам
@@ -364,20 +364,20 @@ namespace AnimatorsWeb.Controllers
 
             foreach (var id in connectedIds)
             {
-                string? tag = null;
+                string? name = null;
                 if (guild != null)
                 {
                     try
                     {
                         var member = await guild.GetMemberAsync(id);
-                        if (member != null) tag = "@" + member.Username;
+                        if (member != null) name = member.DisplayName ?? member.Username;
                     }
                     catch { }
                 }
                 model.Connected.Add(new LinkedAccountDisplay
                 {
                     DiscordId = id,
-                    Tag = tag ?? $"ID {id}"
+                    Name = name ?? $"ID {id}"
                 });
             }
 

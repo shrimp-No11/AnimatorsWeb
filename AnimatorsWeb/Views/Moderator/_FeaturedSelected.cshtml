@@ -13,32 +13,15 @@ else
         <div class="fw-mini" data-participant-id="@w.ParticipantId">
             <div class="thumb" style="cursor:pointer;"
                  onclick="openWork('@w.WorkUrl', '@w.MessageUrl', @w.ParticipantId)">
-                @if (w.MediaType == "youtube" || w.MediaType == "image")
+                @if (w.MediaType == "link")
                 {
-                    @if (!string.IsNullOrEmpty(w.ThumbnailUrl) && w.ThumbnailUrl.StartsWith("/featured/"))
-                    {
-                        <img src="@w.ThumbnailUrl" loading="lazy" alt="" />
-                    }
-                    else if (w.MediaType == "youtube" || w.MediaType == "image")
-                    {
-                        <img src="@w.ThumbnailUrl" loading="lazy" alt="" />
-                    }
-                    else if (w.MediaType == "video")
-                    {
-                        <video preload="metadata" muted src="@w.ThumbnailUrl"></video>
-                    }
-                    else
-                    {
-                        <div class="link-icon">🔗</div>
-                    }
-                }
-                else if (w.MediaType == "video")
-                {
-                    <video preload="metadata" muted src="@w.ThumbnailUrl"></video>
+                    <div class="link-icon">🔗</div>
                 }
                 else
                 {
-                    <div class="link-icon">🔗</div>
+                    <img src="/Featured/Thumbnail/@w.ParticipantId" loading="lazy" decoding="async" alt=""
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                    <div class="link-icon" style="display:none;">@(w.MediaType == "video" ? "🎬" : "🖼")</div>
                 }
             </div>
             <div class="meta">

@@ -38,6 +38,7 @@ wwwroot/featured/*.tmp
 
 # Локальные конфиги и секреты
 appsettings.Development.json
+appsettings.Production.json
 appsettings.Local.json
 secrets.json
 .env

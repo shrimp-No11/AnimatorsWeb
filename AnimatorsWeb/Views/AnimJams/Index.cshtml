@@ -5,107 +5,413 @@
     ViewData["Title"] = "Аниджемы";
 }
 
-<h1>Аниджемы <span style="color: gray; font-size: 20px;">(@Model.TotalCount)</span></h1>
+<style>
+    .animjam-page {
+        --jam-line: color-mix(in srgb, var(--brand-text) 12%, transparent);
+        --jam-muted: color-mix(in srgb, var(--brand-text) 62%, transparent);
+        --jam-surface: color-mix(in srgb, var(--brand-card) 86%, var(--brand-primary) 4%);
+        --jam-surface-hover: color-mix(in srgb, var(--brand-card) 90%, var(--brand-primary) 10%);
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: clamp(20px, 4vw, 48px) 0 64px;
+        color: var(--brand-text);
+    }
 
-<div style="margin-bottom: 20px;">
-    <input type="text" id="searchInput" placeholder="Поиск по теме или номеру..."
-           class="form-control" style="max-width: 400px;" />
-</div>
+    .animjam-page * { box-sizing: border-box; }
 
-@foreach (var year in Model.Years)
-{
-    <section class="year-section" data-year="@year.Year">
-        <h2 style="border-bottom: 2px solid #888; padding-bottom: 5px;">@year.Year</h2>
+    .animjam-hero {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        padding: clamp(24px, 4vw, 42px);
+        margin-bottom: 28px;
+        border: 1px solid var(--jam-line);
+        border-radius: 28px;
+        background:
+            radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--brand-accent) 19%, transparent), transparent 42%),
+            radial-gradient(ellipse at 0% 100%, color-mix(in srgb, var(--brand-primary) 16%, transparent), transparent 48%),
+            var(--jam-surface);
+        box-shadow: 0 18px 50px color-mix(in srgb, var(--brand-primary) 8%, transparent);
+    }
 
-        <div class="jam-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 30px;">
-            @foreach (var jam in year.Jams)
-            {
-                <div class="jam-card"
-                     data-number="@jam.Number"
-                     data-theme="@jam.Theme.ToLower()"
-                     onclick="location.href='@Url.Action("Details", new { number = jam.Number })'"
-                     style="border: 1px solid #ddd; border-radius: 10px; padding: 14px; background: #fafafa; cursor: pointer; transition: transform 0.15s;">
+    .animjam-hero::after {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        width: 220px;
+        height: 220px;
+        right: -70px;
+        top: -95px;
+        border: 1px solid color-mix(in srgb, var(--brand-accent) 35%, transparent);
+        border-radius: 50%;
+        box-shadow: 0 0 0 22px color-mix(in srgb, var(--brand-accent) 4%, transparent),
+                    0 0 0 48px color-mix(in srgb, var(--brand-primary) 4%, transparent);
+        pointer-events: none;
+    }
 
-                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                        <span style="font-size: 20px; font-weight: bold;">#@jam.Number</span>
-                        <span style="color: gray; font-size: 12px;">
-                            <span class="local-date" data-utc="@jam.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM">@jam.StartDate.ToString("dd.MM")</span>
-                            —
-                            <span class="local-date" data-utc="@jam.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM">@jam.EndDate.ToString("dd.MM")</span>
-                        </span>
-                    </div>
+    .animjam-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        color: var(--brand-primary);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .13em;
+        text-transform: uppercase;
+    }
 
-                    <div style="font-size: 16px; margin: 8px 0; min-height: 40px;">
-                        @jam.Theme
-                    </div>
+    .animjam-eyebrow::before {
+        content: "";
+        width: 22px;
+        height: 2px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent));
+    }
 
-                    <div style="display: flex; gap: 15px; font-size: 13px; color: #555;">
-                        <span>👥 @jam.ParticipantsCount</span>
-                        <span>🏆 @jam.WinnersCount</span>
-                    </div>
+    .animjam-title-row {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
 
-                    @if (jam.TopWinners.Any())
-                    {
-                        <div style="margin-top: 8px; font-size: 13px; color: #3a7;">
-                            @string.Join(", ", jam.TopWinners)
-                            @if (jam.WinnersCount > jam.TopWinners.Count)
-                            {
-                                <span style="color: gray;">и ещё @(jam.WinnersCount - jam.TopWinners.Count)</span>
-                            }
-                        </div>
-                    }
+    .animjam-title {
+        margin: 0;
+        font-size: clamp(32px, 5vw, 52px);
+        line-height: 1.05;
+        letter-spacing: -.045em;
+    }
 
-                </div>
-            }
+    .animjam-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--jam-line);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--brand-card) 76%, transparent);
+        font-size: 14px;
+        color: var(--jam-muted);
+        white-space: nowrap;
+    }
+
+    .animjam-count strong {
+        color: var(--brand-text);
+        font-size: 20px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .animjam-description {
+        max-width: 640px;
+        margin: 14px 0 0;
+        color: var(--jam-muted);
+        line-height: 1.65;
+    }
+
+    .animjam-search-wrap {
+        position: relative;
+        margin: 0 0 34px;
+    }
+
+    .animjam-search-icon {
+        position: absolute;
+        top: 50%;
+        left: 17px;
+        transform: translateY(-50%);
+        color: var(--jam-muted);
+        font-size: 20px;
+        pointer-events: none;
+    }
+
+    .animjam-search {
+        display: block;
+        width: 100%;
+        min-height: 54px;
+        padding: 13px 18px 13px 48px;
+        border: 1px solid var(--jam-line);
+        border-radius: 16px;
+        outline: none;
+        background: var(--brand-card);
+        color: var(--brand-text);
+        font: inherit;
+        box-shadow: 0 6px 20px color-mix(in srgb, var(--brand-primary) 4%, transparent);
+        transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+
+    .animjam-search::placeholder { color: var(--jam-muted); }
+
+    .animjam-search:focus {
+        border-color: color-mix(in srgb, var(--brand-primary) 65%, var(--jam-line));
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-primary) 12%, transparent);
+    }
+
+    .animjam-year { margin: 0 0 38px; }
+    .animjam-year[hidden] { display: none !important; }
+
+    .animjam-year-heading {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0 0 16px;
+        font-size: 23px;
+        letter-spacing: -.025em;
+    }
+
+    .animjam-year-heading::after {
+        content: "";
+        height: 1px;
+        flex: 1;
+        background: linear-gradient(90deg, var(--jam-line), transparent);
+    }
+
+    .animjam-year-heading span {
+        display: inline-flex;
+        min-width: 48px;
+        justify-content: center;
+        padding: 5px 9px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--brand-primary) 10%, var(--brand-card));
+        color: var(--brand-primary);
+        font-size: 13px;
+        font-weight: 750;
+    }
+
+    .animjam-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+        gap: 16px;
+    }
+
+    .animjam-card {
+        position: relative;
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        padding: 18px;
+        overflow: hidden;
+        border: 1px solid var(--jam-line);
+        border-radius: 20px;
+        background: var(--jam-surface);
+        color: inherit;
+        text-decoration: none;
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-primary) 3%, transparent);
+        transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    .animjam-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 18px;
+        right: 18px;
+        height: 2px;
+        border-radius: 0 0 3px 3px;
+        background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent));
+        opacity: .55;
+        transform: scaleX(.22);
+        transform-origin: left;
+        transition: transform .2s ease, opacity .2s ease;
+    }
+
+    .animjam-card:hover, .animjam-card:focus-visible {
+        transform: translateY(-4px);
+        border-color: color-mix(in srgb, var(--brand-primary) 35%, var(--jam-line));
+        background: var(--jam-surface-hover);
+        box-shadow: 0 16px 36px color-mix(in srgb, var(--brand-primary) 10%, transparent);
+        outline: none;
+    }
+
+    .animjam-card:hover::before, .animjam-card:focus-visible::before {
+        transform: scaleX(1);
+        opacity: 1;
+    }
+
+    .animjam-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .animjam-number {
+        font-size: 22px;
+        line-height: 1;
+        font-weight: 850;
+        letter-spacing: -.04em;
+    }
+
+    .animjam-dates {
+        color: var(--jam-muted);
+        font-size: 12px;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .animjam-theme {
+        min-height: 52px;
+        margin: 0 0 18px;
+        font-size: 17px;
+        font-weight: 700;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    .animjam-metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: auto;
+    }
+
+    .animjam-metric {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 9px;
+        border: 1px solid var(--jam-line);
+        border-radius: 10px;
+        color: var(--jam-muted);
+        font-size: 12px;
+    }
+
+    .animjam-metric strong { color: var(--brand-text); font-size: 13px; }
+
+    .animjam-winners {
+        margin-top: 13px;
+        padding-top: 12px;
+        border-top: 1px solid var(--jam-line);
+        color: color-mix(in srgb, var(--brand-accent) 78%, var(--brand-text));
+        font-size: 12px;
+        line-height: 1.55;
+        overflow-wrap: anywhere;
+    }
+
+    .animjam-winners-more { color: var(--jam-muted); }
+
+    .animjam-empty {
+        padding: 28px;
+        border: 1px dashed var(--jam-line);
+        border-radius: 18px;
+        color: var(--jam-muted);
+        text-align: center;
+    }
+
+    @@media (max-width: 600px) {
+        .animjam-page { padding-top: 18px; }
+        .animjam-hero { border-radius: 22px; }
+        .animjam-card { padding: 16px; }
+        .animjam-title-row { align-items: start; }
+        .animjam-count { padding: 8px 11px; }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .animjam-card, .animjam-card::before, .animjam-search { transition: none; }
+    }
+</style>
+
+<main class="animjam-page">
+    <header class="animjam-hero">
+        <div class="animjam-eyebrow">Архив творческих событий</div>
+        <div class="animjam-title-row">
+            <h1 class="animjam-title">Аниджемы</h1>
+            <div class="animjam-count"><strong>@Model.TotalCount</strong> событий в архиве</div>
         </div>
-    </section>
-}
+        <p class="animjam-description">
+            Темы, участники и победители прошлых аниджемов — найди интересный выпуск или посмотри, что создавали другие.
+        </p>
+    </header>
+
+    <div class="animjam-search-wrap">
+        <span class="animjam-search-icon" aria-hidden="true">⌕</span>
+        <input type="search" id="searchInput" class="animjam-search"
+               placeholder="Поиск по теме или номеру аниджема…" autocomplete="off"
+               aria-label="Поиск по теме или номеру аниджема" />
+    </div>
+
+    <div id="noResults" class="animjam-empty" hidden>Ничего не найдено. Попробуй изменить запрос.</div>
+
+    @foreach (var year in Model.Years)
+    {
+        <section class="animjam-year" data-year="@year.Year">
+            <h2 class="animjam-year-heading">@year.Year <span>@year.Jams.Count</span></h2>
+            <div class="animjam-grid">
+                @foreach (var jam in year.Jams)
+                {
+                    <a class="animjam-card"
+                       href="@Url.Action("Details", new { number = jam.Number })"
+                       data-number="@jam.Number"
+                       data-theme="@jam.Theme.ToLowerInvariant()">
+                        <div class="animjam-card-top">
+                            <span class="animjam-number">#@jam.Number</span>
+                            <span class="animjam-dates">
+                                <span class="local-date" data-utc="@jam.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM">@jam.StartDate.ToString("dd.MM")</span>
+                                —
+                                <span class="local-date" data-utc="@jam.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM">@jam.EndDate.ToString("dd.MM")</span>
+                            </span>
+                        </div>
+
+                        <h3 class="animjam-theme">@jam.Theme</h3>
+
+                        <div class="animjam-metrics">
+                            <span class="animjam-metric">Участники <strong>@jam.ParticipantsCount</strong></span>
+                            <span class="animjam-metric">Победители <strong>@jam.WinnersCount</strong></span>
+                        </div>
+
+                        @if (jam.TopWinners.Any())
+                        {
+                            <div class="animjam-winners">
+                                @string.Join(", ", jam.TopWinners)
+                                @if (jam.WinnersCount > jam.TopWinners.Count)
+                                {
+                                    <span class="animjam-winners-more"> и ещё @(jam.WinnersCount - jam.TopWinners.Count)</span>
+                                }
+                            </div>
+                        }
+                    </a>
+                }
+            </div>
+        </section>
+    }
+</main>
 
 <script>
-    const searchInput = document.getElementById('searchInput');
-    const cards = document.querySelectorAll('.jam-card');
-    const sections = document.querySelectorAll('.year-section');
+    (() => {
+        const searchInput = document.getElementById('searchInput');
+        const cards = [...document.querySelectorAll('.animjam-card')];
+        const sections = [...document.querySelectorAll('.animjam-year')];
+        const noResults = document.getElementById('noResults');
 
-    searchInput.addEventListener('input', () => {
-        const q = searchInput.value.trim().toLowerCase();
+        searchInput?.addEventListener('input', () => {
+            const query = searchInput.value.trim().toLocaleLowerCase('ru-RU');
+            let totalVisible = 0;
 
-        cards.forEach(card => {
-            const num = card.dataset.number;
-            const theme = card.dataset.theme;
-            const match = !q || num.includes(q) || theme.includes(q);
-            card.style.display = match ? '' : 'none';
+            cards.forEach(card => {
+                const matches = !query ||
+                    (card.dataset.number || '').toLocaleLowerCase('ru-RU').includes(query) ||
+                    (card.dataset.theme || '').includes(query);
+                card.hidden = !matches;
+                if (matches) totalVisible++;
+            });
+
+            sections.forEach(section => {
+                section.hidden = !section.querySelector('.animjam-card:not([hidden])');
+            });
+
+            if (noResults) noResults.hidden = totalVisible !== 0;
         });
 
-        // Прячем пустые годы
-        sections.forEach(section => {
-            const visible = section.querySelectorAll('.jam-card:not([style*="display: none"])').length;
-            section.style.display = visible > 0 ? '' : 'none';
+        document.querySelectorAll('.local-date').forEach(el => {
+            const date = new Date(el.dataset.utc);
+            if (Number.isNaN(date.getTime())) return;
+            const pad = n => String(n).padStart(2, '0');
+            if (el.dataset.format === 'dd.MM') {
+                el.textContent = `${pad(date.getDate())}.${pad(date.getMonth() + 1)}`;
+            } else if (el.dataset.format === 'dd.MM.yyyy') {
+                el.textContent = `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+            }
         });
-    });
-
-    // Лёгкий hover-эффект
-    cards.forEach(card => {
-        card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-2px)');
-        card.addEventListener('mouseleave', () => card.style.transform = '');
-    });
-
-    document.querySelectorAll('.local-date').forEach(el => {
-        const utc = el.dataset.utc;
-        const fmt = el.dataset.format;
-        const d = new Date(utc);
-        if (isNaN(d)) return;
-
-        const pad = n => String(n).padStart(2, '0');
-        let result = '';
-
-        if (fmt === 'dd.MM') {
-            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
-        } else if (fmt === 'dd.MM.yyyy') {
-            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
-        } else {
-            result = d.toLocaleString('ru-RU');
-        }
-
-        el.textContent = result;
-    });
+    })();
 </script>

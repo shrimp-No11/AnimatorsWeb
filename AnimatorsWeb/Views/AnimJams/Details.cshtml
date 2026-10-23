@@ -4,197 +4,598 @@
     ViewData["Title"] = $"Аниджем #{Model.Number}";
 }
 
-<h1>╠══════════ AniJam @Model.Number ══════════╣</h1>
-<h2 style="color: gray; font-weight: normal;">@Model.Theme</h2>
-
-<div style="display: flex; gap: 30px; margin: 20px 0; flex-wrap: wrap;">
-    <div>
-        <div style="color: gray; font-size: 13px;">Начало</div>
-        <div class="local-date" data-utc="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="full">@Model.StartDate.ToString("dd.MM.yyyy HH:mm")</div>
-    </div>
-    <div>
-        <div style="color: gray; font-size: 13px;">Окончание</div>
-        <div class="local-date" data-utc="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="full">@Model.EndDate.ToString("dd.MM.yyyy HH:mm")</div>
-    </div>
-    <div>
-        <div style="color: gray; font-size: 13px;">Участников</div>
-        <div>👥 @Model.ParticipantsCount</div>
-    </div>
-    <div>
-        <div style="color: gray; font-size: 13px;">Победителей</div>
-        <div>🏆 @Model.WinnersCount</div>
-    </div>
-</div>
-
-<div style="display: flex; gap: 15px; margin-bottom: 25px;">
-    <a asp-action="Index">← К списку</a>
-    @if (!string.IsNullOrEmpty(Model.AnnouncementUrl))
-    {
-        <a href="@Model.AnnouncementUrl" target="_blank" class="btn">📢 Объявление</a>
+<style>
+    .animjam-details {
+        --detail-line: color-mix(in srgb, var(--brand-text) 12%, transparent);
+        --detail-muted: color-mix(in srgb, var(--brand-text) 62%, transparent);
+        --detail-surface: color-mix(in srgb, var(--brand-card) 88%, var(--brand-primary) 4%);
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: clamp(20px, 4vw, 48px) 0 70px;
+        color: var(--brand-text);
     }
-    @if (!string.IsNullOrEmpty(Model.ResultsUrl))
-    {
-        <a href="@Model.ResultsUrl" target="_blank" class="btn">🏆 Итоги в Discord</a>
+
+    .animjam-details * { box-sizing: border-box; }
+
+    .detail-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        color: var(--detail-muted);
+        text-decoration: none;
+        font-size: 14px;
+        transition: color .18s, transform .18s;
     }
-</div>
 
-@if (Model.Winners.Any())
-{
-    <h3>Победители</h3>
+    .detail-back:hover { color: var(--brand-primary); transform: translateX(-3px); }
 
-    @foreach (var group in Model.Winners.GroupBy(g => g.NominationDisplayHtml))
-    {
-        <div style="margin-bottom: 20px;">
-            <div style="font-weight: bold; margin-bottom: 8px;">@Html.Raw(group.Key)</div>
-            <ul style="margin: 0; padding-left: 20px;">
-                @foreach (var w in group.SelectMany(g => g.Winners))
-                {
-                    <li>
-                        <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@w.DiscordUserId">
-                            @w.DisplayName
-                        </a>
-                    </li>
-                }
-            </ul>
+    .detail-hero {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        padding: clamp(24px, 4vw, 42px);
+        margin-bottom: 22px;
+        border: 1px solid var(--detail-line);
+        border-radius: 28px;
+        background:
+            radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--brand-accent) 20%, transparent), transparent 43%),
+            radial-gradient(ellipse at 0% 100%, color-mix(in srgb, var(--brand-primary) 17%, transparent), transparent 50%),
+            var(--detail-surface);
+        box-shadow: 0 18px 48px color-mix(in srgb, var(--brand-primary) 7%, transparent);
+    }
+
+    .detail-hero::after {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        width: 260px;
+        height: 260px;
+        top: -130px;
+        right: -80px;
+        border: 1px solid color-mix(in srgb, var(--brand-accent) 34%, transparent);
+        border-radius: 50%;
+        box-shadow: 0 0 0 24px color-mix(in srgb, var(--brand-accent) 4%, transparent),
+                    0 0 0 54px color-mix(in srgb, var(--brand-primary) 4%, transparent);
+        pointer-events: none;
+    }
+
+    .detail-eyebrow {
+        margin-bottom: 12px;
+        color: var(--brand-primary);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+    }
+
+    .detail-title {
+        margin: 0;
+        font-size: clamp(34px, 5vw, 56px);
+        line-height: 1.04;
+        letter-spacing: -.05em;
+        overflow-wrap: anywhere;
+    }
+
+    .detail-theme {
+        max-width: 760px;
+        margin: 14px 0 0;
+        color: var(--detail-muted);
+        font-size: clamp(18px, 2.3vw, 25px);
+        line-height: 1.4;
+    }
+
+    .detail-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin: 0 0 22px;
+    }
+
+    .detail-stat {
+        min-width: 0;
+        padding: 17px 18px;
+        border: 1px solid var(--detail-line);
+        border-radius: 17px;
+        background: var(--detail-surface);
+    }
+
+    .detail-stat-label {
+        margin-bottom: 8px;
+        color: var(--detail-muted);
+        font-size: 12px;
+    }
+
+    .detail-stat-value {
+        font-size: clamp(16px, 2vw, 20px);
+        font-weight: 750;
+        line-height: 1.35;
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+    }
+
+    .detail-stat-value.is-date { font-size: clamp(14px, 1.7vw, 17px); }
+
+    .detail-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 36px;
+    }
+
+    .detail-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 44px;
+        padding: 10px 16px;
+        border: 1px solid var(--detail-line);
+        border-radius: 13px;
+        background: var(--detail-surface);
+        color: var(--brand-text);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 650;
+        text-decoration: none;
+        transition: transform .18s, border-color .18s, background .18s;
+    }
+
+    .detail-button:hover {
+        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--brand-primary) 40%, var(--detail-line));
+        background: color-mix(in srgb, var(--brand-primary) 8%, var(--brand-card));
+    }
+
+    .detail-button.primary {
+        border-color: transparent;
+        background: linear-gradient(120deg, var(--brand-primary), color-mix(in srgb, var(--brand-primary) 68%, var(--brand-accent)));
+        color: white;
+        box-shadow: 0 8px 20px color-mix(in srgb, var(--brand-primary) 18%, transparent);
+    }
+
+    .detail-section { margin-top: 38px; }
+
+    .detail-section-heading {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin: 0 0 18px;
+        font-size: clamp(23px, 3vw, 30px);
+        letter-spacing: -.035em;
+    }
+
+    .detail-section-count {
+        color: var(--detail-muted);
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0;
+    }
+
+    .detail-winners-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+        gap: 14px;
+    }
+
+    .detail-winner-group {
+        padding: 18px;
+        border: 1px solid var(--detail-line);
+        border-radius: 18px;
+        background: var(--detail-surface);
+    }
+
+    .detail-nomination {
+        margin-bottom: 12px;
+        font-size: 15px;
+        font-weight: 750;
+    }
+
+    .detail-winner-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .detail-winner-list a {
+        display: inline-flex;
+        padding: 7px 10px;
+        border: 1px solid var(--detail-line);
+        border-radius: 10px;
+        color: var(--brand-text);
+        text-decoration: none;
+        font-size: 13px;
+        transition: border-color .18s, color .18s;
+    }
+
+    .detail-winner-list a:hover {
+        border-color: color-mix(in srgb, var(--brand-accent) 65%, var(--detail-line));
+        color: var(--brand-primary);
+    }
+
+    .detail-works-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+        gap: 16px;
+    }
+
+    .detail-work-card {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--detail-line);
+        border-radius: 18px;
+        background: var(--detail-surface);
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-primary) 4%, transparent);
+        transition: transform .2s, border-color .2s, box-shadow .2s;
+    }
+
+    .detail-work-card:hover {
+        transform: translateY(-3px);
+        border-color: color-mix(in srgb, var(--brand-primary) 30%, var(--detail-line));
+        box-shadow: 0 15px 32px color-mix(in srgb, var(--brand-primary) 9%, transparent);
+    }
+
+    .detail-work-preview {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border: 0;
+        padding: 0;
+        background:
+            radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--brand-primary) 18%, transparent), transparent 65%),
+            #17171d;
+        color: white;
+        cursor: pointer;
+    }
+
+    .detail-work-preview img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform .35s;
+    }
+
+    .detail-work-card:hover .detail-work-preview img { transform: scale(1.035); }
+
+    .detail-work-fallback {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        font-size: 30px;
+    }
+
+    .detail-work-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1;
+        max-width: calc(100% - 20px);
+        padding: 5px 9px;
+        border: 1px solid rgba(255,255,255,.22);
+        border-radius: 10px;
+        background: rgba(20,20,28,.78);
+        color: white;
+        font-size: 14px;
+        backdrop-filter: blur(8px);
+    }
+
+    .detail-work-people {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        padding: 14px 15px 16px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .detail-work-people a {
+        color: var(--brand-text);
+        text-decoration: none;
+        font-weight: 650;
+    }
+
+    .detail-work-people a:hover { color: var(--brand-primary); }
+
+    .detail-empty {
+        padding: 28px;
+        border: 1px dashed var(--detail-line);
+        border-radius: 18px;
+        color: var(--detail-muted);
+        text-align: center;
+    }
+
+    .detail-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(8, 8, 14, .88);
+        backdrop-filter: blur(10px);
+    }
+
+    .detail-modal.is-open { display: flex; }
+
+    .detail-modal-content {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: min(1100px, 100%);
+        max-height: 90vh;
+    }
+
+    .detail-modal-content iframe,
+    .detail-modal-content video,
+    .detail-modal-content img {
+        display: block;
+        max-width: 100%;
+        max-height: 85vh;
+        border: 0;
+        border-radius: 12px;
+        object-fit: contain;
+        box-shadow: 0 20px 70px rgba(0,0,0,.4);
+    }
+
+    .detail-modal-content iframe {
+        width: min(100%, 1000px);
+        aspect-ratio: 16 / 9;
+        height: auto;
+    }
+
+    .detail-modal-close {
+        position: fixed;
+        top: 16px;
+        right: 18px;
+        z-index: 1;
+        width: 44px;
+        height: 44px;
+        border: 1px solid rgba(255,255,255,.25);
+        border-radius: 50%;
+        background: rgba(255,255,255,.1);
+        color: white;
+        font-size: 25px;
+        cursor: pointer;
+    }
+
+    @@media (max-width: 760px) {
+        .detail-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .detail-hero { border-radius: 22px; }
+    }
+
+    @@media (max-width: 420px) {
+        .detail-stats { gap: 8px; }
+        .detail-stat { padding: 13px; }
+        .detail-actions { display: grid; grid-template-columns: 1fr; }
+        .detail-button { width: 100%; }
+        .detail-modal { padding: 12px; }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .detail-back, .detail-button, .detail-work-card, .detail-work-preview img { transition: none; }
+    }
+</style>
+
+<main class="animjam-details">
+    <a asp-action="Index" class="detail-back">← Все аниджемы</a>
+
+    <header class="detail-hero">
+        <div class="detail-eyebrow">Архив аниджемов · выпуск #@Model.Number</div>
+        <h1 class="detail-title">AniJam #@Model.Number</h1>
+        <p class="detail-theme">@Model.Theme</p>
+    </header>
+
+    <section class="detail-stats" aria-label="Информация об аниджеме">
+        <div class="detail-stat">
+            <div class="detail-stat-label">Начало</div>
+            <div class="detail-stat-value is-date local-date"
+                 data-utc="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="full">@Model.StartDate.ToString("dd.MM.yyyy HH:mm")</div>
         </div>
-    }
-}
+        <div class="detail-stat">
+            <div class="detail-stat-label">Окончание</div>
+            <div class="detail-stat-value is-date local-date"
+                 data-utc="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="full">@Model.EndDate.ToString("dd.MM.yyyy HH:mm")</div>
+        </div>
+        <div class="detail-stat">
+            <div class="detail-stat-label">Участники</div>
+            <div class="detail-stat-value">@Model.ParticipantsCount</div>
+        </div>
+        <div class="detail-stat">
+            <div class="detail-stat-label">Победители</div>
+            <div class="detail-stat-value">@Model.WinnersCount</div>
+        </div>
+    </section>
 
-<h3>Работы (@Model.Participants.Count)</h3>
-
-@if (!Model.Participants.Any())
-{
-    <p>Работы не найдены.</p>
-}
-else
-{
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
-        @foreach (var work in Model.Participants)
+    <nav class="detail-actions" aria-label="Ссылки аниджема">
+        @if (!string.IsNullOrEmpty(Model.AnnouncementUrl))
         {
-            <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; position: relative;">
+            <a href="@Model.AnnouncementUrl" target="_blank" rel="noopener noreferrer" class="detail-button primary">📢 Объявление</a>
+        }
+        @if (!string.IsNullOrEmpty(Model.ResultsUrl))
+        {
+            <a href="@Model.ResultsUrl" target="_blank" rel="noopener noreferrer" class="detail-button">🏆 Итоги в Discord</a>
+        }
+    </nav>
 
-                @if (!string.IsNullOrEmpty(work.BadgeHtml))
-{
-    <div style="position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.9); color: black;
-        font-size: 16px; padding: 2px 8px; border-radius: 6px; z-index: 1;">
-        @Html.Raw(work.BadgeHtml)
-    </div>
-}
+    @if (Model.Winners.Any())
+    {
+        <section class="detail-section">
+            <h2 class="detail-section-heading">Победители</h2>
+            <div class="detail-winners-grid">
+                @foreach (var group in Model.Winners.GroupBy(g => g.NominationDisplayHtml))
+                {
+                    <div class="detail-winner-group">
+                        <div class="detail-nomination">@Html.Raw(group.Key)</div>
+                        <ul class="detail-winner-list">
+                            @foreach (var w in group.SelectMany(g => g.Winners))
+                            {
+                                <li>
+                                    <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@w.DiscordUserId">@w.DisplayName</a>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        </section>
+    }
 
-                <div style="height: 140px; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;"
-                     onclick="openWork('@work.WorkUrl', '@work.MessageUrl', @work.Id)">
-                    @if (work.MediaType == "youtube" || work.MediaType == "image")
-                    {
-                        <img src="@work.ThumbnailUrl" style="width: 100%; height: 100%; object-fit: cover;" />
-                    }
-                    else if (work.MediaType == "video")
-                    {
-                        <video preload="metadata" muted style="width: 100%; height: 100%; object-fit: cover;">
-                            <source src="@work.ThumbnailUrl" />
-                        </video>
-                    }
-                    else
-                    {
-                        <span style="color: white; font-size: 32px;">🔗</span>
-                    }
-                </div>
+    <section class="detail-section">
+        <h2 class="detail-section-heading">Работы <span class="detail-section-count">@Model.Participants.Count</span></h2>
 
-                <div style="padding: 10px;">
-                    @for (int i = 0; i < work.People.Count; i++)
-                    {
-                        var person = work.People[i];
-                        <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@person.DiscordUserId"
-                           style="text-decoration: none; color: inherit;">
-                            <b>@person.DisplayName</b>
-                        </a>
-                        if (i < work.People.Count - 2)
-                        {
-                            <span>, </span>
-                        }
-                        else if (i == work.People.Count - 2)
-                        {
-                            <span> и </span>
-                        }
-                    }
-                </div>
+        @if (!Model.Participants.Any())
+        {
+            <div class="detail-empty">Работы для этого аниджема пока не найдены.</div>
+        }
+        else
+        {
+            <div class="detail-works-grid">
+                @foreach (var work in Model.Participants)
+                {
+                    <article class="detail-work-card">
+                        <button type="button" class="detail-work-preview js-open-work"
+                                data-work-url="@work.WorkUrl"
+                                data-message-url="@work.MessageUrl"
+                                data-participant-id="@work.Id"
+                                aria-label="Открыть работу">
+                            @if (!string.IsNullOrEmpty(work.BadgeHtml))
+                            {
+                                <span class="detail-work-badge">@Html.Raw(work.BadgeHtml)</span>
+                            }
+
+                            @if (work.MediaType == "link")
+                            {
+                                <span aria-hidden="true" style="font-size: 30px;">↗</span>
+                            }
+                            else
+                            {
+                                <img src="/Featured/Thumbnail/@work.Id"
+                                     loading="lazy" decoding="async" alt=""
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                <span class="detail-work-fallback" aria-hidden="true">▶</span>
+                            }
+                        </button>
+
+                        <div class="detail-work-people">
+                            @for (int i = 0; i < work.People.Count; i++)
+                            {
+                                var person = work.People[i];
+                                <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@person.DiscordUserId">@person.DisplayName</a>
+                                if (i < work.People.Count - 2)
+                                {
+                                    <span>,</span>
+                                }
+                                else if (i == work.People.Count - 2)
+                                {
+                                    <span>и</span>
+                                }
+                            }
+                        </div>
+                    </article>
+                }
             </div>
         }
-    </div>
-}
+    </section>
+</main>
 
-<div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000;">
-    <div id="modal-content" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"></div>
+<div id="detailModal" class="detail-modal" aria-hidden="true">
+    <button type="button" class="detail-modal-close" id="detailModalClose" aria-label="Закрыть">×</button>
+    <div id="detailModalContent" class="detail-modal-content"></div>
 </div>
 
 <script>
-    function openWork(workUrl, messageUrl, participantId) {
-        const modal = document.getElementById('modal');
-        const content = document.getElementById('modal-content');
-        const lowerUrl = workUrl.toLowerCase();
+    (() => {
+        const modal = document.getElementById('detailModal');
+        const content = document.getElementById('detailModalContent');
+        const closeButton = document.getElementById('detailModalClose');
 
-        const ytId = extractYouTubeId(workUrl);
-        if (ytId) {
-            content.innerHTML = `<iframe width="800" height="450"
-                    src="https://www.youtube.com/embed/${ytId}?autoplay=1"
-                    frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-        } else if (participantId > 0) {
-            const proxyUrl = `/Media/StreamWork/${participantId}`;
+        function extractYouTubeId(url) {
+            const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+            return match ? match[1] : null;
+        }
 
-            if (lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') || lowerUrl.includes('.mov')) {
-                content.innerHTML = `<video src="${proxyUrl}" controls autoplay
-                        style="max-width:80vw; max-height:80vh;"></video>`;
-            } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(workUrl)) {
-                content.innerHTML = `<img src="${proxyUrl}" style="max-width:80vw; max-height:80vh;" />`;
-            } else if (messageUrl) {
-                window.open(messageUrl, '_blank');
-                return;
+        function openWork(workUrl, messageUrl, participantId) {
+            if (!workUrl) return;
+            const lowerUrl = workUrl.toLowerCase();
+            const youtubeId = extractYouTubeId(workUrl);
+            let media = '';
+
+            if (youtubeId) {
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1`;
+                iframe.title = 'Работа участника на YouTube';
+                iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+                iframe.allowFullscreen = true;
+                content.replaceChildren(iframe);
+            } else if (participantId > 0 &&
+                (/\.(mp4|webm|mov)(\?|#|$)/i.test(lowerUrl) ||
+                 /\.(gif|png|jpe?g)(\?|#|$)/i.test(lowerUrl))) {
+                const source = `/Media/StreamWork/${participantId}`;
+                if (/\.(mp4|webm|mov)(\?|#|$)/i.test(lowerUrl)) {
+                    const video = document.createElement('video');
+                    video.src = source;
+                    video.controls = true;
+                    video.autoplay = true;
+                    video.playsInline = true;
+                    content.replaceChildren(video);
+                } else {
+                    const image = document.createElement('img');
+                    image.src = source;
+                    image.alt = 'Работа участника';
+                    content.replaceChildren(image);
+                }
             } else {
-                window.open(workUrl, '_blank');
+                window.open(messageUrl || workUrl, '_blank', 'noopener,noreferrer');
                 return;
             }
-        } else if (messageUrl) {
-            window.open(messageUrl, '_blank');
-            return;
-        } else {
-            window.open(workUrl, '_blank');
-            return;
+
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
         }
 
-        modal.style.display = 'block';
-    }
-
-    function closeModal() {
-        document.getElementById('modal').style.display = 'none';
-        document.getElementById('modal-content').innerHTML = '';
-    }
-
-    document.getElementById('modal').addEventListener('click', closeModal);
-
-    function extractYouTubeId(url) {
-        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
-        return m ? m[1] : null;
-    }
-
-
-    document.querySelectorAll('.local-date').forEach(el => {
-        const utc = el.dataset.utc;
-        const fmt = el.dataset.format;
-        const d = new Date(utc);
-        if (isNaN(d)) return;
-
-        const pad = n => String(n).padStart(2, '0');
-        let result = '';
-
-        if (fmt === 'dd.MM') {
-            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
-        } else if (fmt === 'dd.MM.yyyy') {
-            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
-        } else if (fmt === 'full') {
-            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        } else {
-            result = d.toLocaleString('ru-RU');
+        function closeModal() {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            content.replaceChildren();
+            document.body.style.overflow = '';
         }
 
-        el.textContent = result;
-    });
+        document.querySelectorAll('.js-open-work').forEach(button => {
+            button.addEventListener('click', () => openWork(
+                button.dataset.workUrl || '',
+                button.dataset.messageUrl || '',
+                Number(button.dataset.participantId || 0)
+            ));
+        });
+
+        closeButton?.addEventListener('click', closeModal);
+        modal?.addEventListener('click', event => {
+            if (event.target === modal) closeModal();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+        });
+
+        document.querySelectorAll('.local-date').forEach(el => {
+            const date = new Date(el.dataset.utc);
+            if (Number.isNaN(date.getTime())) return;
+            const pad = n => String(n).padStart(2, '0');
+            if (el.dataset.format === 'full') {
+                el.textContent = `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+            }
+        });
+    })();
 </script>

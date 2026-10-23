@@ -109,7 +109,7 @@ builder.Services.ConfigureEventHandlers(handling => handling
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<PaletteExtractionService>();
 builder.Services.AddScoped<DesignSettingsService>();
-builder.Services.AddScoped<FeaturedThumbnailService>();
+builder.Services.AddSingleton<FeaturedThumbnailService>();
 
 var app = builder.Build();
 
@@ -126,6 +126,7 @@ app.UseRouting();
 
 app.UseAuthorization();
 
+app.UseStaticFiles();
 app.MapStaticAssets();
 
 app.MapControllerRoute(

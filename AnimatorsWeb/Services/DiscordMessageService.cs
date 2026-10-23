@@ -712,8 +712,34 @@ public class DiscordMessageService
         var message = await channel.GetMessageAsync(messageId);
         if (message == null) return null;
 
+        // 1. Обычное вложение
         var attachment = message.Attachments?.FirstOrDefault();
-        return attachment?.Url?.ToString();
+        if (attachment?.Url != null)
+        {
+            var s = attachment.Url.ToString();
+            if (!string.IsNullOrEmpty(s)) return s;
+        }
+
+        // 2. Embed image (GIF из Tenor/Giphy и т.п.)
+        var embed = message.Embeds?.FirstOrDefault();
+        if (embed != null)
+        {
+            var img = embed.Image?.Url;
+            if (img != null)
+            {
+                var s = img.ToString();
+                if (!string.IsNullOrEmpty(s)) return s;
+            }
+
+            var thumb = embed.Thumbnail?.Url;
+            if (thumb != null)
+            {
+                var s = thumb.ToString();
+                if (!string.IsNullOrEmpty(s)) return s;
+            }
+        }
+
+        return null;
     }
 
 

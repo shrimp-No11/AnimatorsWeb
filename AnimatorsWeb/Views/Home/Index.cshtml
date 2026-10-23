@@ -2,214 +2,2073 @@
 
 @{
     ViewData["Title"] = "Сообщество Аниматоров";
+
+    const string DiscordUrl = "https://discord.com/invite/AfK6h3rpDh";
+    const string YouTubeUrl = "https://www.youtube.com/@Animators_community";
+    const string TelegramUrl = "https://t.me/community_animators";
+
+    var avatarUrl = !string.IsNullOrEmpty(Model.GuildIconUrl)
+        ? Model.GuildIconUrl
+        : "/images/guild-avatar.png";
 }
 
 <style>
-    .landing-hero { padding: 60px 20px 40px; text-align: center; }
-    .landing-hero h1 { font-size: 42px; font-weight: 800; margin: 20px 0 10px; }
-    .landing-hero .subtitle { font-size: 18px; color: #666; max-width: 600px; margin: 0 auto 30px; line-height: 1.6; }
-    .landing-avatar { width: 140px; height: 140px; border-radius: 50%; box-shadow: 0 8px 24px rgba(0,0,0,0.12); object-fit: cover; }
-    .landing-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .landing-cta a { padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 16px; transition: all .15s; }
-    .landing-cta .primary { background: var(--brand-primary); color: white; }
-    .landing-cta .primary:hover { background: var(--brand-primary-hover); color: white; }
-    .landing-cta .secondary { background: transparent; color: var(--brand-text); border: 2px solid var(--brand-text); }
-    .landing-cta .secondary:hover { background: var(--brand-text); color: var(--brand-bg); }
+    /* ===== Основа ===== */
 
-    .landing-section { padding: 60px 20px; max-width: 1200px; margin: 0 auto; }
-    .landing-section h2 { font-size: 32px; font-weight: 800; text-align: center; margin-bottom: 40px; }
-
-    .landing-mosaic { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
-    .landing-mosaic-item { aspect-ratio: 16/10; border-radius: 12px; overflow: hidden; background: var(--brand-card); box-shadow: 0 4px 12px rgba(0,0,0,0.08); cursor: pointer; transition: transform .2s, box-shadow .2s; }
-    .landing-mosaic-item:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.14); }
-    .landing-mosaic-item img, .landing-mosaic-item video { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-    .landing-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 30px; text-align: center; }
-    .landing-stat-num { font-size: 48px; font-weight: 800; color: var(--brand-primary); line-height: 1; font-family: var(--font-heading); }
-    .landing-stat-label { color: #666; margin-top: 8px; font-size: 14px; }
-
-    .landing-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
-    .landing-step { background: var(--brand-card); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); text-align: center; }
-    .landing-step-icon { font-size: 48px; margin-bottom: 12px; }
-    .landing-step h3 { font-size: 18px; margin-bottom: 8px; }
-    .landing-step p { color: #666; font-size: 14px; margin: 0; line-height: 1.5; }
-
-    .landing-about { background: var(--brand-card); border-radius: 20px; padding: 40px; max-width: 720px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-    .landing-about p { font-size: 16px; line-height: 1.7; }
-    .landing-about p:last-child { margin-bottom: 0; }
-    .landing-about strong { color: var(--brand-primary); }
-
-    .landing-final { text-align: center; padding: 60px 20px 80px; }
-    .landing-final h2 { font-size: 36px; margin-bottom: 16px; }
-    .landing-final p { color: #666; margin-bottom: 30px; font-size: 16px; }
-
-    @@media (max-width: 600px) {
-        .landing-hero h1 { font-size: 32px; }
-        .landing-hero .subtitle { font-size: 16px; }
-        .landing-section { padding: 40px 16px; }
-        .landing-section h2 { font-size: 26px; margin-bottom: 28px; }
-        .landing-about { padding: 24px; }
-        .landing-stat-num { font-size: 36px; }
-        .landing-final h2 { font-size: 28px; }
+    .landing {
+        --landing-radius: 20px;
+        --landing-border: color-mix(in srgb, var(--brand-text) 12%, transparent);
+        --landing-muted: var(--bs-secondary-color, var(--brand-text));
+        max-width: 1240px;
+        width: 100%;
+        margin-inline: auto;
+        padding-inline: 32px;
+        color: var(--brand-text);
     }
+
+        .landing *,
+        .landing *::before,
+        .landing *::after {
+            box-sizing: border-box;
+        }
+
+        .landing a {
+            color: inherit;
+        }
+
+            .landing a:focus-visible,
+            .landing button:focus-visible,
+            #work-modal button:focus-visible {
+                outline: 3px solid var(--brand-primary);
+                outline-offset: 4px;
+            }
+
+    .landing-section {
+        padding-block: 76px;
+    }
+
+    .landing-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--landing-muted);
+    }
+
+        .landing-eyebrow::before {
+            content: "";
+            width: 22px;
+            height: 2px;
+            background: var(--brand-primary);
+        }
+
+    .landing-heading {
+        max-width: 760px;
+        margin: 0 0 18px;
+        font-family: var(--font-heading);
+        font-size: clamp(32px, 4.5vw, 52px);
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -.045em;
+        text-wrap: balance;
+    }
+
+    .landing-description {
+        max-width: 620px;
+        margin: 0;
+        color: var(--landing-muted);
+        font-size: 16px;
+        line-height: 1.8;
+    }
+
+    .landing-section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 32px;
+        margin-bottom: 34px;
+    }
+
+        .landing-section-head .landing-heading {
+            margin-bottom: 0;
+        }
+
+        .landing-section-head .landing-description {
+            max-width: 380px;
+        }
+
+    .landing-rule {
+        height: 1px;
+        border: 0;
+        background: var(--landing-border);
+        margin: 0;
+    }
+
+    /* ===== Ссылки и кнопки ===== */
+
+    .landing-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        min-height: 52px;
+        padding: 13px 22px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 750;
+        line-height: 1.3;
+        text-decoration: none !important;
+        transition: transform .2s ease, background .2s ease, border-color .2s ease;
+    }
+
+        .landing-button:hover {
+            transform: translateY(-2px);
+        }
+
+    .landing-button-primary {
+        background: var(--brand-primary);
+        color: var(--brand-card) !important;
+    }
+
+        .landing-button-primary:hover {
+            background: var(--brand-primary-hover);
+        }
+
+    .landing-button-secondary {
+        background: transparent;
+        border-color: var(--landing-border);
+        color: var(--brand-text) !important;
+    }
+
+        .landing-button-secondary:hover {
+            border-color: var(--brand-primary);
+        }
+
+    .landing-arrow {
+        font-size: 19px;
+        line-height: 1;
+        transition: transform .2s ease;
+    }
+
+    a:hover .landing-arrow {
+        transform: translateX(3px);
+    }
+
+    /* ===== Первый экран ===== */
+
+    .landing-hero {
+        padding-block: 58px 66px;
+    }
+
+    .landing-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
+        gap: 60px;
+        align-items: center;
+    }
+
+    .landing-hero-copy {
+        min-width: 0;
+    }
+
+    .landing-hero .landing-eyebrow {
+        margin-bottom: 26px;
+    }
+
+    .landing-hero h1 {
+        max-width: 720px;
+        margin: 0 0 24px;
+        font-family: var(--font-heading);
+        font-size: clamp(44px, 6.5vw, 78px);
+        font-weight: 850;
+        line-height: .99;
+        letter-spacing: -.065em;
+        text-wrap: balance;
+    }
+
+        .landing-hero h1 span {
+            color: var(--brand-primary);
+        }
+
+    .landing-hero-text {
+        max-width: 490px;
+        margin: 0 0 30px;
+        color: var(--landing-muted);
+        font-size: 17px;
+        line-height: 1.8;
+    }
+
+    .landing-hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 42px;
+    }
+
+    .landing-hero-visual {
+        position: relative;
+        min-width: 0;
+    }
+
+    .landing-hero-art {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 370px;
+        padding: 34px;
+        overflow: hidden;
+        border: 1px solid var(--landing-border);
+        border-radius: 28px;
+        background: var(--brand-card);
+        isolation: isolate;
+    }
+
+        .landing-hero-art::before,
+        .landing-hero-art::after {
+            position: absolute;
+            z-index: -1;
+            content: "";
+            border: 1px solid var(--landing-border);
+            border-radius: 50%;
+            aspect-ratio: 1;
+        }
+
+        .landing-hero-art::before {
+            width: 340px;
+        }
+
+        .landing-hero-art::after {
+            width: 260px;
+        }
+
+    .landing-hero-avatar {
+        display: block;
+        width: min(100%, 270px);
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: 22%;
+        border: 1px solid var(--landing-border);
+        box-shadow: 0 20px 50px color-mix( in srgb, var(--brand-text) 12%, transparent );
+    }
+
+    .landing-hero-caption {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        left: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 16px;
+        border: 1px solid var(--landing-border);
+        border-radius: 12px;
+        background: var(--brand-bg);
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+        .landing-hero-caption span:last-child {
+            color: var(--landing-muted);
+            font-weight: 500;
+        }
+
+    .landing-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        max-width: 530px;
+        border-top: 1px solid var(--landing-border);
+    }
+
+    .landing-stat {
+        padding: 19px 16px 0 0;
+    }
+
+        .landing-stat + .landing-stat {
+            padding-left: 18px;
+            border-left: 1px solid var(--landing-border);
+        }
+
+    .landing-stat-number {
+        display: block;
+        font-family: var(--font-heading);
+        font-size: clamp(25px, 3vw, 36px);
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -.04em;
+        overflow-wrap: anywhere;
+    }
+
+    .landing-stat-label {
+        display: block;
+        margin-top: 6px;
+        color: var(--landing-muted);
+        font-size: 12px;
+    }
+
+    /* ===== Мероприятия ===== */
+
+    .landing-events {
+        border-top: 1px solid var(--landing-border);
+    }
+
+    .landing-event-grid {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr 1fr;
+        gap: 16px;
+    }
+
+    .landing-event {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+        min-height: 270px;
+        padding: 26px;
+        border: 1px solid var(--landing-border);
+        border-radius: var(--landing-radius);
+        background: var(--brand-card);
+        transition: border-color .2s ease, transform .2s ease;
+    }
+
+        .landing-event:hover {
+            transform: translateY(-3px);
+            border-color: var(--brand-primary);
+        }
+
+    .landing-event-featured {
+        background: color-mix( in srgb, var(--brand-primary) 7%, var(--brand-card) );
+    }
+
+    .landing-event-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        margin-bottom: 28px;
+    }
+
+    .landing-event-icon {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        flex-shrink: 0;
+        border: 1px solid var(--landing-border);
+        border-radius: 13px;
+        background: var(--brand-bg);
+        font-size: 22px;
+    }
+
+    .landing-event-status {
+        padding: 6px 9px;
+        border: 1px solid var(--landing-border);
+        border-radius: 6px;
+        color: var(--landing-muted);
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .landing-event-status-active {
+        border-color: color-mix( in srgb, var(--brand-primary) 35%, transparent );
+        color: var(--brand-primary);
+    }
+
+    .landing-event h3 {
+        margin: 0 0 10px;
+        font-size: 21px;
+        font-weight: 800;
+        letter-spacing: -.025em;
+    }
+
+    .landing-event p {
+        margin: 0;
+        color: var(--landing-muted);
+        font-size: 14px;
+        line-height: 1.75;
+    }
+
+    .landing-event-footer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 24px;
+        color: var(--landing-muted);
+        font-size: 12px;
+    }
+
+        .landing-event-footer::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--brand-primary);
+        }
+
+    /* ===== О сообществе ===== */
+
+    .landing-about {
+        display: grid;
+        grid-template-columns: .8fr 1.2fr;
+        gap: 70px;
+        align-items: start;
+        padding: 38px 0;
+        border-top: 1px solid var(--landing-border);
+        border-bottom: 1px solid var(--landing-border);
+    }
+
+    .landing-about-aside {
+        position: sticky;
+        top: 30px;
+    }
+
+        .landing-about-aside .landing-heading {
+            font-size: clamp(32px, 4vw, 46px);
+        }
+
+    .landing-about-content {
+        display: grid;
+        gap: 0;
+    }
+
+    .landing-about-item {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 18px;
+        padding: 22px 0;
+        border-bottom: 1px solid var(--landing-border);
+    }
+
+        .landing-about-item:first-child {
+            padding-top: 4px;
+        }
+
+        .landing-about-item:last-child {
+            padding-bottom: 4px;
+            border-bottom: 0;
+        }
+
+    .landing-about-number {
+        padding-top: 3px;
+        color: var(--brand-primary);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .08em;
+    }
+
+    .landing-about-item h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    .landing-about-item p {
+        margin: 0;
+        color: var(--landing-muted);
+        font-size: 14px;
+        line-height: 1.8;
+    }
+
+    /* ===== Галерея работ ===== */
+
+    .landing-gallery {
+        border-top: 1px solid var(--landing-border);
+    }
+
+    .landing-gallery-count {
+        flex-shrink: 0;
+        padding-bottom: 5px;
+        color: var(--landing-muted);
+        font-size: 13px;
+    }
+
+    .landing-mosaic {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-auto-rows: 150px;
+        gap: 12px;
+    }
+
+    .landing-work {
+        position: relative;
+        display: block;
+        min-width: 0;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--landing-border);
+        border-radius: 14px;
+        background: var(--brand-card);
+        cursor: pointer;
+        text-align: left;
+    }
+
+        .landing-work:nth-child(6n + 1),
+        .landing-work:nth-child(6n + 4) {
+            grid-row: span 2;
+        }
+
+        .landing-work:nth-child(6n + 1) {
+            grid-column: span 2;
+        }
+
+        .landing-work img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform .4s ease;
+        }
+
+        .landing-work:hover img {
+            transform: scale(1.045);
+        }
+
+    .landing-work-fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        min-height: 100px;
+        color: var(--landing-muted);
+        font-size: 30px;
+    }
+
+    .landing-work::after {
+        position: absolute;
+        inset: 45% 0 0;
+        content: "";
+        pointer-events: none;
+        background: linear-gradient( to bottom, transparent, color-mix(in srgb, var(--brand-text) 35%, transparent) );
+        opacity: 0;
+        transition: opacity .2s ease;
+    }
+
+    .landing-work:hover::after,
+    .landing-work:focus-visible::after {
+        opacity: 1;
+    }
+
+    /* ===== Социальные площадки ===== */
+
+    .landing-socials {
+        border-top: 1px solid var(--landing-border);
+    }
+
+    .landing-social-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .landing-social {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+        padding: 20px;
+        border: 1px solid var(--landing-border);
+        border-radius: 14px;
+        background: var(--brand-card);
+        text-decoration: none !important;
+        transition: border-color .2s ease, transform .2s ease;
+    }
+
+        .landing-social:hover {
+            transform: translateY(-3px);
+            border-color: var(--brand-primary);
+        }
+
+    .landing-social-icon {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0;
+        border: 1px solid var(--landing-border);
+        border-radius: 12px;
+        background: var(--brand-bg);
+        font-size: 20px;
+    }
+
+    .landing-social-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .landing-social-title {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .landing-social-sub {
+        display: block;
+        color: var(--landing-muted);
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    /* ===== Финальный блок ===== */
+
+    .landing-final {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 30px;
+        margin-block: 34px 70px;
+        padding: 42px;
+        overflow: hidden;
+        border: 1px solid var(--landing-border);
+        border-radius: 22px;
+        background: color-mix( in srgb, var(--brand-primary) 8%, var(--brand-card) );
+    }
+
+    .landing-final-copy {
+        position: relative;
+        z-index: 1;
+    }
+
+    .landing-final h2 {
+        margin: 0 0 10px;
+        font-family: var(--font-heading);
+        font-size: clamp(28px, 4vw, 42px);
+        font-weight: 850;
+        letter-spacing: -.045em;
+    }
+
+    .landing-final p {
+        max-width: 550px;
+        margin: 0;
+        color: var(--landing-muted);
+        font-size: 15px;
+        line-height: 1.8;
+    }
+
+    .landing-final .landing-button {
+        position: relative;
+        z-index: 1;
+        flex-shrink: 0;
+    }
+
+    /* ===== Модальное окно работ ===== */
+
+    #work-modal[hidden] {
+        display: none;
+    }
+
+    #work-modal {
+        position: fixed;
+        z-index: 2000;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: color-mix(in srgb, var(--brand-text) 85%, transparent);
+    }
+
+    .work-modal-panel {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: min(1100px, 100%);
+        max-height: 90vh;
+        padding: 44px 12px 12px;
+    }
+
+    .work-modal-close {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        border: 1px solid var(--landing-border);
+        border-radius: 10px;
+        background: var(--brand-card);
+        color: var(--brand-text);
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    .work-modal-media {
+        display: block;
+        max-width: 100%;
+        max-height: calc(90vh - 70px);
+        border: 0;
+        border-radius: 10px;
+        object-fit: contain;
+        background: var(--brand-bg);
+    }
+
+    iframe.work-modal-media {
+        width: min(960px, 100%);
+        aspect-ratio: 16 / 9;
+        height: auto;
+    }
+
+    /* ===== Появление секций ===== */
+
+    .landing .reveal {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity .5s ease, transform .5s ease;
+    }
+
+        .landing .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+    /* ===== Адаптивность ===== */
+
+    @@media (min-width: 1500px) {
+        .landing {
+            max-width: 1320px;
+        }
+    }
+
+    @@media (max-width: 1000px) {
+        .landing {
+            padding-inline: 24px;
+        }
+
+        .landing-hero-grid {
+            grid-template-columns: minmax(0, 1.1fr) minmax(240px, .9fr);
+            gap: 30px;
+        }
+
+        .landing-hero-art {
+            min-height: 320px;
+            padding: 24px;
+        }
+
+        .landing-hero-avatar {
+            width: min(100%, 220px);
+        }
+
+        .landing-event-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .landing-event-featured {
+            grid-column: span 2;
+        }
+
+        .landing-about {
+            gap: 36px;
+        }
+
+        .landing-mosaic {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .landing-social {
+            padding: 16px;
+        }
+    }
+
+    @@media (max-width: 700px) {
+        .landing {
+            padding-inline: 18px;
+        }
+
+        .landing-section {
+            padding-block: 52px;
+        }
+
+        .landing-hero {
+            padding-block: 32px 48px;
+        }
+
+        .landing-hero-grid {
+            grid-template-columns: 1fr;
+            gap: 28px;
+        }
+
+        .landing-hero-visual {
+            order: -1;
+        }
+
+        .landing-hero-art {
+            min-height: 260px;
+            padding: 20px 20px 56px;
+            border-radius: 20px;
+        }
+
+            .landing-hero-art::before {
+                width: 250px;
+            }
+
+            .landing-hero-art::after {
+                width: 190px;
+            }
+
+        .landing-hero-avatar {
+            width: min(58%, 190px);
+            border-radius: 20%;
+        }
+
+        .landing-hero-caption {
+            right: 10px;
+            bottom: 10px;
+            left: 10px;
+            padding: 10px 12px;
+            font-size: 11px;
+        }
+
+        .landing-hero .landing-eyebrow {
+            margin-bottom: 18px;
+        }
+
+        .landing-hero h1 {
+            font-size: clamp(42px, 11vw, 64px);
+        }
+
+        .landing-hero-text {
+            font-size: 15px;
+        }
+
+        .landing-hero-actions {
+            margin-bottom: 30px;
+        }
+
+        .landing-button {
+            min-height: 48px;
+            padding: 12px 16px;
+            font-size: 13px;
+        }
+
+        .landing-stats {
+            max-width: none;
+        }
+
+        .landing-stat {
+            padding-top: 15px;
+        }
+
+            .landing-stat + .landing-stat {
+                padding-left: 12px;
+            }
+
+        .landing-stat-label {
+            font-size: 11px;
+        }
+
+        .landing-section-head {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+            .landing-section-head .landing-description {
+                font-size: 14px;
+            }
+
+        .landing-event-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .landing-event-featured {
+            grid-column: auto;
+        }
+
+        .landing-event {
+            min-height: auto;
+            padding: 22px;
+        }
+
+        .landing-event-top {
+            margin-bottom: 20px;
+        }
+
+        .landing-about {
+            grid-template-columns: 1fr;
+            gap: 20px;
+            padding-block: 0;
+        }
+
+        .landing-about-aside {
+            position: static;
+        }
+
+        .landing-about-item {
+            grid-template-columns: 32px minmax(0, 1fr);
+            gap: 12px;
+        }
+
+            .landing-about-item h3 {
+                font-size: 16px;
+            }
+
+            .landing-about-item p {
+                font-size: 13px;
+            }
+
+        .landing-mosaic {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-rows: 120px;
+            gap: 8px;
+        }
+
+        .landing-work {
+            border-radius: 10px;
+        }
+
+        .landing-social-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .landing-social {
+            padding: 15px;
+        }
+
+        .landing-final {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 24px;
+            margin-block: 20px 40px;
+            padding: 28px 22px;
+        }
+
+            .landing-final p {
+                font-size: 14px;
+            }
+
+        #work-modal {
+            padding: 12px;
+        }
+    }
+
+    @@media (max-width: 380px) {
+        .landing {
+            padding-inline: 14px;
+        }
+
+        .landing-hero h1 {
+            font-size: 39px;
+        }
+
+        .landing-hero-actions {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+            .landing-hero-actions .landing-button {
+                width: 100%;
+            }
+
+        .landing-stat-number {
+            font-size: 24px;
+        }
+
+        .landing-mosaic {
+            grid-auto-rows: 100px;
+        }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .landing *,
+        .landing *::before,
+        .landing *::after,
+        #work-modal * {
+            scroll-behavior: auto !important;
+            transition-duration: .01ms !important;
+            animation-duration: .01ms !important;
+            animation-iteration-count: 1 !important;
+        }
+
+        .landing .reveal {
+            opacity: 1;
+            transform: none;
+        }
+
+        .landing-hero-avatar,
+        .landing-work,
+        .landing-event,
+        .landing-social {
+            transition: none !important;
+        }
+    }
+
+    /* ===== Обновлённая глубина и акцент ===== */
+    .landing {
+        --landing-accent: var(--brand-accent, var(--brand-primary));
+        --landing-shadow: 0 18px 45px color-mix(in srgb, var(--brand-text) 10%, transparent);
+        position: relative;
+        isolation: isolate;
+    }
+
+    .landing-hero {
+        position: relative;
+        padding-block: 62px 82px;
+        overflow: clip;
+    }
+
+        .landing-hero::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            width: min(58vw, 700px);
+            aspect-ratio: 1;
+            top: -24%;
+            right: -13%;
+            border-radius: 50%;
+            background: radial-gradient(circle, color-mix(in srgb, var(--brand-accent) 22%, transparent), transparent 68%);
+            pointer-events: none;
+        }
+
+        .landing-hero::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            width: 320px;
+            height: 320px;
+            bottom: -230px;
+            left: -160px;
+            border-radius: 50%;
+            background: radial-gradient(circle, color-mix(in srgb, var(--brand-primary) 18%, transparent), transparent 70%);
+            pointer-events: none;
+        }
+
+    .landing-hero-grid {
+        grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+        gap: clamp(28px, 5vw, 76px);
+    }
+
+    .landing-hero h1 {
+        max-width: 760px;
+        font-size: clamp(48px, 6.8vw, 86px);
+        line-height: .98;
+        letter-spacing: -.07em;
+    }
+
+        .landing-hero h1 span {
+            color: var(--brand-primary);
+            text-shadow: 0 8px 30px color-mix(in srgb, var(--brand-primary) 18%, transparent);
+        }
+
+    .landing-hero-text {
+        max-width: 530px;
+        font-size: clamp(16px, 1.45vw, 18px);
+    }
+
+    .landing-hero-visual {
+        display: grid;
+        place-items: center;
+        min-height: 390px;
+        isolation: isolate;
+    }
+
+    .landing-hero-avatar {
+        position: relative;
+        z-index: 2;
+        width: min(72%, 300px);
+        aspect-ratio: 1;
+        border: 0;
+        border-radius: 25%;
+        box-shadow: 0 28px 70px color-mix(in srgb, var(--brand-text) 22%, transparent);
+        transform: rotate(3deg);
+        transition: transform .35s ease, box-shadow .35s ease;
+    }
+
+    .landing-hero-visual:hover .landing-hero-avatar {
+        transform: rotate(0deg) translateY(-5px);
+        box-shadow: 0 34px 80px color-mix(in srgb, var(--brand-text) 25%, transparent);
+    }
+
+    .landing-hero-visual::before {
+        content: "";
+        position: absolute;
+        z-index: 0;
+        width: min(88%, 350px);
+        aspect-ratio: 1;
+        border-radius: 34% 66% 59% 41% / 43% 38% 62% 57%;
+        background: linear-gradient(145deg, color-mix(in srgb, var(--brand-primary) 19%, transparent), color-mix(in srgb, var(--brand-accent) 27%, transparent));
+        filter: blur(1px);
+        transform: rotate(-12deg);
+        pointer-events: none;
+    }
+
+    .landing-hero-spark {
+        position: absolute;
+        z-index: 3;
+        color: var(--landing-accent);
+        line-height: 1;
+        text-shadow: 0 5px 18px color-mix(in srgb, var(--brand-accent) 30%, transparent);
+        pointer-events: none;
+    }
+
+    .landing-hero-spark-one {
+        top: 15%;
+        right: 14%;
+        font-size: 38px;
+        transform: rotate(12deg);
+    }
+
+    .landing-hero-spark-two {
+        bottom: 18%;
+        left: 10%;
+        font-size: 30px;
+        color: var(--brand-primary);
+    }
+
+    .landing-hero-sticker {
+        position: absolute;
+        z-index: 4;
+        right: 2%;
+        bottom: 12%;
+        padding: 10px 15px;
+        border-radius: 999px;
+        background: var(--brand-card);
+        color: var(--brand-text);
+        box-shadow: 0 12px 30px color-mix(in srgb, var(--brand-text) 13%, transparent);
+        font-size: 12px;
+        font-weight: 800;
+        transform: rotate(-5deg);
+    }
+
+    .landing-stats {
+        max-width: 600px;
+        gap: 10px;
+        border: 0;
+        margin-top: 10px;
+    }
+
+    .landing-stat,
+    .landing-stat + .landing-stat {
+        padding: 17px 15px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 7%, transparent);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--brand-card) 82%, transparent);
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-text) 5%, transparent);
+    }
+
+    .landing-stat-number {
+        font-size: clamp(23px, 2.7vw, 34px);
+        white-space: nowrap;
+        color: var(--brand-primary);
+    }
+
+    .landing-stat-label {
+        font-size: 11px;
+        line-height: 1.45;
+    }
+
+    .landing-eyebrow::before {
+        background: var(--brand-accent, var(--brand-primary));
+        height: 3px;
+        border-radius: 4px;
+    }
+
+    .landing-button-primary {
+        box-shadow: 0 10px 25px color-mix(in srgb, var(--brand-primary) 25%, transparent);
+    }
+
+        .landing-button-primary:hover {
+            box-shadow: 0 14px 32px color-mix(in srgb, var(--brand-primary) 32%, transparent);
+        }
+
+    .landing-events {
+        position: relative;
+        padding-top: 68px;
+    }
+
+    .landing-event-grid {
+        grid-template-columns: 1.15fr 1fr 1fr;
+        gap: 18px;
+    }
+
+    .landing-event {
+        position: relative;
+        overflow: hidden;
+        min-height: 300px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 8%, transparent);
+        box-shadow: 0 10px 30px color-mix(in srgb, var(--brand-text) 5%, transparent);
+        border-radius: 20px;
+        padding: 28px;
+    }
+
+        .landing-event::after {
+            content: "";
+            position: absolute;
+            top: -65px;
+            right: -65px;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--brand-accent) 12%, transparent);
+            pointer-events: none;
+        }
+
+    .landing-event-featured {
+        background: linear-gradient(145deg, color-mix(in srgb, var(--brand-primary) 13%, var(--brand-card)), var(--brand-card) 72%);
+        box-shadow: 0 18px 42px color-mix(in srgb, var(--brand-primary) 12%, transparent);
+    }
+
+        .landing-event-featured::after {
+            width: 210px;
+            height: 210px;
+            top: -95px;
+            right: -80px;
+            background: color-mix(in srgb, var(--brand-primary) 17%, transparent);
+        }
+
+    .landing-event-idea::after {
+        background: color-mix(in srgb, var(--brand-accent) 18%, transparent);
+    }
+
+    .landing-event-join::after {
+        background: color-mix(in srgb, var(--brand-primary) 11%, transparent);
+    }
+
+    .landing-event-top,
+    .landing-event h3,
+    .landing-event p,
+    .landing-event-footer {
+        position: relative;
+        z-index: 1;
+    }
+
+    .landing-event-icon {
+        width: 48px;
+        height: 48px;
+        border: 0;
+        border-radius: 15px;
+        background: color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card));
+        color: var(--brand-primary);
+        font-size: 25px;
+    }
+
+    .landing-event-idea .landing-event-icon {
+        background: color-mix(in srgb, var(--brand-accent) 18%, var(--brand-card));
+        color: var(--brand-text);
+    }
+
+    .landing-event-status {
+        background: color-mix(in srgb, var(--brand-card) 75%, transparent);
+    }
+
+    .landing-event-footer {
+        width: 100%;
+        margin-top: auto;
+    }
+
+    .landing-event-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--brand-primary);
+        font-size: 13px;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+        .landing-event-link span {
+            transition: transform .2s ease;
+        }
+
+        .landing-event-link:hover span {
+            transform: translate(3px, -2px);
+        }
+
+    .landing-about {
+        position: relative;
+        padding: 44px 36px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 7%, transparent);
+        border-radius: 24px;
+        background: linear-gradient(115deg, color-mix(in srgb, var(--brand-accent) 8%, var(--brand-card)), var(--brand-card) 58%);
+        box-shadow: var(--landing-shadow);
+    }
+
+    .landing-about-number {
+        color: var(--brand-accent, var(--brand-primary));
+    }
+
+    .landing-gallery {
+        position: relative;
+    }
+
+    .landing-mosaic {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        grid-auto-rows: auto;
+        gap: 16px;
+    }
+
+    .landing-work {
+        grid-column: span 3;
+        aspect-ratio: 16 / 9;
+        height: auto;
+        min-height: 0;
+        border: 0;
+        border-radius: 16px;
+        box-shadow: 0 10px 28px color-mix(in srgb, var(--brand-text) 12%, transparent);
+        transition: transform .25s ease, box-shadow .25s ease;
+    }
+
+        .landing-work:nth-child(6n + 1),
+        .landing-work:nth-child(6n + 4) {
+            grid-row: auto;
+            grid-column: span 3;
+        }
+
+        .landing-work:nth-child(5n + 1),
+        .landing-work:nth-child(5n + 2) {
+            grid-column: span 6;
+        }
+
+        .landing-work:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 38px color-mix(in srgb, var(--brand-text) 18%, transparent);
+        }
+
+        .landing-work img {
+            object-fit: cover;
+        }
+
+    .landing-work-fallback {
+        background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card)), color-mix(in srgb, var(--brand-accent) 16%, var(--brand-card)));
+    }
+
+    .landing-social-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 760px;
+    }
+
+    .landing-social {
+        padding: 18px 22px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 8%, transparent);
+        border-radius: 16px;
+        background: var(--brand-card);
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-text) 5%, transparent);
+    }
+
+        .landing-social:first-child {
+            background: linear-gradient(100deg, color-mix(in srgb, var(--brand-primary) 11%, var(--brand-card)), var(--brand-card) 78%);
+        }
+
+    .landing-social-icon {
+        border: 0;
+        background: color-mix(in srgb, var(--brand-accent) 18%, var(--brand-card));
+    }
+
+    .landing-social:first-child .landing-social-icon {
+        background: color-mix(in srgb, var(--brand-primary) 14%, var(--brand-card));
+    }
+
+    .landing-final {
+        border: 0;
+        background: radial-gradient(circle at 88% 15%, color-mix(in srgb, var(--brand-accent) 24%, transparent), transparent 32%), linear-gradient(120deg, color-mix(in srgb, var(--brand-primary) 16%, var(--brand-card)), var(--brand-card) 70%);
+        box-shadow: var(--landing-shadow);
+    }
+
+        .landing-final::after {
+            content: "✳";
+            position: absolute;
+            right: 26%;
+            bottom: -65px;
+            color: color-mix(in srgb, var(--brand-accent) 22%, transparent);
+            font-size: 190px;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+    @@media (max-width: 1000px) {
+        .landing-hero-visual {
+            min-height: 320px;
+        }
+
+        .landing-event-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .landing-event-featured {
+            grid-column: span 2;
+        }
+
+        .landing-mosaic {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+
+        .landing-work,
+        .landing-work:nth-child(6n + 1),
+        .landing-work:nth-child(6n + 4) {
+            grid-column: span 3;
+        }
+
+            .landing-work:nth-child(5n + 1),
+            .landing-work:nth-child(5n + 2) {
+                grid-column: span 3;
+            }
+    }
+
+    @@media (max-width: 700px) {
+        .landing-hero {
+            padding-block: 34px 54px;
+        }
+
+        .landing-hero-grid {
+            gap: 20px;
+        }
+
+        .landing-hero-visual {
+            min-height: 245px;
+            order: -1;
+        }
+
+        .landing-hero-avatar {
+            width: min(55%, 190px);
+        }
+
+        .landing-hero-spark-one {
+            top: 10%;
+            right: 20%;
+            font-size: 30px;
+        }
+
+        .landing-hero-spark-two {
+            bottom: 10%;
+            left: 19%;
+            font-size: 24px;
+        }
+
+        .landing-hero-sticker {
+            right: 9%;
+            bottom: 6%;
+            font-size: 10px;
+        }
+
+        .landing-hero h1 {
+            font-size: clamp(42px, 11vw, 64px);
+        }
+
+        .landing-stats {
+            gap: 7px;
+        }
+
+        .landing-stat,
+        .landing-stat + .landing-stat {
+            padding: 12px 9px;
+            border-radius: 11px;
+        }
+
+        .landing-stat-number {
+            font-size: clamp(19px, 5vw, 27px);
+        }
+
+        .landing-stat-label {
+            font-size: 10px;
+        }
+
+        .landing-event-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .landing-event-featured {
+            grid-column: auto;
+        }
+
+        .landing-event {
+            min-height: auto;
+            padding: 23px;
+        }
+
+        .landing-about {
+            padding: 28px 22px;
+            border-radius: 18px;
+        }
+
+        .landing-mosaic {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .landing-work,
+        .landing-work:nth-child(6n + 1),
+        .landing-work:nth-child(6n + 4),
+        .landing-work:nth-child(5n + 1),
+        .landing-work:nth-child(5n + 2) {
+            grid-column: span 1;
+            aspect-ratio: 16 / 10;
+        }
+
+        .landing-social {
+            padding: 15px;
+        }
+
+        .landing-final::after {
+            right: 0;
+            font-size: 120px;
+        }
+    }
+
+    @@media (max-width: 380px) {
+        .landing-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .landing-stat,
+        .landing-stat + .landing-stat {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .landing-stat-label {
+            margin-top: 0;
+            text-align: right;
+        }
+    }
+
 </style>
 
-<section class="landing-hero">
-    @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
-    {
-        <img src="@Model.GuildIconUrl" alt="Аватарка сервера" class="landing-avatar" />
-    }
-    <h1>Сообщество Аниматоров</h1>
-    <p class="subtitle">
-        Еженедельные аниджемы, тёплое комьюнити и обратная связь от таких же творческих людей, как и ты.
-    </p>
-    <div class="landing-cta">
-        <a href="@Model.InviteUrl" class="primary" target="_blank" rel="noopener">Присоединиться</a>
-        <a href="/AnimJams" class="secondary">Смотреть аниджемы</a>
-    </div>
-</section>
+<main class="landing">
 
-@if (Model.RecentWorks.Any())
-{
-    <section class="landing-section">
-        <h2>Что у нас получается</h2>
-        <div class="landing-mosaic">
-            @foreach (var work in Model.RecentWorks)
-            {
-                <div class="landing-mosaic-item" onclick="openWork('@work.WorkUrl', '@work.MessageUrl', @work.ParticipantId)">
-                    @if (work.MediaType == "youtube" || work.MediaType == "image")
-                    {
-                        <img src="@work.ThumbnailUrl" loading="lazy" alt="" />
-                    }
-                    else if (work.MediaType == "video")
-                    {
-                        <video preload="metadata" muted playsinline src="@work.ThumbnailUrl"></video>
-                    }
-                    else
-                    {
-                        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:32px;">🔗</div>
-                    }
+    <!-- Первый экран -->
+    <section class="landing-hero">
+        <div class="landing-hero-grid">
+            <div class="landing-hero-copy">
+                <div class="landing-eyebrow">Сообщество для тех, кто создаёт</div>
+
+                <h1>
+                    Сообщество<br />
+                    <span>Аниматоров</span>
+                </h1>
+
+                <p class="landing-hero-text">
+                    Место, где можно рисовать, экспериментировать, участвовать
+                    в ивентах и делиться своими работами без страха ошибиться.
+                </p>
+
+                <div class="landing-hero-actions">
+                    <a href="@DiscordUrl"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="landing-button landing-button-primary">
+                        Присоединиться к сообществу
+                        <span class="landing-arrow" aria-hidden="true">↗</span>
+                    </a>
+
+                    <a href="/AnimJams"
+                       class="landing-button landing-button-secondary">
+                        Смотреть аниджемы
+                    </a>
                 </div>
-            }
+
+                <div class="landing-stats" aria-label="О сообществе в цифрах">
+                    <div class="landing-stat">
+                        <span class="landing-stat-number">400+</span>
+                        <span class="landing-stat-label">участников</span>
+                    </div>
+
+                    <div class="landing-stat">
+                        <span class="landing-stat-number">3 года</span>
+                        <span class="landing-stat-label">постоянных ивентов</span>
+                    </div>
+
+                    <div class="landing-stat">
+                        <span class="landing-stat-number">700+</span>
+                        <span class="landing-stat-label">анимаций</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="landing-hero-visual" aria-label="Аватар Discord-сервера">
+                <div class="landing-hero-spark landing-hero-spark-one" aria-hidden="true">✳</div>
+                <div class="landing-hero-spark landing-hero-spark-two" aria-hidden="true">✦</div>
+                <img src="@avatarUrl"
+                     alt="Аватар Сообщества Аниматоров"
+                     class="landing-hero-avatar" />
+                <span class="landing-hero-sticker" aria-hidden="true">создавай вместе</span>
+            </div>
         </div>
     </section>
-}
 
-<div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000;">
-    <div id="modal-content" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);"></div>
+    <!-- Ивенты сообщества -->
+    <section class="landing-section landing-events reveal">
+        <div class="landing-section-head">
+            <div>
+                <div class="landing-eyebrow">Идеи в движение</div>
+                <h2 class="landing-heading">Ивенты создаём вместе</h2>
+            </div>
+
+            <p class="landing-description">
+                Участвуй в мероприятиях сообщества или предложи собственную идею —
+                здесь можно не только присоединиться, но и собрать людей вокруг своего проекта.
+            </p>
+        </div>
+
+        <div class="landing-event-grid">
+            <article class="landing-event landing-event-featured">
+                <div class="landing-event-top">
+                    <span class="landing-event-icon" aria-hidden="true">✳</span>
+                    <span class="landing-event-status landing-event-status-active">Главный формат</span>
+                </div>
+
+                <h3>Аниджем</h3>
+                <p>
+                    Случайная тема, разные интерпретации и новые анимации.
+                    Участвуй в еженедельном ивенте, попробуй незнакомый подход
+                    и покажи с помощью анимации, как ты видишь заданную тему.
+                </p>
+
+                <div class="landing-event-footer">
+                    <a href="/AnimJams" class="landing-event-link">
+                        Смотреть аниджемы <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+            </article>
+
+            <article class="landing-event landing-event-idea">
+                <div class="landing-event-top">
+                    <span class="landing-event-icon" aria-hidden="true">＋</span>
+                    <span class="landing-event-status">Твоя идея</span>
+                </div>
+
+                <h3>Придумай и проведи</h3>
+                <p>
+                    Есть задумка для творческого мероприятия? Предложи формат,
+                    задай тему и пригласи участников. Ивент может начаться с идеи любого участника.
+                </p>
+
+                <div class="landing-event-footer">
+                    <a href="@DiscordUrl" target="_blank" rel="noopener noreferrer" class="landing-event-link">
+                        Предложить идею в Discord <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+            </article>
+
+            <article class="landing-event landing-event-join">
+                <div class="landing-event-top">
+                    <span class="landing-event-icon" aria-hidden="true">↗</span>
+                    <span class="landing-event-status">Для каждого</span>
+                </div>
+
+                <h3>Присоединяйся</h3>
+                <p>
+                    Необязательно организовывать что-то самому. Выбирай интересные
+                    мероприятия, участвуй в чужих задумках и знакомься с авторами.
+                </p>
+
+                <div class="landing-event-footer">
+                    <a href="@DiscordUrl" target="_blank" rel="noopener noreferrer" class="landing-event-link">
+                        Найти свой ивент <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <!-- О сообществе -->
+    <section class="landing-section reveal">
+        <div class="landing-about">
+            <div class="landing-about-aside">
+                <div class="landing-eyebrow">Наша философия</div>
+
+                <h2 class="landing-heading">
+                    Здесь можно быть начинающим
+                </h2>
+
+                <p class="landing-description">
+                    Не нужно быть профессионалом, чтобы создавать,
+                    учиться и находить единомышленников.
+                </p>
+            </div>
+
+            <div class="landing-about-content">
+                <article class="landing-about-item">
+                    <span class="landing-about-number">01</span>
+                    <div>
+                        <h3>Начинай с того, что умеешь</h3>
+                        <p>
+                            Большинство участников только учатся или
+                            продолжают развивать свои навыки. Неидеальный
+                            скетч и короткая тестовая анимация — уже результат.
+                        </p>
+                    </div>
+                </article>
+
+                <article class="landing-about-item">
+                    <span class="landing-about-number">02</span>
+                    <div>
+                        <h3>Делись, а не сравнивай</h3>
+                        <p>
+                            Мы показываем свои работы, обсуждаем идеи
+                            и вдохновляемся чужими экспериментами.
+                            Здесь не нужно доказывать, что ты лучше остальных.
+                        </p>
+                    </div>
+                </article>
+
+                <article class="landing-about-item">
+                    <span class="landing-about-number">03</span>
+                    <div>
+                        <h3>Пробуй новое вместе с другими</h3>
+                        <p>
+                            Творческие ивенты дают повод закончить проект,
+                            выйти за привычные рамки и увидеть,
+                            как одну тему можно раскрыть совершенно по-разному.
+                        </p>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- Галерея работ -->
+    @if (Model.RecentWorks.Any())
+    {
+        <section class="landing-section landing-gallery reveal">
+            <div class="landing-section-head">
+                <div>
+                    <div class="landing-eyebrow">Работы участников</div>
+                    <h2 class="landing-heading">Идеи становятся реальностью</h2>
+                    <p class="landing-description">
+                        Анимации участников сообщества — разные идеи,
+                        стили и способы рассказать историю.
+                    </p>
+                </div>
+
+                <span class="landing-gallery-count">
+                    @Model.RecentWorks.Count() работ
+                </span>
+            </div>
+
+            <div class="landing-mosaic">
+                @foreach (var work in Model.RecentWorks)
+                {
+                    <button type="button"
+                            class="landing-work"
+                            aria-label="Открыть работу участника"
+                            data-work-url="@work.WorkUrl"
+                            data-message-url="@work.MessageUrl"
+                            data-participant-id="@work.ParticipantId"
+                            data-media-type="@work.MediaType">
+
+                        @if (work.MediaType == "link")
+                        {
+                            <span class="landing-work-fallback"
+                                  aria-hidden="true">↗</span>
+                        }
+                        else
+                        {
+                            <img src="/Featured/Thumbnail/@work.ParticipantId"
+                                 loading="lazy"
+                                 decoding="async"
+                                 alt=""
+                                 onerror="this.style.display='none'; this.nextElementSibling.hidden=false;" />
+
+                            <span class="landing-work-fallback"
+                                  aria-hidden="true"
+                                  hidden>🎬</span>
+                        }
+                    </button>
+                }
+            </div>
+        </section>
+    }
+
+    <!-- Социальные площадки -->
+    <section class="landing-section landing-socials reveal">
+        <div class="landing-section-head">
+            <div>
+                <div class="landing-eyebrow">Остаёмся на связи</div>
+                <h2 class="landing-heading">Найди нас в сети</h2>
+            </div>
+
+            <p class="landing-description">
+                Discord — место для общения и ивентов. На YouTube и в Telegram
+                можно следить за работами, обзорами и новостями сообщества.
+            </p>
+        </div>
+
+        <div class="landing-social-list">
+            <a href="@DiscordUrl"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="landing-social">
+                <span class="landing-social-icon" aria-hidden="true">💬</span>
+                <span class="landing-social-info">
+                    <span class="landing-social-title">Discord</span>
+                    <span class="landing-social-sub">Общение и мероприятия</span>
+                </span>
+                <span class="landing-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a href="@YouTubeUrl"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="landing-social">
+                <span class="landing-social-icon" aria-hidden="true">▶</span>
+                <span class="landing-social-info">
+                    <span class="landing-social-title">YouTube</span>
+                    <span class="landing-social-sub">Обзоры аниджемов</span>
+                </span>
+                <span class="landing-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a href="@TelegramUrl"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="landing-social">
+                <span class="landing-social-icon" aria-hidden="true">✈</span>
+                <span class="landing-social-info">
+                    <span class="landing-social-title">Telegram</span>
+                    <span class="landing-social-sub">Новости и обновления</span>
+                </span>
+                <span class="landing-arrow" aria-hidden="true">↗</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- Финальный призыв -->
+    <section class="landing-final reveal">
+        <div class="landing-final-copy">
+            <div class="landing-eyebrow">Твоя идея тоже может чем-то большим</div>
+            <h2>Создавай не в одиночку</h2>
+            <p>
+                Приходи участвовать, знакомься с другими авторами или предложи
+                собственный творческий ивент. Начать можно с простой идеи.
+            </p>
+        </div>
+
+        <a href="@DiscordUrl"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="landing-button landing-button-primary">
+            Присоединиться к Discord
+            <span class="landing-arrow" aria-hidden="true">↗</span>
+        </a>
+    </section>
+</main>
+
+<!-- Просмотр работы -->
+<div id="work-modal" hidden role="dialog"
+     aria-modal="true" aria-label="Просмотр работы">
+    <div class="work-modal-panel">
+        <button type="button"
+                class="work-modal-close"
+                aria-label="Закрыть просмотр">
+            ×
+        </button>
+        <div id="work-modal-content"></div>
+    </div>
 </div>
 
 <script>
-    function openWork(workUrl, messageUrl, participantId) {
-        const modal = document.getElementById('modal');
-        const content = document.getElementById('modal-content');
-        const ytId = extractYouTubeId(workUrl);
+    (() => {
+        // Плавное появление секций с поддержкой reduced motion.
+        const revealElements = document.querySelectorAll(
+            '.landing .reveal'
+        );
 
-        if (ytId) {
-            content.innerHTML = `<iframe width="800" height="450"
-                src="https://www.youtube.com/embed/${ytId}?autoplay=1"
-                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-        } else if (participantId > 0) {
-            const proxyUrl = `/Media/StreamWork/${participantId}`;
-            const lowerUrl = workUrl.toLowerCase();
+        const reducedMotion = window.matchMedia(
+            '(prefers-reduced-motion: reduce)'
+        ).matches;
 
-            if (lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') || lowerUrl.includes('.mov')) {
-                content.innerHTML = `<video src="${proxyUrl}" controls autoplay
-                    style="max-width:80vw; max-height:80vh;"></video>`;
-            } else if (/\.(gif|png|jpg|jpeg)(\?|$)/i.test(workUrl)) {
-                content.innerHTML = `<img src="${proxyUrl}" style="max-width:80vw; max-height:80vh;" />`;
-            } else if (messageUrl) {
-                window.open(messageUrl, '_blank');
-                return;
-            } else {
-                window.open(workUrl, '_blank');
-                return;
-            }
-        } else if (messageUrl) {
-            window.open(messageUrl, '_blank');
-            return;
+        if (reducedMotion || !('IntersectionObserver' in window)) {
+            revealElements.forEach(element =>
+                element.classList.add('visible')
+            );
         } else {
-            window.open(workUrl, '_blank');
-            return;
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.08 });
+
+            revealElements.forEach(element => observer.observe(element));
         }
 
-        modal.style.display = 'block';
-    }
+        // Просмотр работ.
+        const modal = document.getElementById('work-modal');
+        const content = document.getElementById('work-modal-content');
+        const closeButton = modal.querySelector('.work-modal-close');
 
-    function closeModal() {
-        document.getElementById('modal').style.display = 'none';
-        document.getElementById('modal-content').innerHTML = '';
-    }
+        let previousFocus = null;
 
-    document.getElementById('modal').addEventListener('click', closeModal);
+        function extractYouTubeId(url) {
+            if (!url) return null;
 
-    function extractYouTubeId(url) {
-        const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
-        return m ? m[1] : null;
-    }
+            try {
+                const parsed = new URL(url, window.location.origin);
+                const host = parsed.hostname.toLowerCase();
+
+                if (host === 'youtu.be' || host.endsWith('.youtu.be')) {
+                    const id = parsed.pathname.split('/').filter(Boolean)[0];
+                    return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+                }
+
+                if (
+                    host === 'youtube.com' ||
+                    host.endsWith('.youtube.com') ||
+                    host === 'youtube-nocookie.com' ||
+                    host.endsWith('.youtube-nocookie.com')
+                ) {
+                    const id = parsed.searchParams.get('v')
+                        || parsed.pathname.match(
+                            /^\/(?:embed|shorts|live|v)\/([a-zA-Z0-9_-]{11})/
+                        )?.[1];
+
+                    return id && /^[a-zA-Z0-9_-]{11}$/.test(id)
+                        ? id
+                        : null;
+                }
+            } catch {
+                return null;
+            }
+
+            return null;
+        }
+
+        function addMedia(tagName, src, options = {}) {
+            const element = document.createElement(tagName);
+            element.className = 'work-modal-media';
+            element.src = src;
+
+            if (tagName === 'video') {
+                element.controls = true;
+                element.autoplay = true;
+                element.playsInline = true;
+            }
+
+            if (tagName === 'iframe') {
+                element.title = 'Видео участника';
+                element.allow = 'autoplay; encrypted-media; picture-in-picture';
+                element.allowFullscreen = true;
+                element.referrerPolicy = 'strict-origin-when-cross-origin';
+            }
+
+            if (options.alt) {
+                element.alt = options.alt;
+            }
+
+            content.appendChild(element);
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            content.replaceChildren();
+
+            if (previousFocus) {
+                previousFocus.focus();
+                previousFocus = null;
+            }
+        }
+
+        function openWork(button) {
+            const workUrl = button.dataset.workUrl || '';
+            const messageUrl = button.dataset.messageUrl || '';
+            const participantId = Number(button.dataset.participantId);
+            const mediaType = button.dataset.mediaType || '';
+
+            const youtubeId = extractYouTubeId(workUrl);
+
+            if (!youtubeId && mediaType === 'link') {
+                const destination = messageUrl || workUrl;
+
+                if (destination) {
+                    window.open(destination, '_blank', 'noopener,noreferrer');
+                }
+
+                return;
+            }
+
+            if (!youtubeId && !(participantId > 0)) {
+                const destination = messageUrl || workUrl;
+
+                if (destination) {
+                    window.open(destination, '_blank', 'noopener,noreferrer');
+                }
+
+                return;
+            }
+
+            content.replaceChildren();
+
+            if (youtubeId) {
+                addMedia(
+                    'iframe',
+                    `https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1`
+                );
+            } else {
+                let pathname = '';
+
+                try {
+                    pathname = new URL(
+                        workUrl,
+                        window.location.origin
+                    ).pathname.toLowerCase();
+                } catch {
+                    pathname = '';
+                }
+
+                const proxyUrl = `/Media/StreamWork/${participantId}`;
+
+                if (/\.(mp4|webm|mov|m4v)$/.test(pathname)) {
+                    addMedia('video', proxyUrl);
+                } else if (/\.(gif|png|jpe?g|webp|avif)$/.test(pathname)) {
+                    addMedia('img', proxyUrl, {
+                        alt: 'Работа участника'
+                    });
+                } else {
+                    const destination = messageUrl || workUrl;
+
+                    if (destination) {
+                        window.open(
+                            destination,
+                            '_blank',
+                            'noopener,noreferrer'
+                        );
+                    }
+
+                    return;
+                }
+            }
+
+            previousFocus = button;
+            modal.hidden = false;
+            closeButton.focus();
+        }
+
+        document.querySelectorAll('.landing-work').forEach(button => {
+            button.addEventListener('click', () => openWork(button));
+        });
+
+        closeButton.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', event => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+    })();
 </script>
-
-<section class="landing-section">
-    <h2>Как это работает</h2>
-    <div class="landing-steps">
-        <div class="landing-step">
-            <div class="landing-step-icon">💬</div>
-            <h3>Заходи на сервер</h3>
-            <p>Всё происходит в Discord. Присоединяйся, знакомься, смотри работы других.</p>
-        </div>
-        <div class="landing-step">
-            <div class="landing-step-icon">🎨</div>
-            <h3>Жди аниджем</h3>
-            <p>Каждую неделю — новая тема. Её выбирают голосованием сами участники.</p>
-        </div>
-        <div class="landing-step">
-            <div class="landing-step-icon">🚀</div>
-            <h3>Скидывай работу</h3>
-            <p>Анимация, гифка, что угодно — главное по теме и с душой.</p>
-        </div>
-        <div class="landing-step">
-            <div class="landing-step-icon">🏆</div>
-            <h3>Получай фидбек</h3>
-            <p>Участники голосуют за лучшие работы. Победители получают роль и место в истории.</p>
-        </div>
-    </div>
-</section>
-
-<section class="landing-section">
-    <h2>Что такое аниджем</h2>
-    <div class="landing-about">
-        <p>
-            <strong>Аниджем</strong> — это как джем-сейшн, только для аниматоров. Каждую неделю участники сообщества получают тему и делают по ней небольшую анимацию.
-            К концу недели все работы собираются в одном канале, а сообщество голосованием выбирает лучшие — за идею, за технику и за «Золотую какаху».
-        </p>
-        <p>
-            Не важно, новичок ты или уже несколько лет в анимации. <strong>Главное — что ты что-то сделал.</strong> Не идеально, но своё.
-        </p>
-    </div>
-</section>
-
-<section class="landing-section">
-    <h2>Мы уже</h2>
-    <div class="landing-stats">
-        <div>
-            <div class="landing-stat-num">@Model.ParticipantsCount</div>
-            <div class="landing-stat-label">участников</div>
-        </div>
-        <div>
-            <div class="landing-stat-num">@Model.AnimJamsCount</div>
-            <div class="landing-stat-label">аниджемов</div>
-        </div>
-        <div>
-            <div class="landing-stat-num">@Model.WorksCount</div>
-            <div class="landing-stat-label">работ</div>
-        </div>
-    </div>
-</section>
-
-<section class="landing-final">
-    <h2>Мы не кусаемся</h2>
-    <p>Здесь рады всем, кто хоть раз что-то нарисовал или анимировал. Заходи — посмотри, что происходит.</p>
-    <div class="landing-cta">
-        <a href="@Model.InviteUrl" class="primary" target="_blank" rel="noopener">Присоединиться к Discord</a>
-    </div>
-</section>

@@ -5,157 +5,453 @@
     ViewData["Title"] = "Участники";
 }
 
-<h1>Участники <span style="color: gray; font-size: 20px;">(@Model.Rows.Count)</span></h1>
+<style>
+    .participants-page {
+        color: var(--brand-text);
+        width: 100%;
+    }
 
-<p style="color: gray; font-size: 14px;">Клик по заголовку столбца — сортировка.</p>
+    .participants-header {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
 
-<div style="margin-bottom: 15px;">
-    <input type="text" id="searchInput" placeholder="Поиск по имени..." 
-           class="form-control" style="max-width: 400px;" />
+    .participants-header h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: 750;
+        letter-spacing: -0.035em;
+    }
+
+    .participants-count {
+        color: var(--brand-primary);
+        font-size: 1rem;
+        font-weight: 650;
+    }
+
+    .participants-description {
+        color: var(--brand-text);
+        opacity: .7;
+        font-size: .9rem;
+        margin: 10px 0 22px;
+    }
+
+    .participants-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .participants-search-wrap {
+        position: relative;
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .participants-search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: .55;
+        pointer-events: none;
+        font-size: 1rem;
+    }
+
+    #searchInput {
+        width: 100%;
+        min-height: 46px;
+        padding: 10px 14px 10px 40px;
+        color: var(--brand-text);
+        background: var(--brand-card);
+        border: 1px solid var(--brand-text);
+        border-color: color-mix(in srgb, var(--brand-text) 16%, transparent);
+        border-radius: 13px;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+    }
+
+    #searchInput::placeholder {
+        color: var(--brand-text);
+        opacity: .5;
+    }
+
+    #searchInput:focus {
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 16%, transparent);
+    }
+
+    .participants-table-card {
+        overflow: hidden;
+        background: var(--brand-card);
+        border: 1px solid color-mix(in srgb, var(--brand-text) 12%, transparent);
+        border-radius: 16px;
+        box-shadow: 0 8px 30px color-mix(in srgb, var(--brand-text) 5%, transparent);
+    }
+
+    .participants-table-scroll {
+        width: 100%;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    #participants-table {
+        width: 100%;
+        min-width: 1050px;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: .9rem;
+        white-space: nowrap;
+    }
+
+    #participants-table thead {
+        background: color-mix(in srgb, var(--brand-primary) 8%, var(--brand-card));
+    }
+
+    #participants-table th {
+        padding: 14px 12px;
+        color: var(--brand-text);
+        font-size: .76rem;
+        font-weight: 750;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: .035em;
+        border-bottom: 1px solid color-mix(in srgb, var(--brand-text) 12%, transparent);
+        user-select: none;
+        cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+
+    #participants-table th:first-child {
+        text-align: left;
+        padding-left: 20px;
+    }
+
+    #participants-table th:hover {
+        background: color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card));
+    }
+
+    #participants-table th[data-dir="asc"]::after {
+        content: " ↑";
+        color: var(--brand-primary);
+    }
+
+    #participants-table th[data-dir="desc"]::after {
+        content: " ↓";
+        color: var(--brand-primary);
+    }
+
+    #participants-table td {
+        padding: 12px;
+        text-align: center;
+        border-bottom: 1px solid color-mix(in srgb, var(--brand-text) 8%, transparent);
+        font-variant-numeric: tabular-nums;
+    }
+
+    #participants-table tbody tr {
+        transition: background .15s;
+    }
+
+    #participants-table tbody tr:hover {
+        background: color-mix(in srgb, var(--brand-primary) 6%, var(--brand-card));
+    }
+
+    #participants-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    #participants-table td:first-child {
+        padding-left: 20px;
+        text-align: left;
+    }
+
+    .participant-name {
+        color: var(--brand-text);
+        font-weight: 650;
+        text-decoration: none;
+        transition: color .15s;
+    }
+
+    .participant-name:hover {
+        color: var(--brand-primary);
+    }
+
+    .participant-wins {
+        color: var(--brand-primary);
+        font-weight: 750;
+    }
+
+    .participant-jam-link {
+        display: inline-block;
+        padding: 4px 8px;
+        color: var(--brand-text);
+        font-size: .82rem;
+        font-weight: 650;
+        text-decoration: none;
+        background: color-mix(in srgb, var(--brand-text) 6%, transparent);
+        border-radius: 7px;
+        transition: background .15s, color .15s;
+    }
+
+    .participant-jam-link:hover {
+        color: var(--brand-primary);
+        background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+    }
+
+    .participants-empty {
+        display: none;
+        padding: 36px 20px;
+        color: var(--brand-text);
+        opacity: .65;
+        text-align: center;
+    }
+
+    .participants-empty strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 1rem;
+        opacity: 1;
+    }
+
+    .participants-table-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 18px;
+        color: var(--brand-text);
+        opacity: .65;
+        font-size: .8rem;
+        border-top: 1px solid color-mix(in srgb, var(--brand-text) 9%, transparent);
+    }
+
+    @@media (max-width: 600px) {
+        .participants-description {
+            margin-bottom: 16px;
+        }
+
+        .participants-table-card {
+            border-radius: 12px;
+        }
+
+        .participants-table-footer {
+            padding: 11px 14px;
+        }
+    }
+</style>
+
+<div class="participants-page">
+    <div class="participants-header">
+        <h1>Участники</h1>
+        <span class="participants-count">@Model.Rows.Count человек</span>
+    </div>
+
+    <p class="participants-description">
+        Ищите участников и сортируйте статистику нажатием на заголовок столбца.
+    </p>
+
+    <div class="participants-toolbar">
+        <div class="participants-search-wrap">
+            <span class="participants-search-icon" aria-hidden="true">⌕</span>
+            <input type="text"
+                   id="searchInput"
+                   placeholder="Поиск по имени..."
+                   class="form-control"
+                   autocomplete="off"
+                   aria-label="Поиск участников по имени" />
+        </div>
+    </div>
+
+    <div class="participants-table-card">
+        <div class="participants-table-scroll">
+            <table id="participants-table">
+                <thead>
+                    <tr>
+                        <th data-sort="name" scope="col">Имя</th>
+                        <th data-sort="participations" scope="col">Участий</th>
+                        <th data-sort="works" scope="col">Работ</th>
+                        <th data-sort="wins" scope="col">Побед</th>
+                        <th data-sort="absolute" scope="col">@EmojiHelper.Medal абс.</th>
+                        <th data-sort="idea" scope="col">@EmojiHelper.Star идея</th>
+                        <th data-sort="tech" scope="col">@EmojiHelper.Hammer техника</th>
+                        <th data-sort="legacy" scope="col">@EmojiHelper.Trophy старый</th>
+                        <th data-sort="honorable" scope="col">@Html.Raw(EmojiHelper.GoldPoopHtml)</th>
+                        <th data-sort="first" scope="col">Первое</th>
+                        <th data-sort="last" scope="col">Последнее</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr data-name="@row.DisplayName.ToLowerInvariant()"
+                            data-participations="@row.ParticipationsCount"
+                            data-works="@row.WorksCount"
+                            data-wins="@row.WinsCount"
+                            data-absolute="@row.AbsoluteVictories"
+                            data-idea="@row.IdeaWins"
+                            data-tech="@row.TechnicalWins"
+                            data-legacy="@row.LegacyWins"
+                            data-honorable="@row.HonorableMentions"
+                            data-first="@row.FirstAnimJam"
+                            data-last="@row.LastAnimJam">
+                            <td>
+                                <a asp-controller="User"
+                                   asp-action="PublicProfile"
+                                   asp-route-id="@row.DiscordUserId"
+                                   class="participant-name">
+                                    @row.DisplayName
+                                </a>
+                            </td>
+                            <td>@row.ParticipationsCount</td>
+                            <td>@row.WorksCount</td>
+                            <td class="participant-wins">@row.WinsCount</td>
+                            <td>@row.AbsoluteVictories</td>
+                            <td>@row.IdeaWins</td>
+                            <td>@row.TechnicalWins</td>
+                            <td>@row.LegacyWins</td>
+                            <td>@row.HonorableMentions</td>
+                            <td>
+                                @if (row.FirstAnimJam > 0)
+                                {
+                                    <a asp-controller="AnimJams"
+                                       asp-action="Details"
+                                       asp-route-number="@row.FirstAnimJam"
+                                       title="@row.FirstDate.ToString("dd.MM.yyyy")"
+                                       class="participant-jam-link">
+                                        #@row.FirstAnimJam
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span aria-label="Нет данных">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (row.LastAnimJam > 0)
+                                {
+                                    <a asp-controller="AnimJams"
+                                       asp-action="Details"
+                                       asp-route-number="@row.LastAnimJam"
+                                       title="@row.LastDate.ToString("dd.MM.yyyy")"
+                                       class="participant-jam-link">
+                                        #@row.LastAnimJam
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span aria-label="Нет данных">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div id="participants-empty" class="participants-empty">
+            <strong>Ничего не найдено</strong>
+            Попробуйте изменить поисковый запрос.
+        </div>
+
+        <div class="participants-table-footer">
+            <span id="participants-visible-count">@Model.Rows.Count участников</span>
+            <span>Нажмите на заголовок для сортировки</span>
+        </div>
+    </div>
 </div>
 
-<table id="participants-table" style="width: 100%; border-collapse: collapse;">
-    <thead>
-        <tr style="background: #f0f0f0;">
-            <th data-sort="name" style="padding: 8px; border: 1px solid #ccc; text-align: left;">Имя</th>
-            <th data-sort="participations" style="padding: 8px; border: 1px solid #ccc;">Участий</th>
-            <th data-sort="works" style="padding: 8px; border: 1px solid #ccc;">Работ</th>
-            <th data-sort="wins" style="padding: 8px; border: 1px solid #ccc;">Побед</th>
-            <th data-sort="absolute" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Medal абс.</th>
-            <th data-sort="idea" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Star идея</th>
-            <th data-sort="tech" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Hammer техника</th>
-            <th data-sort="legacy" style="padding: 8px; border: 1px solid #ccc;">@EmojiHelper.Trophy старый</th>
-            <th data-sort="honorable" style="padding: 8px; border: 1px solid #ccc;">@Html.Raw(EmojiHelper.GoldPoopHtml)</th>
-            <th data-sort="first" style="padding: 8px; border: 1px solid #ccc;">Первое</th>
-            <th data-sort="last" style="padding: 8px; border: 1px solid #ccc;">Последнее</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var row in Model.Rows)
-        {
-            <tr data-name="@row.DisplayName.ToLower()"
-                data-participations="@row.ParticipationsCount"
-                data-works="@row.WorksCount"
-                data-wins="@row.WinsCount"
-                data-absolute="@row.AbsoluteVictories"
-                data-idea="@row.IdeaWins"
-                data-tech="@row.TechnicalWins"
-                data-legacy="@row.LegacyWins"
-                data-honorable="@row.HonorableMentions"
-                data-first="@row.FirstAnimJam"
-                data-last="@row.LastAnimJam"
-                style="border-bottom: 1px solid #eee;">
-                <td style="padding: 8px; border: 1px solid #eee;">
-                    <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@row.DiscordUserId"
-                       style="text-decoration: none; color: inherit;">
-                        @row.DisplayName
-                    </a>
-                </td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.ParticipationsCount</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.WorksCount</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center; font-weight: bold;">@row.WinsCount</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.AbsoluteVictories</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.IdeaWins</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.TechnicalWins</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.LegacyWins</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">@row.HonorableMentions</td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">
-                    @if (row.FirstAnimJam > 0)
-                    {
-                        <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@row.FirstAnimJam"
-                           title="@row.FirstDate.ToString("dd.MM.yyyy")"
-                           style="text-decoration: none; color: inherit;">
-                            #@row.FirstAnimJam
-                        </a>
-                    }
-                    else
-                    {
-                        <span style="color: gray;">—</span>
-                    }
-                </td>
-                <td style="padding: 8px; border: 1px solid #eee; text-align: center;">
-                    @if (row.LastAnimJam > 0)
-                    {
-                        <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@row.LastAnimJam"
-                           title="@row.LastDate.ToString("dd.MM.yyyy")"
-                           style="text-decoration: none; color: inherit;">
-                            #@row.LastAnimJam
-                        </a>
-                    }
-                    else
-                    {
-                        <span style="color: gray;">—</span>
-                    }
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
-
 <script>
-    const searchInput = document.getElementById('searchInput');
-    const tableRows = () => Array.from(document.querySelectorAll('#participants-table tbody tr'));
+    (() => {
+        const searchInput = document.getElementById('searchInput');
+        const table = document.getElementById('participants-table');
+        const tbody = table.querySelector('tbody');
+        const headers = Array.from(table.querySelectorAll('th[data-sort]'));
+        const emptyMessage = document.getElementById('participants-empty');
+        const visibleCount = document.getElementById('participants-visible-count');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
 
-    searchInput.addEventListener('input', () => {
-        const q = searchInput.value.trim().toLowerCase();
-        tableRows().forEach(row => {
-            const name = row.dataset.name ?? '';
-            row.style.display = !q || name.includes(q) ? '' : 'none';
-        });
-    });
-    // Сортировка
-    document.querySelectorAll('th[data-sort]').forEach(th => {
-        th.style.cursor = 'pointer';
-        th.title = 'Сортировать';
+        const updateVisibleRows = () => {
+            const query = searchInput.value.trim().toLocaleLowerCase('ru');
+            let count = 0;
 
-        th.addEventListener('click', () => {
-            const key = th.dataset.sort;
-            const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+            rows.forEach(row => {
+                const name = row.dataset.name ?? '';
+                const visible = !query || name.includes(query);
 
-            document.querySelectorAll('th[data-sort]').forEach(h => {
-                if (h !== th) h.dataset.dir = '';
+                row.hidden = !visible;
+
+                if (visible) count++;
             });
-            th.dataset.dir = dir;
 
-            const tbody = document.querySelector('#participants-table tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
+            emptyMessage.style.display = count === 0 ? 'block' : 'none';
+            table.style.display = count === 0 ? 'none' : 'table';
 
-            rows.sort((a, b) => {
-                const av = a.dataset[key] ?? '';
-                const bv = b.dataset[key] ?? '';
+            visibleCount.textContent = `${count} из ${rows.length} участников`;
+        };
 
-                const an = parseFloat(av);
-                const bn = parseFloat(bv);
+        searchInput.addEventListener('input', updateVisibleRows);
 
-                if (!isNaN(an) && !isNaN(bn)) {
-                    return dir === 'asc' ? an - bn : bn - an;
+        headers.forEach(header => {
+            header.title = 'Нажмите, чтобы отсортировать';
+            header.setAttribute('aria-sort', 'none');
+            header.tabIndex = 0;
+
+            const sortTable = () => {
+                const key = header.dataset.sort;
+                const direction = header.dataset.dir === 'asc' ? 'desc' : 'asc';
+
+                headers.forEach(item => {
+                    item.dataset.dir = '';
+                    item.setAttribute('aria-sort', 'none');
+                });
+
+                header.dataset.dir = direction;
+                header.setAttribute(
+                    'aria-sort',
+                    direction === 'asc' ? 'ascending' : 'descending'
+                );
+
+                const sortedRows = Array.from(tbody.querySelectorAll('tr'));
+
+                sortedRows.sort((a, b) => {
+                    const aValue = a.dataset[key] ?? '';
+                    const bValue = b.dataset[key] ?? '';
+
+                    const aNumber = Number(aValue);
+                    const bNumber = Number(bValue);
+
+                    let result;
+
+                    if (aValue !== '' && bValue !== '' &&
+                        Number.isFinite(aNumber) && Number.isFinite(bNumber)) {
+                        result = aNumber - bNumber;
+                    } else {
+                        result = aValue.localeCompare(bValue, 'ru', {
+                            numeric: true,
+                            sensitivity: 'base'
+                        });
+                    }
+
+                    return direction === 'asc' ? result : -result;
+                });
+
+                sortedRows.forEach(row => tbody.appendChild(row));
+                updateVisibleRows();
+            };
+
+            header.addEventListener('click', sortTable);
+
+            header.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    sortTable();
                 }
-
-                return dir === 'asc'
-                    ? av.localeCompare(bv, 'ru')
-                    : bv.localeCompare(av, 'ru');
             });
-
-            rows.forEach(r => tbody.appendChild(r));
         });
-    });
 
-    // Локальные даты
-    document.querySelectorAll('.local-date').forEach(el => {
-        const utc = el.dataset.utc;
-        const fmt = el.dataset.format;
-        const d = new Date(utc);
-        if (isNaN(d)) return;
-
-        const pad = n => String(n).padStart(2, '0');
-        let result = '';
-
-        if (fmt === 'dd.MM.yyyy') {
-            result = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
-        } else {
-            result = d.toLocaleDateString('ru-RU');
-        }
-
-        el.textContent = result;
-    });
+        updateVisibleRows();
+    })();
 </script>

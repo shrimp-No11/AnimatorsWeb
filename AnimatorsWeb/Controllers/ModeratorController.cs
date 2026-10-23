@@ -1215,6 +1215,24 @@ namespace AnimatorsWeb.Controllers
                 await _db.SaveChangesAsync();
             }
 
+            // Фоново генерируем обложки для участников этого аниджема
+            var newParticipantsSnapshot = newParticipants
+                .Select(p => new { p.Id, p.WorkUrl, p.MessageUrl })
+                .ToList();
+
+            _ = Task.Run(async () =>
+            {
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var thumb = scope.ServiceProvider.GetRequiredService<FeaturedThumbnailService>();
+                foreach (var p in newParticipantsSnapshot)
+                {
+                    var mt = DetectMediaType(p.WorkUrl);
+                    if (mt == "video" || mt == "image" || mt == "youtube")
+                        await thumb.EnsureAsync(p.Id, p.WorkUrl, p.MessageUrl, mt);
+                    await Task.Delay(300);
+                }
+            });
+
             TempData["Result"] = "Объявление победителей опубликовано!";
             return RedirectToAction("Index");
         }
@@ -1615,28 +1633,91 @@ namespace AnimatorsWeb.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> SearchFeaturedWorks(int offset = 0, int limit = 24)
+        public async Task<IActionResult> SearchFeaturedWorks(
+    int offset = 0, int limit = 24,
+    string? participantQuery = null, int? animJamNumber = null)
         {
-            // ID по одному на уникальный WorkUrl (последняя по номеру аниджема)
-            var distinctIds = _db.Participants
-                .Where(p => !string.IsNullOrEmpty(p.WorkUrl))
-                .GroupBy(p => p.WorkUrl)
-                .Select(g => g.Max(x => x.Id));
+            var baseQuery = _db.Participants.Where(p => !string.IsNullOrEmpty(p.WorkUrl));
 
-            var page = await _db.Participants
-                .Where(p => distinctIds.Contains(p.Id))
-                .OrderByDescending(p => p.AnimJamNumber)
-                .ThenByDescending(p => p.Id)
-                .Skip(offset)
-                .Take(limit + 1)
+            if (animJamNumber.HasValue)
+                baseQuery = baseQuery.Where(p => p.AnimJamNumber == animJamNumber.Value);
+
+            if (!string.IsNullOrWhiteSpace(participantQuery))
+            {
+                var q = participantQuery.Trim();
+                var matchedIds = await _db.Participants
+                    .Where(p => p.DiscordUserId.ToString().Contains(q)
+                             || EF.Functions.ILike(p.DisplayName, $"%{q}%"))
+                    .Select(p => p.DiscordUserId)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (matchedIds.Count == 0)
+                    return Json(new { items = new List<object>(), hasMore = false });
+
+                baseQuery = baseQuery.Where(p => matchedIds.Contains(p.DiscordUserId));
+            }
+
+            // Тянем в память (объём маленький) → стабильная дедупликация и сортировка
+            var all = await baseQuery
+                .Select(p => new { p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName })
                 .ToListAsync();
 
+            var deduped = all
+                .GroupBy(x => x.WorkUrl)
+                .Select(g => g.OrderByDescending(x => x.AnimJamNumber)
+                              .ThenByDescending(x => x.Id)
+                              .First())
+                .OrderByDescending(x => x.AnimJamNumber)
+                .ThenByDescending(x => x.Id)
+                .ToList();
+
+            var page = deduped.Skip(offset).Take(limit + 1).ToList();
             var hasMore = page.Count > limit;
             if (hasMore) page = page.Take(limit).ToList();
 
-            var items = page.Select(p => BuildFeaturedItem(p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName, null)).ToList();
+            var items = page
+                .Select(p => BuildFeaturedItem(p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName, null))
+                .ToList();
 
             return Json(new { items, hasMore });
+        }
+        [HttpGet]
+        public IActionResult GetThumbnails(string ids)
+        {
+            var result = new Dictionary<int, string?>();
+            if (string.IsNullOrWhiteSpace(ids)) return Json(result);
+
+            foreach (var s in ids.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!int.TryParse(s, out var id)) continue;
+                result[id] = _thumbService.GetUrl(id);
+            }
+            return Json(result);
+        }
+        [HttpPost]
+        public async Task<IActionResult> GenerateAllThumbnails()
+        {
+            var all = await _db.Participants
+                .Where(p => !string.IsNullOrEmpty(p.WorkUrl))
+                .ToListAsync();
+
+            int queued = 0;
+            foreach (var p in all)
+            {
+                if (_thumbService.HasThumbnail(p.Id)) continue;
+                var mt = DetectMediaType(p.WorkUrl);
+                if (mt != "video" && mt != "image" && mt != "youtube") continue;
+
+                var id = p.Id;
+                var wurl = p.WorkUrl;
+                var murl = p.MessageUrl;
+                _ = Task.Run(() => _thumbService.EnsureAsync(id, wurl, murl, mt));
+                queued++;
+            }
+
+            TempData["Result"] = $"Запущена генерация обложек для {queued} работ (в фоне)";
+            return RedirectToAction(nameof(FeaturedWorks));
         }
 
         [HttpGet]
@@ -1779,7 +1860,8 @@ namespace AnimatorsWeb.Controllers
             return result;
         }
 
-        private FeaturedWorkItem BuildFeaturedItem(int participantId, int jam, string workUrl, string messageUrl, string name, int? featuredId)
+        private FeaturedWorkItem BuildFeaturedItem(int participantId, int jam, string workUrl,
+                                            string messageUrl, string name, int? featuredId)
         {
             var item = new FeaturedWorkItem
             {
@@ -1791,30 +1873,46 @@ namespace AnimatorsWeb.Controllers
                 DisplayName = name
             };
 
+            // 1. Локальная обложка — самая быстрая
+            var localThumb = _thumbService.GetUrl(participantId);
+            if (!string.IsNullOrEmpty(localThumb))
+            {
+                item.HasLocalThumbnail = true;
+                item.MediaType = "image";
+                item.ThumbnailUrl = localThumb;
+                return item;
+            }
+
+            // 2. YouTube — CDN быстрый
             var ytId = GetYouTubeId(workUrl);
             if (ytId != null)
             {
                 item.MediaType = "youtube";
                 item.ThumbnailUrl = $"https://img.youtube.com/vi/{ytId}/mqdefault.jpg";
+                return item;
             }
-            else if (workUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase) ||
-                     workUrl.Contains(".webm", StringComparison.OrdinalIgnoreCase) ||
-                     workUrl.Contains(".mov", StringComparison.OrdinalIgnoreCase))
+
+            // 3. Видео без обложки — иконка, не грузим /Media/StreamWork
+            if (workUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                workUrl.Contains(".webm", StringComparison.OrdinalIgnoreCase) ||
+                workUrl.Contains(".mov", StringComparison.OrdinalIgnoreCase))
             {
                 item.MediaType = "video";
-                item.ThumbnailUrl = $"/Media/StreamWork/{participantId}";
+                item.ThumbnailUrl = "";
+                return item;
             }
-            else if (System.Text.RegularExpressions.Regex.IsMatch(workUrl,
+
+            // 4. Картинки без обложки — иконка (CDN всё равно протух)
+            if (System.Text.RegularExpressions.Regex.IsMatch(workUrl,
                 @"\.(gif|png|jpg|jpeg)(\?|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
             {
                 item.MediaType = "image";
-                item.ThumbnailUrl = $"/Media/StreamWork/{participantId}";
-            }
-            else
-            {
-                item.MediaType = "link";
+                item.ThumbnailUrl = "";
+                return item;
             }
 
+            item.MediaType = "link";
+            item.ThumbnailUrl = "";
             return item;
         }
         private static string? GetYouTubeId(string url)
