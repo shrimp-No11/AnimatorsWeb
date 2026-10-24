@@ -2,10 +2,15 @@
 services:
   webapp:
     build:
-      context: ./AnimatorsWeb      
+      context: ./AnimatorsWeb
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    volumes:
+      - ./AnimatorsWeb/wwwroot/images:/app/wwwroot/images
+      - ./AnimatorsWeb/wwwroot/featured:/app/wwwroot/featured
+      - ./AnimatorsWeb/wwwroot/uploads:/app/wwwroot/uploads
+      - ./AnimatorsWeb/wwwroot/rules:/app/wwwroot/rules
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=db;Database=animators_db;Username=animators_user;Password=${DB_PASSWORD}
