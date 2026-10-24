@@ -45,7 +45,7 @@ namespace AnimatorsWeb.Services
             if (_cache.TryGetValue(CacheKey, out DesignSettings? cached) && cached != null)
                 return cached;
 
-            var settings = await _db.DesignSettings.FirstOrDefaultAsync();
+            var settings = await _db.DesignSettings.OrderBy(x => x.Id).FirstOrDefaultAsync();
             if (settings == null)
             {
                 settings = new DesignSettings();
@@ -179,7 +179,7 @@ namespace AnimatorsWeb.Services
             }
 
             // 4. Сохраняем цвета
-            var settings = await _db.DesignSettings.FirstOrDefaultAsync();
+            var settings = await _db.DesignSettings.OrderBy(x => x.Id).FirstOrDefaultAsync();
             if (settings == null)
             {
                 settings = new DesignSettings();

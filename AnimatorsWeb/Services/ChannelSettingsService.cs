@@ -12,7 +12,7 @@ namespace AnimatorsWeb.Services
 
         public async Task<ChannelSettings> GetAsync()
         {
-            var settings = await _db.ChannelSettings.FirstOrDefaultAsync();
+            var settings = await _db.ChannelSettings.OrderBy(c => c.Id).FirstOrDefaultAsync();
             return settings ?? new ChannelSettings(); // не сохраняем в БД
         }
 

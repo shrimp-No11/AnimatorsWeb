@@ -21,7 +21,7 @@ namespace AnimatorsWeb.Services
 
         public async Task<RulesSettings> GetAsync()
         {
-            var settings = await _db.RulesSettings.FirstOrDefaultAsync();
+            var settings = await _db.RulesSettings.OrderBy(x => x.Id).FirstOrDefaultAsync();
             return settings ?? new RulesSettings();
         }
 
