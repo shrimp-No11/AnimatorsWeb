@@ -110,6 +110,75 @@ namespace AnimatorsWeb.Controllers
             foreach (var y in model.Years)
                 y.Jams = y.Jams.OrderByDescending(j => j.Number).ToList();
 
+
+            // ===== Статус последнего/текущего аниджема =====
+            AnimJamStatusBanner? status = null;
+            var lastJam = jams.FirstOrDefault(); // jams уже отсортированы по убыванию Number
+
+            if (lastJam != null)
+            {
+                var nextNumber = lastJam.Number + 1;
+
+                var themePoll = await _db.ThemePolls
+                    .Where(p => p.AnimJamNumber == nextNumber)
+                    .OrderByDescending(p => p.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var winnerPoll = await _db.WinnerPolls
+                    .Where(p => p.AnimJamNumber == lastJam.Number)
+                    .OrderByDescending(p => p.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var now = DateTime.UtcNow;
+                bool hasResults = !string.IsNullOrEmpty(lastJam.ResultsMessageUrl);
+                bool isActive = lastJam.StartDate <= now && now <= lastJam.EndDate;
+
+                if (winnerPoll != null && !hasResults)
+                {
+                    status = new AnimJamStatusBanner
+                    {
+                        Kind = "voting-winners",
+                        Text = $"Идёт голосование за победителей #{lastJam.Number}-го аниджема"
+                    };
+                }
+                else if (isActive)
+                {
+                    status = new AnimJamStatusBanner
+                    {
+                        Kind = "active",
+                        Text = $"Идёт #{lastJam.Number}-й аниджем — принимаются работы",
+                        EndDateUtc = lastJam.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    };
+                }
+                else if (themePoll != null)
+                {
+                    status = new AnimJamStatusBanner
+                    {
+                        Kind = "voting-theme",
+                        Text = $"Идёт голосование за тему #{nextNumber}-го аниджема"
+                    };
+                }
+                else if (hasResults)
+                {
+                    status = new AnimJamStatusBanner
+                    {
+                        Kind = "ended",
+                        Text = $"#{lastJam.Number}-й аниджем закончился — скоро начнётся новый"
+                    };
+                }
+                else if (now > lastJam.EndDate)
+                {
+                    status = new AnimJamStatusBanner
+                    {
+                        Kind = "closed",
+                        Text = $"#{lastJam.Number}-й аниджем завершён — ждём подведения итогов"
+                    };
+                }
+            }
+
+            model.Status = status;
+
+
             return View(model);
         }
         public async Task<IActionResult> Details(int number)

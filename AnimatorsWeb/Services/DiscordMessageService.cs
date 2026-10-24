@@ -12,11 +12,13 @@ public class DiscordMessageService
     private readonly DiscordClient _client;
     private readonly IConfiguration _config;
     public const ulong WinnerRoleId = 1273218724585013278;
+    private readonly IWebHostEnvironment _env;
 
-    public DiscordMessageService(DiscordClient client, IConfiguration config)
+    public DiscordMessageService(DiscordClient client, IConfiguration config, IWebHostEnvironment env)
     {
         _client = client;
         _config = config;
+        _env = env;
     }
 
     public async Task SendMessageAsync(ulong channelId, string message)
@@ -605,6 +607,39 @@ public class DiscordMessageService
         var message = await builder.SendAsync(channel);
         return message.Id;
     }
+    public async Task SendMessageWithFilesAsync(
+    ulong channelId, string content, IEnumerable<(string FileName, Stream Stream)> files)
+    {
+        var channel = await _client.GetChannelAsync(channelId);
+        if (channel == null)
+            throw new InvalidOperationException($"Канал {channelId} не найден.");
+
+        var builder = new DiscordMessageBuilder().WithContent(content ?? "");
+
+        foreach (var f in files)
+            builder.AddFile(f.FileName, f.Stream);
+
+        await builder.SendAsync(channel);
+    }
+    /// <summary>
+    /// Возвращает максимальный размер одного файла в байтах для текущего сервера.
+    /// Основано на уровне буста (PremiumTier).
+    /// </summary>
+    public long GetMaxFileSizeBytes()
+    {
+        var guild = _client.Guilds.Values.FirstOrDefault();
+        if (guild == null) return 20_000_000;
+
+        return guild.PremiumTier switch
+        {
+            DiscordPremiumTier.Tier_3 => 100_000_000,   // 100 МБ
+            DiscordPremiumTier.Tier_2 => 50_000_000,    // 50 МБ
+            DiscordPremiumTier.Tier_1 => 20_000_000,    // 20 МБ
+            _ => 20_000_000                              // (без бустов)
+        };
+    }
+
+    public int GetMaxFileSizeMb() => (int)(GetMaxFileSizeBytes() / 1_000_000);
     // Возвращает множество уникальных user_id, поставивших реакции на сообщение
     public async Task<HashSet<ulong>> GetUniqueReactorsAsync(ulong channelId, ulong messageId)
     {
@@ -826,8 +861,21 @@ public class DiscordMessageService
         return resultIds;
     }
 
-    public async Task<List<ulong>> PublishRulesChunksAsync(
-    ulong channelId, List<string> chunks, List<ulong>? existingMessageIds = null)
+    public class RulesChunk
+    {
+        public string Text { get; set; } = "";
+        public List<AnimatorsWeb.Models.RuleAttachment> Files { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Публикует правила по готовым чанкам (разделы уже сгруппированы).
+    /// Файлы берутся из wwwroot/uploads/rules/{StoredName}.
+    /// Если у чанка есть файлы — сообщение пересоздаётся (Discord не позволяет добавлять файлы в существующее сообщение).
+    /// </summary>
+    public async Task<List<ulong>> PublishRulesChunksWithFilesAsync(
+        ulong channelId,
+        List<RulesChunk> chunks,
+        List<ulong>? existingMessageIds = null)
     {
         var channel = await _client.GetChannelAsync(channelId);
         if (channel == null)
@@ -838,29 +886,64 @@ public class DiscordMessageService
 
         for (int i = 0; i < chunks.Count; i++)
         {
+            var chunk = chunks[i];
             ulong msgId;
-            if (i < existingMessageIds.Count)
+
+            // Открываем стримы файлов
+            var streams = new List<(string FileName, Stream Stream)>();
+            try
             {
-                var msg = await channel.GetMessageAsync(existingMessageIds[i]);
-                if (msg != null)
+                foreach (var f in chunk.Files)
                 {
-                    await msg.ModifyAsync(chunks[i]);
-                    msgId = msg.Id;
+                    var path = Path.Combine(_env.WebRootPath, "uploads", "rules", f.StoredName);
+                    if (!System.IO.File.Exists(path)) continue;
+                    streams.Add((f.FileName, System.IO.File.OpenRead(path)));
+                }
+
+                bool hasFiles = streams.Count > 0;
+                bool hasOld = i < existingMessageIds.Count && existingMessageIds[i] != 0;
+
+                if (hasOld)
+                {
+                    var oldMsg = await channel.GetMessageAsync(existingMessageIds[i]);
+
+                    if (oldMsg != null)
+                    {
+                        if (hasFiles)
+                        {
+                            // С файлами — пересоздаём
+                            await oldMsg.DeleteAsync();
+                            var newMsg = await SendChunkAsync(channel, chunk.Text, streams);
+                            msgId = newMsg.Id;
+                        }
+                        else
+                        {
+                            // Только текст — редактируем
+                            await oldMsg.ModifyAsync(chunk.Text);
+                            msgId = oldMsg.Id;
+                        }
+                    }
+                    else
+                    {
+                        var newMsg = await SendChunkAsync(channel, chunk.Text, streams);
+                        msgId = newMsg.Id;
+                    }
                 }
                 else
                 {
-                    var newMsg = await channel.SendMessageAsync(chunks[i]);
+                    var newMsg = await SendChunkAsync(channel, chunk.Text, streams);
                     msgId = newMsg.Id;
                 }
             }
-            else
+            finally
             {
-                var newMsg = await channel.SendMessageAsync(chunks[i]);
-                msgId = newMsg.Id;
+                foreach (var s in streams) s.Stream.Dispose();
             }
+
             resultIds.Add(msgId);
         }
 
+        // Удалить лишние старые сообщения
         for (int i = chunks.Count; i < existingMessageIds.Count; i++)
         {
             try
@@ -872,6 +955,14 @@ public class DiscordMessageService
         }
 
         return resultIds;
+    }
+
+    private async Task<DiscordMessage> SendChunkAsync(
+        DiscordChannel channel, string text, List<(string FileName, Stream Stream)> files)
+    {
+        var builder = new DiscordMessageBuilder().WithContent(text ?? "");
+        foreach (var f in files) builder.AddFile(f.FileName, f.Stream);
+        return await builder.SendAsync(channel);
     }
 
     // Разбивает текст на куски по maxLen, не разрезая слова/строки

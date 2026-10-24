@@ -3,6 +3,44 @@
     ViewData["Title"] = "Дизайн сайта";
 }
 
+<style>
+    .ds-field {
+        border: 1px solid color-mix(in srgb, var(--brand-text) 12%, transparent);
+        border-radius: 10px;
+        padding: 15px;
+        background: color-mix(in srgb, var(--brand-card) 70%, transparent);
+    }
+    .ds-field label.title {
+        font-weight: 700;
+        display: block;
+        margin-bottom: 8px;
+        color: var(--brand-text);
+    }
+    .ds-field .row {
+        display: flex; gap: 10px; align-items: center;
+    }
+    .ds-field input[type="color"] {
+        width: 60px; height: 60px;
+        border: none; cursor: pointer; border-radius: 8px;
+        padding: 0;
+    }
+    .ds-field input[type="text"] {
+        font-family: monospace;
+        flex: 1;
+    }
+    .ds-field .hint {
+        color: color-mix(in srgb, var(--brand-text) 55%, transparent);
+        font-size: 12px;
+        margin-top: 6px;
+    }
+    .ds-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+</style>
+
 <h1>Дизайн сайта</h1>
 
 @if (TempData["Result"] != null)
@@ -61,81 +99,94 @@
 
 <h2>Цвета</h2>
 <p style="color: gray; font-size: 14px;">
-    Клик по цветному квадрату открывает палитру. Ручные изменения не сбрасываются автоматически.
+    Клик по цветному квадрату открывает палитру. Изменения применяются к странице и предпросмотру
+    мгновенно — сохранять не нужно, чтобы «примерить» палитру.
 </p>
 
 <form method="post" asp-action="SaveDesign">
     <input type="hidden" asp-for="Design.Id" />
     <input type="hidden" asp-for="Design.PaletteUpdatedAt" />
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <div class="ds-grid">
 
-        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
-            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Фон страницы</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="color" asp-for="Design.BackgroundColor"
-                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
-                <input type="text" asp-for="Design.BackgroundColor" class="form-control"
-                       style="font-family: monospace; flex: 1;" />
+        <div class="ds-field">
+            <label class="title">Фон страницы</label>
+            <div class="row">
+                <input type="color" id="pick-BackgroundColor" asp-for="Design.BackgroundColor" data-var="--brand-bg" />
+                <input type="text" id="text-BackgroundColor" class="form-control" data-for="BackgroundColor" />
             </div>
-            <p style="color: gray; font-size: 12px; margin-top: 6px;">Основной фон всех страниц</p>
+            <p class="hint">Основной фон всех страниц</p>
         </div>
 
-        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
-            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Текст</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="color" asp-for="Design.TextColor"
-                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
-                <input type="text" asp-for="Design.TextColor" class="form-control"
-                       style="font-family: monospace; flex: 1;" />
+        <div class="ds-field">
+            <label class="title">Текст</label>
+            <div class="row">
+                <input type="color" id="pick-TextColor" asp-for="Design.TextColor" data-var="--brand-text" />
+                <input type="text" id="text-TextColor" class="form-control" data-for="TextColor" />
             </div>
-            <p style="color: gray; font-size: 12px; margin-top: 6px;">Основной цвет текста</p>
+            <p class="hint">Основной цвет текста</p>
         </div>
 
-        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
-            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Основной акцент</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="color" asp-for="Design.PrimaryColor"
-                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
-                <input type="text" asp-for="Design.PrimaryColor" class="form-control"
-                       style="font-family: monospace; flex: 1;" />
+        <div class="ds-field">
+            <label class="title">Основной акцент</label>
+            <div class="row">
+                <input type="color" id="pick-PrimaryColor" asp-for="Design.PrimaryColor" data-var="--brand-primary" />
+                <input type="text" id="text-PrimaryColor" class="form-control" data-for="PrimaryColor" />
             </div>
-            <p style="color: gray; font-size: 12px; margin-top: 6px;">Кнопки, ссылки, активные элементы</p>
+            <p class="hint">Кнопки, ссылки, активные элементы</p>
         </div>
 
-        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
-            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Акцент (hover)</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="color" asp-for="Design.PrimaryHoverColor"
-                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
-                <input type="text" asp-for="Design.PrimaryHoverColor" class="form-control"
-                       style="font-family: monospace; flex: 1;" />
+        <div class="ds-field">
+            <label class="title">Акцент (hover)</label>
+            <div class="row">
+                <input type="color" id="pick-PrimaryHoverColor" asp-for="Design.PrimaryHoverColor" data-var="--brand-primary-hover" />
+                <input type="text" id="text-PrimaryHoverColor" class="form-control" data-for="PrimaryHoverColor" />
             </div>
-            <p style="color: gray; font-size: 12px; margin-top: 6px;">Цвет акцента при наведении</p>
+            <p class="hint">Цвет акцента при наведении</p>
         </div>
 
-        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
-            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Дополнительный акцент</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="color" asp-for="Design.AccentColor"
-                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
-                <input type="text" asp-for="Design.AccentColor" class="form-control"
-                       style="font-family: monospace; flex: 1;" />
+        <div class="ds-field">
+            <label class="title">Дополнительный акцент</label>
+            <div class="row">
+                <input type="color" id="pick-AccentColor" asp-for="Design.AccentColor" data-var="--brand-accent" />
+                <input type="text" id="text-AccentColor" class="form-control" data-for="AccentColor" />
             </div>
-            <p style="color: gray; font-size: 12px; margin-top: 6px;">Яркие бейджи, декор, выделения</p>
+            <p class="hint">Яркие бейджи, декор, выделения</p>
         </div>
 
-        <div style="border: 1px solid #ccc; border-radius: 8px; padding: 15px;">
-            <label style="font-weight: bold; display: block; margin-bottom: 8px;">Фон карточек</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="color" asp-for="Design.CardColor"
-                       style="width: 60px; height: 60px; border: none; cursor: pointer; border-radius: 6px;" />
-                <input type="text" asp-for="Design.CardColor" class="form-control"
-                       style="font-family: monospace; flex: 1;" />
+        <div class="ds-field">
+            <label class="title">Фон карточек</label>
+            <div class="row">
+                <input type="color" id="pick-CardColor" asp-for="Design.CardColor" data-var="--brand-card" />
+                <input type="text" id="text-CardColor" class="form-control" data-for="CardColor" />
             </div>
-            <p style="color: gray; font-size: 12px; margin-top: 6px;">Фон карточек, блоков, секций</p>
+            <p class="hint">Фон карточек, блоков, секций</p>
         </div>
 
+    </div>
+
+    <div id="previewBox" style="padding: 30px; border-radius: 12px; border: 1px solid #ddd; margin-top: 15px;">
+        <h3 id="previewHeading" style="margin-top: 0;">Заголовок на фоне</h3>
+        <p id="previewText">
+            Обычный текст. <a href="#" id="previewLink" style="text-decoration: underline;">Ссылка</a>
+            — так выглядит основной акцент.
+        </p>
+        <div id="previewCard" style="padding: 20px; border-radius: 12px; margin-top: 15px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            <p id="previewCardText" style="margin: 0 0 12px 0;">
+                Карточка с текстом на своём фоне.
+            </p>
+            <button type="button" id="previewButton"
+                    style="color: white; border: none; padding: 10px 20px;
+                           border-radius: 999px; font-weight: 600; cursor: pointer;">
+                Кнопка
+            </button>
+            <span id="previewBadge"
+                  style="display: inline-block; color: #1a1a1a;
+                         padding: 6px 14px; border-radius: 999px; font-size: 13px; margin-left: 8px;">
+                Декор
+            </span>
+        </div>
     </div>
 
     <button type="submit" class="btn btn-primary" style="padding: 12px 30px; font-size: 16px;">
@@ -143,31 +194,125 @@
     </button>
 </form>
 
-<hr style="margin-top: 40px;" />
 
-<h2>Предпросмотр</h2>
-<p style="color: gray; font-size: 14px;">Мини-пример того, как цвета смотрятся вместе:</p>
 
-<div style="background: @Model.Design.BackgroundColor; padding: 30px; border-radius: 12px;
-            border: 1px solid #ddd; margin-top: 15px;">
-    <h3 style="color: @Model.Design.TextColor; margin-top: 0;">Заголовок на фоне</h3>
-    <p style="color: @Model.Design.TextColor;">
-        Обычный текст. <a href="#" style="color: @Model.Design.PrimaryColor; text-decoration: underline;">Ссылка</a>
-        — так выглядит основной акцент.
-    </p>
-    <div style="background: @Model.Design.CardColor; padding: 20px; border-radius: 12px; margin-top: 15px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-        <p style="color: @Model.Design.TextColor; margin: 0 0 12px 0;">
-            Карточка с текстом на своём фоне.
-        </p>
-        <button type="button"
-                style="background: @Model.Design.PrimaryColor; color: white; border: none;
-                       padding: 10px 20px; border-radius: 999px; font-weight: 600;">
-            Кнопка
-        </button>
-        <span style="display: inline-block; background: @Model.Design.AccentColor; color: #1a1a1a;
-                     padding: 6px 14px; border-radius: 999px; font-size: 13px; margin-left: 8px;">
-            Бейдж
-        </span>
-    </div>
-</div>
+
+<script>
+    (function () {
+        // Связка "color-picker <-> text-input" по имени поля
+        const fields = ['BackgroundColor', 'TextColor', 'PrimaryColor',
+                        'PrimaryHoverColor', 'AccentColor', 'CardColor'];
+
+        const root = document.documentElement;
+
+        // Значения по умолчанию — из текущей модели
+        const values = {
+            BackgroundColor:   @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Design.BackgroundColor)),
+            TextColor:         @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Design.TextColor)),
+            PrimaryColor:      @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Design.PrimaryColor)),
+            PrimaryHoverColor: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Design.PrimaryHoverColor)),
+            AccentColor:       @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Design.AccentColor)),
+            CardColor:         @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Design.CardColor))
+        };
+
+        // Куда класть значение в CSS-переменную (та же карта, что data-var в разметке)
+        const cssVarMap = {
+            BackgroundColor:   '--brand-bg',
+            TextColor:         '--brand-text',
+            PrimaryColor:      '--brand-primary',
+            PrimaryHoverColor: '--brand-primary-hover',
+            AccentColor:       '--brand-accent',
+            CardColor:         '--brand-card'
+        };
+
+        // Соответствие "имя поля" -> "id элемента в preview"
+        const previewMap = {
+            BackgroundColor:   'previewBox',
+            TextColor:         null,       // применяется к нескольким элементам ниже
+            PrimaryColor:      null,
+            PrimaryHoverColor: null,
+            AccentColor:       null,
+            CardColor:         'previewCard'
+        };
+
+        function isValidHex(v) {
+            return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v || '');
+        }
+
+        function normalizeHex(v) {
+            if (!v) return null;
+            v = v.trim();
+            if (v.length === 4 && v[0] === '#') {
+                return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+            }
+            return isValidHex(v) ? v.toLowerCase() : null;
+        }
+
+        function applyToPreview() {
+            const bg   = values.BackgroundColor;
+            const text = values.TextColor;
+            const prim = values.PrimaryColor;
+            const hover= values.PrimaryHoverColor;
+            const acc  = values.AccentColor;
+            const card = values.CardColor;
+
+            // Фон всей страницы + CSS-переменные
+            Object.keys(cssVarMap).forEach(key => {
+                root.style.setProperty(cssVarMap[key], values[key]);
+            });
+
+            // Превью
+            const box = document.getElementById('previewBox');
+            box.style.background = bg;
+
+            document.getElementById('previewHeading').style.color = text;
+            document.getElementById('previewText').style.color = text;
+            document.getElementById('previewCardText').style.color = text;
+
+            document.getElementById('previewLink').style.color = prim;
+
+            document.getElementById('previewCard').style.background = card;
+
+            const btn = document.getElementById('previewButton');
+            btn.style.background = prim;
+            btn.onmouseenter = () => btn.style.background = hover;
+            btn.onmouseleave = () => btn.style.background = prim;
+
+            document.getElementById('previewBadge').style.background = acc;
+        }
+
+        // Синхронизация: color picker -> text input
+        fields.forEach(name => {
+            const pick = document.getElementById('pick-' + name);
+            const text = document.getElementById('text-' + name);
+            if (!pick || !text) return;
+
+            // Стартовое значение
+            text.value = values[name];
+
+            pick.addEventListener('input', () => {
+                values[name] = pick.value;
+                text.value = pick.value;
+                applyToPreview();
+            });
+
+            text.addEventListener('input', () => {
+                const norm = normalizeHex(text.value);
+                if (norm) {
+                    values[name] = norm;
+                    pick.value = norm;
+                    applyToPreview();
+                }
+            });
+
+            // При потере фокуса — вернуть нормализованное значение или откатить
+            text.addEventListener('blur', () => {
+                const norm = normalizeHex(text.value);
+                text.value = norm ?? values[name];
+            });
+        });
+
+        // Первичное применение (чтобы превью сразу совпало с моделью)
+        applyToPreview();
+    })();
+</script>

@@ -35,6 +35,10 @@ wwwroot/images/guild-avatar.png
 wwwroot/images/guild-avatar.png.tmp
 wwwroot/featured/*.jpg
 wwwroot/featured/*.tmp
+wwwroot/favicon-32.png
+wwwroot/apple-touch-icon.png
+wwwroot/uploads/rules/*
+!wwwroot/uploads/rules/.gitkeep
 
 # Локальные конфиги и секреты
 appsettings.Development.json

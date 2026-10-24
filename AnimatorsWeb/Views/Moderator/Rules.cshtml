@@ -11,18 +11,52 @@
         padding: 12px;
         margin-bottom: 12px;
         background: #fafafa;
+        position: relative;
+    }
+    .rules-section.break-before {
+        border-top: 3px solid var(--brand-primary);
+        padding-top: 14px;
+    }
+    .rules-section.break-before::before {
+        content: "▲ новое сообщение ▲";
+        position: absolute;
+        top: -11px;
+        left: 20px;
+        background: var(--brand-primary);
+        color: white;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
     }
     .rules-section-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 8px;
+        gap: 12px;
+        flex-wrap: wrap;
     }
     .rules-section-header .title {
         font-weight: 600;
         color: #555;
         font-size: 14px;
     }
+    .rules-section-header .break-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #666;
+        cursor: pointer;
+        user-select: none;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px dashed #ccc;
+    }
+    .rules-section-header .break-toggle:hover { background: #f0f0f0; }
+    .rules-section-header .break-toggle input { margin: 0; cursor: pointer; }
     .rules-section-header .actions button {
         width: 28px;
         height: 28px;
@@ -40,6 +74,62 @@
         font-family: monospace;
         font-size: 13px;
     }
+
+    .attach-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    .attach-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px 4px 4px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background: white;
+        font-size: 12px;
+    }
+    .attach-thumb {
+        width: 36px; height: 36px;
+        border-radius: 4px;
+        background: #1a1a1a;
+        overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .attach-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .attach-thumb .icon { color: #999; font-size: 16px; }
+    .attach-name {
+        max-width: 180px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .attach-remove {
+        width: 20px; height: 20px;
+        border: none; border-radius: 50%;
+        background: #eee; color: #666;
+        cursor: pointer; line-height: 1;
+        font-size: 12px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .attach-remove:hover { background: #b3261e; color: white; }
+
+    .attach-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 5px 12px;
+        font-size: 12px;
+        border: 1px dashed #bbb;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        color: #666;
+    }
+    .attach-btn:hover { background: #f0f0f0; border-color: #999; }
+    .attach-btn input { display: none; }
 </style>
 
 <h1>Правила</h1>
@@ -78,23 +168,79 @@
 
     <h3>Разделы правил</h3>
     <p style="color: gray; font-size: 14px;">
-        Каждый раздел — отдельный блок текста. Бот публикует разделы подряд и переносит на новое сообщение
-        <b>между</b> разделами (раздел никогда не разрывается, если только сам по себе не превышает лимит Discord в 1900 символов).
+        Каждый раздел — блок текста. Галочка «с нового сообщения» принудительно переносит раздел
+        в следующее сообщение Discord. Без неё бот склеит разделы, если они вместе влезают в лимит 1900 символов.
+        К разделу можно прикрепить файлы.
     </p>
 
     <div id="sections">
         @for (int i = 0; i < Model.Sections.Count; i++)
         {
-            <div class="rules-section">
+            var section = Model.Sections[i];
+            <div class="rules-section @(section.StartNewMessage && i > 0 ? "break-before" : "")"
+                 data-index="@i">
                 <div class="rules-section-header">
                     <span class="title">Раздел @(i + 1)</span>
+
+                    @if (i > 0)
+                    {
+                        <label class="break-toggle">
+                            <input type="checkbox"
+                                   class="break-checkbox"
+                                   @(section.StartNewMessage ? "checked" : "")
+                                   onchange="toggleBreak(this)" />
+                            с нового сообщения
+                        </label>
+                    }
+
                     <div class="actions">
                         <button type="button" onclick="moveUp(this)" title="Выше">↑</button>
                         <button type="button" onclick="moveDown(this)" title="Ниже">↓</button>
                         <button type="button" onclick="removeSection(this)" title="Удалить">✕</button>
                     </div>
                 </div>
-                <textarea name="Sections[@i].Content" rows="8" class="form-control">@Model.Sections[i].Content</textarea>
+
+                <input type="hidden" class="break-hidden" name="Sections[@i].StartNewMessage"
+                       value="@(section.StartNewMessage ? "true" : "false")" />
+
+                <textarea name="Sections[@i].Content" rows="8" class="form-control">@(section.Content)</textarea>
+
+                <div class="attach-list">
+                    @for (int j = 0; j < section.Attachments.Count; j++)
+                    {
+                        var att = section.Attachments[j];
+                        var isImg = System.Text.RegularExpressions.Regex.IsMatch(
+                            att.FileName, @"\.(png|jpe?g|gif|webp)$",
+                            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        <div class="attach-item">
+                            <div class="attach-thumb">
+                                @if (isImg)
+                                {
+                                    <img src="/uploads/rules/@att.StoredName" alt="" />
+                                }
+                                else
+                                {
+                                    <span class="icon">📄</span>
+                                }
+                            </div>
+                            <span class="attach-name" title="@att.FileName">@att.FileName</span>
+                            <button type="button" class="attach-remove"
+                                    onclick="removeAttachment(this)">×</button>
+                            <input type="hidden" class="att-file-name"
+                                   name="Sections[@i].Attachments[@j].FileName"
+                                   value="@att.FileName" />
+                            <input type="hidden" class="att-stored-name"
+                                   name="Sections[@i].Attachments[@j].StoredName"
+                                   value="@att.StoredName" />
+                        </div>
+                    }
+                </div>
+
+                <label class="attach-btn">
+                    📎 Прикрепить файлы
+                    <input type="file" multiple
+                           onchange="uploadAttachments(this)" />
+                </label>
             </div>
         }
     </div>
@@ -111,13 +257,68 @@
 <p style="margin-top: 20px;"><a asp-action="Index">← Назад к модераторской</a></p>
 
 <script>
+    // ===== Пересчёт индексов =====
     function reindex() {
         document.querySelectorAll('#sections .rules-section').forEach((el, i) => {
+            el.dataset.index = i;
             el.querySelector('.title').textContent = 'Раздел ' + (i + 1);
-            el.querySelector('textarea').name = 'Sections[' + i + '].Content';
+
+            // Скрытое поле StartNewMessage
+            const breakHidden = el.querySelector('.break-hidden');
+            if (breakHidden) breakHidden.name = 'Sections[' + i + '].StartNewMessage';
+
+            // Чекбокс разрыва — не показываем на первом разделе
+            let breakToggle = el.querySelector('.break-toggle');
+            if (i === 0 && breakToggle) {
+                breakToggle.remove();
+            } else if (i > 0 && !breakToggle) {
+                // Если был удалён, добавляем обратно перед actions
+                const header = el.querySelector('.rules-section-header');
+                const actions = header.querySelector('.actions');
+                const label = document.createElement('label');
+                label.className = 'break-toggle';
+                label.innerHTML = `
+                    <input type="checkbox" class="break-checkbox" onchange="toggleBreak(this)" />
+                    с нового сообщения`;
+                header.insertBefore(label, actions);
+            }
+
+            // Текст
+            const ta = el.querySelector('textarea');
+            if (ta) ta.name = 'Sections[' + i + '].Content';
+
+            // Attachments
+            el.querySelectorAll('.attach-item').forEach((item, j) => {
+                const fn = item.querySelector('.att-file-name');
+                const sn = item.querySelector('.att-stored-name');
+                if (fn) fn.name = `Sections[${i}].Attachments[${j}].FileName`;
+                if (sn) sn.name = `Sections[${i}].Attachments[${j}].StoredName`;
+            });
+        });
+
+        updateBreakMarkers();
+    }
+
+    // ===== Визуальные маркеры разрыва =====
+    function updateBreakMarkers() {
+        document.querySelectorAll('#sections .rules-section').forEach((el, i) => {
+            const chk = el.querySelector('.break-checkbox');
+            if (chk && chk.checked && i > 0) {
+                el.classList.add('break-before');
+            } else {
+                el.classList.remove('break-before');
+            }
         });
     }
 
+    function toggleBreak(cb) {
+        const section = cb.closest('.rules-section');
+        const hidden = section.querySelector('.break-hidden');
+        if (hidden) hidden.value = cb.checked ? 'true' : 'false';
+        updateBreakMarkers();
+    }
+
+    // ===== Добавить / удалить / переместить раздел =====
     function addSection() {
         const container = document.getElementById('sections');
         const div = document.createElement('div');
@@ -125,13 +326,23 @@
         div.innerHTML = `
             <div class="rules-section-header">
                 <span class="title">Раздел</span>
+                <label class="break-toggle">
+                    <input type="checkbox" class="break-checkbox" onchange="toggleBreak(this)" />
+                    с нового сообщения
+                </label>
                 <div class="actions">
                     <button type="button" onclick="moveUp(this)" title="Выше">↑</button>
                     <button type="button" onclick="moveDown(this)" title="Ниже">↓</button>
                     <button type="button" onclick="removeSection(this)" title="Удалить">✕</button>
                 </div>
             </div>
+            <input type="hidden" class="break-hidden" value="false" />
             <textarea rows="8" class="form-control"></textarea>
+            <div class="attach-list"></div>
+            <label class="attach-btn">
+                📎 Прикрепить файлы
+                <input type="file" multiple onchange="uploadAttachments(this)" />
+            </label>
         `;
         container.appendChild(div);
         reindex();
@@ -156,4 +367,71 @@
         if (next) el.parentNode.insertBefore(next, el);
         reindex();
     }
+
+    // ===== Удалить вложение =====
+    function removeAttachment(btn) {
+        btn.closest('.attach-item').remove();
+        reindex();
+    }
+
+    // ===== Загрузить файлы через AJAX =====
+    async function uploadAttachments(input) {
+        const section = input.closest('.rules-section');
+        const list = section.querySelector('.attach-list');
+        const files = Array.from(input.files || []);
+        input.value = '';
+
+        for (const file of files) {
+            if (file.size > 8_000_000) {
+                alert(`Файл «${file.name}» больше 8 МБ — пропущен`);
+                continue;
+            }
+
+            const fd = new FormData();
+            fd.append('file', file);
+
+            try {
+                const r = await fetch('/Moderator/UploadRuleAttachment', {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await r.json();
+                if (!data.success) {
+                    alert(data.error || 'Ошибка загрузки');
+                    continue;
+                }
+                appendAttachment(list, data.storedName, data.fileName);
+                reindex();
+            } catch {
+                alert('Сетевая ошибка при загрузке файла');
+            }
+        }
+    }
+
+    function appendAttachment(list, storedName, fileName) {
+        const isImg = /\.(png|jpe?g|gif|webp)$/i.test(fileName);
+        const item = document.createElement('div');
+        item.className = 'attach-item';
+        item.innerHTML = `
+            <div class="attach-thumb">
+                ${isImg
+                    ? `<img src="/uploads/rules/${storedName}" alt="" />`
+                    : '<span class="icon">📄</span>'}
+            </div>
+            <span class="attach-name" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</span>
+            <button type="button" class="attach-remove" onclick="removeAttachment(this)">×</button>
+            <input type="hidden" class="att-file-name" value="${escapeHtml(fileName)}" />
+            <input type="hidden" class="att-stored-name" value="${escapeHtml(storedName)}" />
+        `;
+        list.appendChild(item);
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    // Первичная инициализация
+    reindex();
 </script>

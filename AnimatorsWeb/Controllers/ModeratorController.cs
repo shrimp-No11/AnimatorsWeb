@@ -23,6 +23,7 @@ namespace AnimatorsWeb.Controllers
         private readonly RulesService _rulesService;
         private readonly DesignSettingsService _designService;
         private readonly FeaturedThumbnailService _thumbService;
+        private readonly IWebHostEnvironment _env;
         const ulong role2dId = 1126390388006072380UL; // ← сюда ID роли 2d Аниматор
         const ulong role3dId = 1536428705105051808UL; // ← сюда ID роли 3d Аниматор
         const ulong ActiveRoleId = 1507425845558509718UL; // роль "Актив"
@@ -34,7 +35,8 @@ namespace AnimatorsWeb.Controllers
             ChannelSettingsService settingsService,
             RulesService rulesService,
             DesignSettingsService designService,
-            FeaturedThumbnailService thumbService)
+            FeaturedThumbnailService thumbService,
+            IWebHostEnvironment env)
         {
             _discordClient = discordClient;
             _db = db;
@@ -43,6 +45,7 @@ namespace AnimatorsWeb.Controllers
             _rulesService = rulesService;
             _designService = designService;
             _thumbService = thumbService;
+            _env = env;
         }
 
         // Главная модераторская — настройки каналов
@@ -171,22 +174,82 @@ namespace AnimatorsWeb.Controllers
             {
                 ChannelList = GetChannelSelectList()
             };
+            ViewBag.MaxFileSizeBytes = _discord.GetMaxFileSizeBytes();
+            ViewBag.MaxFileSizeMb = _discord.GetMaxFileSizeMb();
             return View(model);
         }
 
         [HttpPost]
-        public async Task<IActionResult> SendAnnouncement(ulong selectedChannelId, string text)
+        public async Task<IActionResult> SendAnnouncement(ulong selectedChannelId, string text, List<IFormFile>? files)
         {
-            if (string.IsNullOrWhiteSpace(text))
+            bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+
+            IActionResult Fail(string msg)
             {
-                TempData["Error"] = "Текст пустой!";
+                if (isAjax) return Json(new { success = false, error = msg });
+                TempData["Error"] = msg;
                 return RedirectToAction("SendMessage");
             }
 
-            await _discord.SendMessageAsync(selectedChannelId, text);
-            TempData["Result"] = "Сообщение отправлено!";
+            if (selectedChannelId == 0)
+                return Fail("Не выбран канал.");
+
+            var fileList = files?.Where(f => f.Length > 0).ToList() ?? new List<IFormFile>();
+
+            if (string.IsNullOrWhiteSpace(text) && fileList.Count == 0)
+                return Fail("Нечего отправлять — ни текста, ни файлов.");
+
+            var maxSize = _discord.GetMaxFileSizeBytes();
+            var maxSizeMb = maxSize / 1_000_000;
+
+            foreach (var f in fileList)
+            {
+                if (f.Length > maxSize)
+                    return Fail($"Файл «{f.FileName}» больше {maxSizeMb} МБ — Discord не примет (лимит текущего сервера).");
+            }
+
+            var streams = new List<(string FileName, Stream Stream)>();
+            try
+            {
+                foreach (var f in fileList)
+                    streams.Add((f.FileName, f.OpenReadStream()));
+
+                await _discord.SendMessageWithFilesAsync(selectedChannelId, text ?? "", streams);
+            }
+            catch (Exception ex) when (IsTooLargeException(ex))
+            {
+                return Fail($"Файл превышает лимит Discord для этого сервера ({maxSizeMb} МБ).");
+            }
+            catch (Exception ex)
+            {
+                return Fail($"Ошибка отправки: {ex.Message}");
+            }
+            finally
+            {
+                foreach (var s in streams) s.Stream.Dispose();
+            }
+
+            var resultMsg = fileList.Count > 0
+                ? $"Сообщение с {fileList.Count} файл(ами) отправлено!"
+                : "Сообщение отправлено!";
+
+            if (isAjax) return Json(new { success = true, message = resultMsg });
+
+            TempData["Result"] = resultMsg;
             return RedirectToAction("SendMessage");
         }
+
+        private static bool IsTooLargeException(Exception ex)
+        {
+            if (ex.Message.Contains("413") ||
+                ex.Message.Contains("too large", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("File size", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("request entity", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return ex.InnerException != null && IsTooLargeException(ex.InnerException);
+        }
+
 
         // ========== СОЗДАНИЕ АНИДЖЕМА ==========
 
@@ -1236,7 +1299,32 @@ namespace AnimatorsWeb.Controllers
             TempData["Result"] = "Объявление победителей опубликовано!";
             return RedirectToAction("Index");
         }
-  
+        [HttpPost]
+        public async Task<IActionResult> UploadRuleAttachment(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return Json(new { success = false, error = "Файл пустой" });
+
+            const long maxSize = 8_000_000;
+            if (file.Length > maxSize)
+                return Json(new { success = false, error = "Файл больше 8 МБ" });
+
+            var ext = Path.GetExtension(file.FileName);
+            if (string.IsNullOrEmpty(ext)) ext = ".bin";
+
+            var storedName = Guid.NewGuid().ToString("N") + ext;
+            var dir = Path.Combine(_env.WebRootPath, "uploads", "rules");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, storedName);
+
+            await using (var fs = System.IO.File.Create(path))
+            {
+                await file.CopyToAsync(fs);
+            }
+
+            return Json(new { success = true, storedName, fileName = file.FileName });
+        }
+
         private List<WinnerMessage> BuildWinnerMessages(
     WinnersPageViewModel model, List<ParticipantInfo> participants)
         {

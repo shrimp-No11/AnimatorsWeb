@@ -4,6 +4,7 @@
     {
         public List<AnimJamYearGroup> Years { get; set; } = new();
         public int TotalCount { get; set; }
+        public AnimJamStatusBanner? Status { get; set; }
     }
 
     public class AnimJamYearGroup

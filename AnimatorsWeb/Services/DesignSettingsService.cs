@@ -3,6 +3,9 @@ using AnimatorsWeb.Models;
 using DSharpPlus;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 
 namespace AnimatorsWeb.Services
 {
@@ -124,6 +127,44 @@ namespace AnimatorsWeb.Services
             catch (Exception ex)
             {
                 return $"Не удалось сохранить аватарку: {ex.Message}";
+            }
+
+            // после сохранения guild-avatar.png
+
+            // 2.1. Favicon 32x32
+            try
+            {
+                using var image = Image.Load<Rgba32>(bytes);
+                using var resized = image.Clone(x => x.Resize(new ResizeOptions
+                {
+                    Size = new Size(32, 32),
+                    Mode = ResizeMode.Crop,
+                    Position = AnchorPositionMode.Center
+                }));
+                var favPath = Path.Combine(_env.WebRootPath, "favicon-32.png");
+                await resized.SaveAsPngAsync(favPath);
+            }
+            catch (Exception ex)
+            {
+                return $"Не удалось сохранить favicon: {ex.Message}";
+            }
+
+            // 2.2. Apple touch icon 180x180
+            try
+            {
+                using var image = Image.Load<Rgba32>(bytes);
+                using var resized = image.Clone(x => x.Resize(new ResizeOptions
+                {
+                    Size = new Size(180, 180),
+                    Mode = ResizeMode.Crop,
+                    Position = AnchorPositionMode.Center
+                }));
+                var touchPath = Path.Combine(_env.WebRootPath, "apple-touch-icon.png");
+                await resized.SaveAsPngAsync(touchPath);
+            }
+            catch (Exception ex)
+            {
+                return $"Не удалось сохранить apple-touch-icon: {ex.Message}";
             }
 
             // 3. Извлекаем палитру из тех же байтов

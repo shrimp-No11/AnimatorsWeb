@@ -10,11 +10,13 @@ namespace AnimatorsWeb.Services
     {
         private readonly AppDbContext _db;
         private readonly DiscordMessageService _discord;
+        private readonly IWebHostEnvironment _env;
 
-        public RulesService(AppDbContext db, DiscordMessageService discord)
+        public RulesService(AppDbContext db, DiscordMessageService discord, IWebHostEnvironment env)
         {
             _db = db;
             _discord = discord;
+            _env = env;
         }
 
         public async Task<RulesSettings> GetAsync()
@@ -46,21 +48,41 @@ namespace AnimatorsWeb.Services
         {
             sections ??= new List<RuleSection>();
 
-            var nonEmpty = sections
-                .Where(s => !string.IsNullOrWhiteSpace(s.Content))
-                .Select(s => s.Content.Trim())
-                .ToList();
+            // 1. Собираем старые вложенные файлы, чтобы понять, какие удалить
+            var oldFiles = new HashSet<string>();
+            if (!string.IsNullOrEmpty(settings.SectionsJson))
+            {
+                try
+                {
+                    var old = JsonSerializer.Deserialize<List<RuleSection>>(settings.SectionsJson);
+                    if (old != null)
+                        foreach (var s in old)
+                            foreach (var a in s.Attachments)
+                                if (!string.IsNullOrEmpty(a.StoredName)) oldFiles.Add(a.StoredName);
+                }
+                catch { }
+            }
 
+            var newFiles = sections
+                .SelectMany(s => s.Attachments)
+                .Select(a => a.StoredName)
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToHashSet();
+
+            // 2. Сериализуем и синхронизируем Content
             settings.SectionsJson = JsonSerializer.Serialize(sections);
-            settings.Content = string.Join("\n\n", nonEmpty); // для обратной совместимости
+            settings.Content = string.Join("\n\n", sections
+                .Where(s => !string.IsNullOrWhiteSpace(s.Content))
+                .Select(s => s.Content.Trim()));
 
+            // 3. Публикация
             var existingIds = ParseMessageIds(settings.AllMessageIds);
 
-            if (settings.ChannelId != 0 && nonEmpty.Count > 0)
+            if (settings.ChannelId != 0 && sections.Any(s => !string.IsNullOrWhiteSpace(s.Content) || s.Attachments.Count > 0))
             {
-                var chunks = BuildChunks(sections, RulesConstants.MaxMessageLength);
+                var chunks = BuildChunksWithAttachments(sections, RulesConstants.MaxMessageLength);
 
-                var ids = await _discord.PublishRulesChunksAsync(settings.ChannelId, chunks, existingIds);
+                var ids = await _discord.PublishRulesChunksWithFilesAsync(settings.ChannelId, chunks, existingIds);
 
                 settings.AllMessageIds = string.Join(",", ids);
                 settings.LastMessageId = ids.LastOrDefault();
@@ -69,6 +91,7 @@ namespace AnimatorsWeb.Services
                     await _discord.AddAcceptReactionAsync(settings.ChannelId, settings.LastMessageId);
             }
 
+            // 4. Сохранение в БД
             if (settings.Id == 0)
                 _db.RulesSettings.Add(settings);
             else
@@ -78,6 +101,77 @@ namespace AnimatorsWeb.Services
                 settings.GuildId = _discord.GetFirstGuildId();
 
             await _db.SaveChangesAsync();
+
+            // 5. Удаляем с диска файлы, которые больше не привязаны ни к одному разделу
+            foreach (var stored in oldFiles.Except(newFiles))
+            {
+                try
+                {
+                    var path = Path.Combine(_env.WebRootPath, "uploads", "rules", stored);
+                    if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                }
+                catch { }
+            }
+        }
+        private static List<DiscordMessageService.RulesChunk> BuildChunksWithAttachments(
+    List<RuleSection> sections, int maxLen)
+        {
+            var chunks = new List<DiscordMessageService.RulesChunk>();
+            var currentText = new StringBuilder();
+            var currentFiles = new List<RuleAttachment>();
+            const int sepLen = 2;
+
+            void Flush()
+            {
+                if (currentText.Length == 0 && currentFiles.Count == 0) return;
+                chunks.Add(new DiscordMessageService.RulesChunk
+                {
+                    Text = currentText.ToString().TrimEnd(),
+                    Files = new List<RuleAttachment>(currentFiles)
+                });
+                currentText.Clear();
+                currentFiles.Clear();
+            }
+
+            foreach (var section in sections)
+            {
+                var text = (section.Content ?? "").Trim();
+                if (string.IsNullOrEmpty(text) && section.Attachments.Count == 0) continue;
+
+                // Раздел требует начала нового сообщения
+                if (section.StartNewMessage && (currentText.Length > 0 || currentFiles.Count > 0))
+                    Flush();
+
+                // Слишком длинный раздел — принудительно режем
+                if (text.Length > maxLen)
+                {
+                    Flush();
+                    var pieces = SplitLongText(text, maxLen);
+                    for (int i = 0; i < pieces.Count; i++)
+                    {
+                        chunks.Add(new DiscordMessageService.RulesChunk
+                        {
+                            Text = pieces[i],
+                            Files = i == pieces.Count - 1
+                                ? new List<RuleAttachment>(section.Attachments)
+                                : new List<RuleAttachment>()
+                        });
+                    }
+                    continue;
+                }
+
+                // Не влезает по размеру — flush
+                int extra = (currentText.Length > 0 ? sepLen : 0) + text.Length;
+                if (currentText.Length + extra > maxLen && (currentText.Length > 0 || currentFiles.Count > 0))
+                    Flush();
+
+                if (currentText.Length > 0) currentText.Append("\n\n");
+                currentText.Append(text);
+                currentFiles.AddRange(section.Attachments);
+            }
+
+            Flush();
+            return chunks;
         }
 
         private static List<ulong> ParseMessageIds(string raw)
