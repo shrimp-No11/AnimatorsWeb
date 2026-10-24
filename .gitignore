@@ -30,30 +30,22 @@ ScaffoldingReadMe.txt
 *.nupkg
 *.snupkg
 
-# Прочее
-~$*
-*~
-*.binlog
-wwwroot/images/guild-avatar.png
-wwwroot/images/guild-avatar.png.tmp
-wwwroot/featured/*.jpg
-wwwroot/featured/*.tmp
-wwwroot/favicon-32.png
-wwwroot/apple-touch-icon.png
-wwwroot/uploads/rules/*
-!wwwroot/uploads/rules/.gitkeep
-wwwroot/featured/.gitkeep
-wwwroot/images/.gitkeep          
-wwwroot/uploads/rules/.gitkeep
+# ===== Рантайм-сгенерированное =====
+**/wwwroot/featured/*.jpg
+**/wwwroot/featured/*.tmp
+**/wwwroot/images/guild-avatar.png
+**/wwwroot/images/guild-avatar.png.tmp
+**/wwwroot/favicon-32.png
+**/wwwroot/apple-touch-icon.png
+**/wwwroot/uploads/rules/*
+!**/wwwroot/uploads/rules/.gitkeep
 
-# Локальные конфиги и секреты
+# ===== Локальные конфиги и секреты =====
 appsettings.Development.json
 appsettings.Production.json
 appsettings.Local.json
 secrets.json
 .env
-
-# Docker secrets
 .env.*
 !.env.example
 docker-compose.override.yml
