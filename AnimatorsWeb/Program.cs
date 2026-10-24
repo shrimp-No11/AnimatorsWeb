@@ -4,14 +4,23 @@ using AspNet.Security.OAuth.Discord;
 using DSharpPlus;
 using DSharpPlus.Extensions;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
 
+
+
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -112,6 +121,8 @@ builder.Services.AddScoped<DesignSettingsService>();
 builder.Services.AddSingleton<FeaturedThumbnailService>();
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Применяем миграции EF Core при старте (нужно для Docker / чистого сервера)
 using (var scope = app.Services.CreateScope())
