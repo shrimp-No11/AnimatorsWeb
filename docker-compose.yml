@@ -1,0 +1,40 @@
+
+services:
+  webapp:
+    build:
+      context: ./AnimatorsWeb      
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=db;Database=animators_db;Username=animators_user;Password=${DB_PASSWORD}
+      - Discord__BotToken=${DISCORD_BOT_TOKEN}
+      - Discord__ClientId=${DISCORD_CLIENT_ID}
+      - Discord__ClientSecret=${DISCORD_CLIENT_SECRET}
+      - Discord__InviteUrl=${DISCORD_INVITE_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+  # ports:
+  #   - "5433:5432"
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=animators_db
+      - POSTGRES_USER=animators_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # - ./db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U animators_user -d animators_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

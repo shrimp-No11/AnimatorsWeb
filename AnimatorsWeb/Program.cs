@@ -113,6 +113,13 @@ builder.Services.AddSingleton<FeaturedThumbnailService>();
 
 var app = builder.Build();
 
+// Применяем миграции EF Core при старте (нужно для Docker / чистого сервера)
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

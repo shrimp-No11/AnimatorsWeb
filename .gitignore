@@ -9,6 +9,8 @@ x86/
 [Ll]ogs/
 
 # Visual Studio
+bin/
+obj/
 .vs/
 *.suo
 *.user
@@ -19,6 +21,7 @@ x86/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+db-init/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
@@ -39,6 +42,9 @@ wwwroot/favicon-32.png
 wwwroot/apple-touch-icon.png
 wwwroot/uploads/rules/*
 !wwwroot/uploads/rules/.gitkeep
+wwwroot/featured/.gitkeep
+wwwroot/images/.gitkeep          
+wwwroot/uploads/rules/.gitkeep
 
 # Локальные конфиги и секреты
 appsettings.Development.json
@@ -46,3 +52,8 @@ appsettings.Production.json
 appsettings.Local.json
 secrets.json
 .env
+
+# Docker secrets
+.env.*
+!.env.example
+docker-compose.override.yml

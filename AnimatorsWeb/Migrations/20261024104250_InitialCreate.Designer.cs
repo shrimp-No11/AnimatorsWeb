@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AnimatorsWeb.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261004184556_AddMessageUrlToParticipant")]
-    partial class AddMessageUrlToParticipant
+    [Migration("20261024104250_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -85,7 +85,7 @@ namespace AnimatorsWeb.Migrations
                     b.ToTable("ChannelSettings");
                 });
 
-            modelBuilder.Entity("AnimatorsWeb.Models.Participant", b =>
+            modelBuilder.Entity("AnimatorsWeb.Models.DesignSettings", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -93,27 +93,124 @@ namespace AnimatorsWeb.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AnimJamNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("DiscordUserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("DisplayName")
+                    b.Property<string>("AccentColor")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("MessageUrl")
+                    b.Property<string>("BackgroundColor")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("WorkUrl")
+                    b.Property<string>("CardColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PaletteUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PrimaryColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PrimaryHoverColor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TextColor")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Participants");
+                    b.ToTable("DesignSettings");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.LandingFeaturedWork", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ParticipantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParticipantId")
+                        .IsUnique();
+
+                    b.ToTable("LandingFeaturedWorks");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.LinkedAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsConfirmed")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("LinkedDiscordId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("LinkedName")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("PrimaryDiscordId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrimaryDiscordId", "LinkedDiscordId")
+                        .IsUnique()
+                        .HasFilter("\"LinkedDiscordId\" IS NOT NULL");
+
+                    b.ToTable("LinkedAccounts");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.RulesSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AllMessageIds")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("ChannelId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("GuildId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("LastMessageId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("RoleId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("SectionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RulesSettings");
                 });
 
             modelBuilder.Entity("AnimatorsWeb.Models.ThemePoll", b =>
@@ -158,7 +255,15 @@ namespace AnimatorsWeb.Migrations
                     b.Property<int>("Nomination")
                         .HasColumnType("integer");
 
+                    b.Property<string>("WorkUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AnimJamNumber", "DiscordUserId", "Nomination", "WorkUrl")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Winners_AnimJamNumber_DiscordUserId_Nomination_WorkUrl");
 
                     b.ToTable("Winners");
                 });
@@ -186,9 +291,43 @@ namespace AnimatorsWeb.Migrations
                     b.Property<int>("Nomination")
                         .HasColumnType("integer");
 
+                    b.Property<string>("OptionsJson")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("WinnerPolls");
+                });
+
+            modelBuilder.Entity("Participant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AnimJamNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("DiscordUserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("WorkUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Participants");
                 });
 #pragma warning restore 612, 618
         }
