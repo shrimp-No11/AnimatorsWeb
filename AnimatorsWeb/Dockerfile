@@ -13,6 +13,10 @@ RUN dotnet publish "AnimatorsWeb.csproj" -c Release -o /app/publish
 # Используем официальный образ ASP.NET Core для запуска
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish .
 
 # Открываем порт 8080 (стандартный для ASP.NET Core в контейнерах)
