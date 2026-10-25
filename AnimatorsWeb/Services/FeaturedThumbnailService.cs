@@ -259,11 +259,21 @@ namespace AnimatorsWeb.Services
             {
                 var http = _httpFactory.CreateClient();
                 http.Timeout = TimeSpan.FromSeconds(30);
-                var bytes = await http.GetByteArrayAsync(url);
 
+                // ↓ ДОБАВИТЬ: сначала узнаём размер, потом решаем
+                using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                if (!resp.IsSuccessStatusCode) return false;
+
+                var len = resp.Content.Headers.ContentLength ?? 0;
+                if (len > 30_000_000)  // 30 МБ — большие гифки пропускаем
+                {
+                    _logger.LogWarning("File too large ({MB} MB) for {Id}", len / 1_000_000, participantId);
+                    return false;
+                }
+
+                var bytes = await resp.Content.ReadAsByteArrayAsync();
                 using var image = Image.Load<Rgba32>(bytes);
 
-                // Для GIF — только первый кадр (иначе ресайз всех кадров тормозит)
                 if (image.Frames.Count > 1)
                 {
                     using var firstFrame = image.Frames.CloneFrame(0);
