@@ -494,32 +494,30 @@
 
     .landing-mosaic {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        grid-auto-rows: 150px;
-        gap: 12px;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 14px;
     }
 
     .landing-work {
         position: relative;
         display: block;
+        aspect-ratio: 16 / 9;
         min-width: 0;
         min-height: 0;
         padding: 0;
         overflow: hidden;
-        border: 1px solid var(--landing-border);
+        border: 0;
         border-radius: 14px;
         background: var(--brand-card);
+        box-shadow: 0 8px 22px color-mix(in srgb, var(--brand-text) 10%, transparent);
         cursor: pointer;
         text-align: left;
+        transition: transform .25s ease, box-shadow .25s ease;
     }
 
-        .landing-work:nth-child(6n + 1),
-        .landing-work:nth-child(6n + 4) {
-            grid-row: span 2;
-        }
-
-        .landing-work:nth-child(6n + 1) {
-            grid-column: span 2;
+        .landing-work:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 34px color-mix(in srgb, var(--brand-text) 16%, transparent);
         }
 
         .landing-work img {
@@ -540,9 +538,9 @@
         justify-content: center;
         width: 100%;
         height: 100%;
-        min-height: 100px;
         color: var(--landing-muted);
         font-size: 30px;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card)), color-mix(in srgb, var(--brand-accent) 16%, var(--brand-card)));
     }
 
     .landing-work::after {
@@ -784,25 +782,39 @@
     }
 
     @@media (max-width: 700px) {
-        .landing {
-            padding-inline: 18px;
+        .landing,
+        .landing-hero,
+        .landing-hero-grid,
+        .landing-hero-visual {
+            overflow: visible;
         }
 
         .landing-section {
             padding-block: 52px;
         }
 
-        .landing-hero {
-            padding-block: 32px 48px;
-        }
-
-        .landing-hero-grid {
-            grid-template-columns: 1fr;
-            gap: 28px;
-        }
 
         .landing-hero-visual {
             order: -1;
+        }
+
+        .landing-hero-visual {
+            position: absolute;
+            top: -35px;
+            right: -70px;
+            width: 300px;
+            min-width: 300px;
+            height: 300px;
+            flex-shrink: 0;
+            z-index: 0;
+            pointer-events: none;
+            isolation: auto;
+            overflow: visible;
+        }
+
+        .landing-hero-visual:hover .landing-hero-avatar {
+            transform: rotate(3deg);
+            box-shadow: none;
         }
 
         .landing-hero-art {
@@ -820,8 +832,20 @@
             }
 
         .landing-hero-avatar {
-            width: min(58%, 190px);
-            border-radius: 20%;
+            display: block;
+            width: 300px;
+            min-width: 300px;
+            max-width: none;
+            height: 300px;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            flex-shrink: 0;
+            opacity: 0.12;
+            border: 0;
+            border-radius: 22%;
+            transform: rotate(3deg);
+            box-shadow: none;
+            filter: blur(1px);
         }
 
         .landing-hero-caption {
@@ -846,6 +870,29 @@
 
         .landing-hero-actions {
             margin-bottom: 30px;
+        }
+
+        .landing-hero-copy {
+            position: relative;
+            z-index: 1;
+        }
+
+        .landing-hero-visual::before {
+            display: block;
+            position: absolute;
+            top: -24px;
+            left: -180px;
+            right: auto;
+            width: 175px;
+            height: 175px;
+            border-radius: 34% 66% 59% 41% / 43% 38% 62% 57%;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .landing-hero-spark,
+        .landing-hero-sticker {
+            display: none;
         }
 
         .landing-button {
@@ -1306,13 +1353,12 @@
     }
 
     .landing-mosaic {
-        grid-template-columns: repeat(12, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         grid-auto-rows: auto;
         gap: 16px;
     }
 
     .landing-work {
-        grid-column: span 3;
         aspect-ratio: 16 / 9;
         height: auto;
         min-height: 0;
@@ -1321,17 +1367,6 @@
         box-shadow: 0 10px 28px color-mix(in srgb, var(--brand-text) 12%, transparent);
         transition: transform .25s ease, box-shadow .25s ease;
     }
-
-        .landing-work:nth-child(6n + 1),
-        .landing-work:nth-child(6n + 4) {
-            grid-row: auto;
-            grid-column: span 3;
-        }
-
-        .landing-work:nth-child(5n + 1),
-        .landing-work:nth-child(5n + 2) {
-            grid-column: span 6;
-        }
 
         .landing-work:hover {
             transform: translateY(-4px);
@@ -1353,6 +1388,18 @@
         max-width: 760px;
     }
 
+    .landing-socials-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+        gap: 40px;
+        align-items: start;
+    }
+
+        .landing-socials-body .landing-description {
+            max-width: 100%;
+            margin: 0;
+        }
+
     .landing-social {
         padding: 18px 22px;
         border: 1px solid color-mix(in srgb, var(--brand-text) 8%, transparent);
@@ -1362,7 +1409,7 @@
     }
 
         .landing-social:first-child {
-            background: linear-gradient(100deg, color-mix(in srgb, var(--brand-primary) 11%, var(--brand-card)), var(--brand-card) 78%);
+            background: var(--brand-card);
         }
 
     .landing-social-icon {
@@ -1371,7 +1418,7 @@
     }
 
     .landing-social:first-child .landing-social-icon {
-        background: color-mix(in srgb, var(--brand-primary) 14%, var(--brand-card));
+        background: color-mix(in srgb, var(--brand-accent) 18%, var(--brand-card));
     }
 
     .landing-final {
@@ -1405,22 +1452,16 @@
         }
 
         .landing-mosaic {
-            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
-
-        .landing-work,
-        .landing-work:nth-child(6n + 1),
-        .landing-work:nth-child(6n + 4) {
-            grid-column: span 3;
-        }
-
-            .landing-work:nth-child(5n + 1),
-            .landing-work:nth-child(5n + 2) {
-                grid-column: span 3;
-            }
     }
 
     @@media (max-width: 700px) {
+        .landing-socials-body {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
         .landing-hero {
             padding-block: 34px 54px;
         }
@@ -1429,31 +1470,55 @@
             gap: 20px;
         }
 
+        .landing-hero-grid {
+            position: relative;
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .landing-hero-copy {
+            position: relative;
+            z-index: 1;
+        }
+
         .landing-hero-visual {
-            min-height: 245px;
-            order: -1;
+            position: absolute;
+            top: -35px;
+            right: -70px;
+            width: 300px;
+            height: 300px;
+            min-width: 300px;
+            flex-shrink: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: visible;
         }
 
         .landing-hero-avatar {
-            width: min(55%, 190px);
+            display: block;
+            width: 300px;
+            min-width: 300px;
+            max-width: none;
+            height: 300px;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            flex-shrink: 0;
+            opacity: 0.12;
+            border: 0;
+            border-radius: 22%;
+            transform: rotate(3deg);
+            box-shadow: none;
+            filter: blur(1px);
         }
 
-        .landing-hero-spark-one {
-            top: 10%;
-            right: 20%;
-            font-size: 30px;
+        .landing-hero-visual:hover .landing-hero-avatar {
+            transform: rotate(3deg);
+            box-shadow: none;
         }
 
-        .landing-hero-spark-two {
-            bottom: 10%;
-            left: 19%;
-            font-size: 24px;
-        }
-
-        .landing-hero-sticker {
-            right: 9%;
-            bottom: 6%;
-            font-size: 10px;
+        .landing-hero-visual:hover .landing-hero-avatar {
+            transform: none;
+            box-shadow: none;
         }
 
         .landing-hero h1 {
@@ -1461,6 +1526,7 @@
         }
 
         .landing-stats {
+            grid-template-columns: 1fr;
             gap: 7px;
         }
 
@@ -1498,16 +1564,8 @@
 
         .landing-mosaic {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-rows: auto;
             gap: 10px;
-        }
-
-        .landing-work,
-        .landing-work:nth-child(6n + 1),
-        .landing-work:nth-child(6n + 4),
-        .landing-work:nth-child(5n + 1),
-        .landing-work:nth-child(5n + 2) {
-            grid-column: span 1;
-            aspect-ratio: 16 / 10;
         }
 
         .landing-social {
@@ -1747,14 +1805,10 @@
                         стили и способы рассказать историю.
                     </p>
                 </div>
-
-                <span class="landing-gallery-count">
-                    @Model.RecentWorks.Count() работ
-                </span>
             </div>
 
             <div class="landing-mosaic">
-                @foreach (var work in Model.RecentWorks)
+                @foreach (var work in Model.RecentWorks.Take(10))
                 {
                     <button type="button"
                             class="landing-work"
@@ -1794,49 +1848,57 @@
                 <div class="landing-eyebrow">Остаёмся на связи</div>
                 <h2 class="landing-heading">Найди нас в сети</h2>
             </div>
-
-            <p class="landing-description">
-                Discord — место для общения и ивентов. На YouTube и в Telegram
-                можно следить за работами, обзорами и новостями сообщества.
-            </p>
         </div>
 
-        <div class="landing-social-list">
-            <a href="@DiscordUrl"
-               target="_blank"
-               rel="noopener noreferrer"
-               class="landing-social">
-                <span class="landing-social-icon" aria-hidden="true">💬</span>
-                <span class="landing-social-info">
-                    <span class="landing-social-title">Discord</span>
-                    <span class="landing-social-sub">Общение и мероприятия</span>
-                </span>
-                <span class="landing-arrow" aria-hidden="true">↗</span>
-            </a>
+        <div class="landing-socials-body">
 
-            <a href="@YouTubeUrl"
-               target="_blank"
-               rel="noopener noreferrer"
-               class="landing-social">
-                <span class="landing-social-icon" aria-hidden="true">▶</span>
-                <span class="landing-social-info">
-                    <span class="landing-social-title">YouTube</span>
-                    <span class="landing-social-sub">Обзоры аниджемов</span>
-                </span>
-                <span class="landing-arrow" aria-hidden="true">↗</span>
-            </a>
 
-            <a href="@TelegramUrl"
-               target="_blank"
-               rel="noopener noreferrer"
-               class="landing-social">
-                <span class="landing-social-icon" aria-hidden="true">✈</span>
-                <span class="landing-social-info">
-                    <span class="landing-social-title">Telegram</span>
-                    <span class="landing-social-sub">Новости и обновления</span>
-                </span>
-                <span class="landing-arrow" aria-hidden="true">↗</span>
-            </a>
+            <div class="landing-social-list">
+                <a href="@DiscordUrl"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="landing-social">
+                    <span class="landing-social-icon" aria-hidden="true">💬</span>
+                    <span class="landing-social-info">
+                        <span class="landing-social-title">Discord</span>
+                        <span class="landing-social-sub">Общение и мероприятия</span>
+                    </span>
+                    <span class="landing-arrow" aria-hidden="true">↗</span>
+                </a>
+
+                <a href="@YouTubeUrl"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="landing-social">
+                    <span class="landing-social-icon" aria-hidden="true">▶</span>
+                    <span class="landing-social-info">
+                        <span class="landing-social-title">YouTube</span>
+                        <span class="landing-social-sub">Обзоры аниджемов</span>
+                    </span>
+                    <span class="landing-arrow" aria-hidden="true">↗</span>
+                </a>
+
+                <a href="@TelegramUrl"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="landing-social">
+                    <span class="landing-social-icon" aria-hidden="true">✈</span>
+                    <span class="landing-social-info">
+                        <span class="landing-social-title">Telegram</span>
+                        <span class="landing-social-sub">Новости и обновления</span>
+                    </span>
+                    <span class="landing-arrow" aria-hidden="true">↗</span>
+                </a>
+
+
+            </div>
+
+            <p class="landing-description">
+                Discord — место для общения и ивентов.
+                
+                На YouTube и в Telegram
+                можно следить за работами, обзорами и новостями сообщества.
+            </p>
         </div>
     </section>
 
