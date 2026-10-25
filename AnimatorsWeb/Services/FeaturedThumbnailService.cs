@@ -16,7 +16,7 @@ namespace AnimatorsWeb.Services
         private readonly DiscordClient _client;
         private readonly IConfiguration _config;
         private readonly ILogger<FeaturedThumbnailService> _logger;
-        private static readonly SemaphoreSlim _concurrencyLimit = new(2, 2);
+        private static readonly SemaphoreSlim _concurrencyLimit = new(1, 1);
         public string GetFilePath(int participantId) => FilePath(participantId);
 
         private const int Width = 640;
@@ -208,8 +208,8 @@ namespace AnimatorsWeb.Services
 
                 // 2. ffmpeg по локальному файлу
                 var vf = $"scale={Width}:{Height}:force_original_aspect_ratio=increase,crop={Width}:{Height}";
-                var args = $"-y -ss 0 -i \"{tmpVideo}\" -vf \"{vf}\" -frames:v 1 -q:v 3 \"{tmpOut}\"";
-
+                var args = $"-y -ss 0 -t 2 -i \"{tmpVideo}\" -vf \"{vf}\" -frames:v 1 -threads 1 -q:v 3 \"{tmpOut}\"";
+                
                 var psi = new ProcessStartInfo
                 {
                     FileName = ffmpeg,

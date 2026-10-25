@@ -15,7 +15,7 @@ namespace AnimatorsWeb.Controllers
 
         private static readonly MemoryCache _cache = new MemoryCache(new MemoryCacheOptions
         {
-            SizeLimit = 200_000_000 // 200 МБ
+            SizeLimit = 100_000_000 // 100 МБ
         });
 
         public MediaController(AppDbContext db, DiscordMessageService discord)

@@ -1791,21 +1791,25 @@ namespace AnimatorsWeb.Controllers
                 .ToListAsync();
 
             int queued = 0;
-            foreach (var p in all)
+            var pending = all
+                .Where(p => !_thumbService.HasThumbnail(p.Id))
+                .Select(p => new { p.Id, p.WorkUrl, p.MessageUrl, MediaType = DetectMediaType(p.WorkUrl) })
+                .Where(x => x.MediaType == "video" || x.MediaType == "image" || x.MediaType == "youtube")
+                .ToList();
+
+            _ = Task.Run(async () =>
             {
-                if (_thumbService.HasThumbnail(p.Id)) continue;
-                var mt = DetectMediaType(p.WorkUrl);
-                if (mt != "video" && mt != "image" && mt != "youtube") continue;
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var thumb = scope.ServiceProvider.GetRequiredService<FeaturedThumbnailService>();
+                foreach (var p in pending)
+                {
+                    await thumb.EnsureAsync(p.Id, p.WorkUrl, p.MessageUrl, p.MediaType);
+                }
+            });
 
-                var id = p.Id;
-                var wurl = p.WorkUrl;
-                var murl = p.MessageUrl;
-                _ = Task.Run(() => _thumbService.EnsureAsync(id, wurl, murl, mt));
-                queued++;
-            }
-
-            TempData["Result"] = $"Запущена генерация обложек для {queued} работ (в фоне)";
+            TempData["Result"] = $"Запущена генерация для {pending.Count} работ (в фоне)";
             return RedirectToAction(nameof(FeaturedWorks));
+
         }
 
         [HttpGet]
