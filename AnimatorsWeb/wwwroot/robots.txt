@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://animators-community.com.ru/sitemap.xml
