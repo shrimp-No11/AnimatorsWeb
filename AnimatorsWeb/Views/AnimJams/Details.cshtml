@@ -421,11 +421,7 @@
     <nav class="detail-actions" aria-label="Ссылки аниджема">
         @if (!string.IsNullOrEmpty(Model.AnnouncementUrl))
         {
-            <a href="@Model.AnnouncementUrl" target="_blank" rel="noopener noreferrer" class="detail-button primary">📢 Объявление</a>
-        }
-        @if (!string.IsNullOrEmpty(Model.ResultsUrl))
-        {
-            <a href="@Model.ResultsUrl" target="_blank" rel="noopener noreferrer" class="detail-button">🏆 Итоги в Discord</a>
+            <a href="@Model.AnnouncementUrl" target="_blank" rel="noopener noreferrer" class="detail-button">смотреть в discord</a>
         }
     </nav>
 
