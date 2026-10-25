@@ -23,11 +23,21 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 900M
 
   db:
     image: postgres:17-alpine
   # ports:
   #   - "5433:5432"
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=256MB
+      -c maintenance_work_mem=32MB
+      -c work_mem=4MB
     restart: unless-stopped
     environment:
       - POSTGRES_DB=animators_db
@@ -41,6 +51,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+    deploy:
+      resources:
+        limits:
+          memory: 350M
 volumes:
   postgres_data:

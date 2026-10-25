@@ -16,7 +16,7 @@ namespace AnimatorsWeb.Services
         private readonly DiscordClient _client;
         private readonly IConfiguration _config;
         private readonly ILogger<FeaturedThumbnailService> _logger;
-        private static readonly SemaphoreSlim _concurrencyLimit = new(3, 3);
+        private static readonly SemaphoreSlim _concurrencyLimit = new(2, 2);
         public string GetFilePath(int participantId) => FilePath(participantId);
 
         private const int Width = 640;
