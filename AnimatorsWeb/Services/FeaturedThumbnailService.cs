@@ -91,32 +91,24 @@ namespace AnimatorsWeb.Services
         {
             try
             {
-                _logger.LogInformation("GenerateAsync START id={Id} mediaType={Type} workUrl={Url}", participantId, mediaType, workUrl);
                 Directory.CreateDirectory(FolderPath);
 
-                // Видео — ffmpeg на первом месте
-                if (mediaType == "video")
+                // YouTube — ImageSharp (mqdefault.jpg маленький, 320x180, безопасно)
+                var ytId = ExtractYouTubeId(workUrl);
+                if (ytId != null)
                 {
-                    var freshUrl = await TryGetFreshAttachmentAsync(messageUrl);
-                    if (!string.IsNullOrEmpty(freshUrl) && await TryExtractVideoFrameAsync(freshUrl, participantId))
-                        return true;
-
-                    return false;
+                    return await DownloadAndResizeAsync(
+                        $"https://img.youtube.com/vi/{ytId}/mqdefault.jpg", participantId);
                 }
 
-                // Картинки/GIF — скачиваем свежий URL и ресайзим
-                if (mediaType == "image")
+                // Всё остальное (video, gif, png, jpg) — через ffmpeg
+                if (mediaType == "video" || mediaType == "image")
                 {
                     var freshUrl = await TryGetFreshAttachmentAsync(messageUrl);
                     if (string.IsNullOrEmpty(freshUrl)) return false;
-                    return await DownloadAndResizeAsync(freshUrl, participantId);
-                }
 
-                // YouTube
-                var ytId = ExtractYouTubeId(workUrl);
-                if (ytId != null)
-                    return await DownloadAndResizeAsync(
-                        $"https://img.youtube.com/vi/{ytId}/mqdefault.jpg", participantId);
+                    return await ExtractFrameViaFfmpegAsync(freshUrl, participantId);
+                }
 
                 return false;
             }
@@ -125,6 +117,104 @@ namespace AnimatorsWeb.Services
                 _logger.LogWarning(ex, "Thumbnail generation failed for participant {Id}", participantId);
                 return false;
             }
+        }
+        private async Task<bool> ExtractFrameViaFfmpegAsync(string url, int participantId)
+        {
+            if (!IsFfmpegAvailable()) return false;
+
+            var ffmpeg = _config["Features:FfmpegPath"] ?? "ffmpeg";
+            var ext = GetExtensionFromUrl(url);
+            var tmpIn = Path.Combine(Path.GetTempPath(), $"thumb_{participantId}_{Guid.NewGuid():N}{ext}");
+            var tmpOut = Path.Combine(Path.GetTempPath(), $"thumb_{participantId}_{Guid.NewGuid():N}.jpg");
+
+            try
+            {
+                // 1. Скачиваем на диск потоково — не в память
+                try
+                {
+                    var http = _httpFactory.CreateClient();
+                    http.Timeout = TimeSpan.FromMinutes(2);
+
+                    using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning("Download failed {Code} for {Id}", resp.StatusCode, participantId);
+                        return false;
+                    }
+
+                    var len = resp.Content.Headers.ContentLength ?? 0;
+                    if (len > 100_000_000)  // 100 МБ — разумный потолок
+                    {
+                        _logger.LogWarning("File too large ({MB} MB) for {Id}", len / 1_000_000, participantId);
+                        return false;
+                    }
+
+                    await using var fs = System.IO.File.Create(tmpIn);
+                    await resp.Content.CopyToAsync(fs);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Download error for {Id}", participantId);
+                    return false;
+                }
+
+                // 2. ffmpeg извлекает первый кадр (потоково, ~50-100 МБ RAM)
+                var vf = $"scale={Width}:{Height}:force_original_aspect_ratio=increase,crop={Width}:{Height}";
+                var args = $"-y -ss 0 -i \"{tmpIn}\" -vf \"{vf}\" -frames:v 1 -threads 1 -an -q:v 3 \"{tmpOut}\"";
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = ffmpeg,
+                    Arguments = args,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(psi);
+                if (process == null) return false;
+
+                var stderrTask = process.StandardError.ReadToEndAsync();
+                var timeout = Task.Delay(TimeSpan.FromSeconds(60));
+                var completed = await Task.WhenAny(process.WaitForExitAsync(), timeout);
+
+                if (completed == timeout)
+                {
+                    try { process.Kill(true); } catch { }
+                    _logger.LogWarning("ffmpeg timeout for {Id}", participantId);
+                    return false;
+                }
+
+                await stderrTask;
+
+                if (process.ExitCode != 0 || !System.IO.File.Exists(tmpOut))
+                {
+                    _logger.LogWarning("ffmpeg exit {Code} for {Id}", process.ExitCode, participantId);
+                    return false;
+                }
+
+                var finalPath = FilePath(participantId);
+                if (System.IO.File.Exists(finalPath)) System.IO.File.Delete(finalPath);
+                System.IO.File.Move(tmpOut, finalPath);
+                return true;
+            }
+            finally
+            {
+                try { if (System.IO.File.Exists(tmpIn)) System.IO.File.Delete(tmpIn); } catch { }
+                try { if (System.IO.File.Exists(tmpOut)) System.IO.File.Delete(tmpOut); } catch { }
+            }
+        }
+        private static string GetExtensionFromUrl(string url)
+        {
+            try
+            {
+                var path = new Uri(url).AbsolutePath;
+                var ext = Path.GetExtension(path);
+                if (!string.IsNullOrEmpty(ext) && ext.Length <= 5) return ext.ToLowerInvariant();
+            }
+            catch { }
+            return ".bin";
         }
 
         private bool IsFfmpegAvailable()
@@ -164,94 +254,7 @@ namespace AnimatorsWeb.Services
             return _ffmpegAvailable.Value;
         }
 
-        private async Task<bool> TryExtractVideoFrameAsync(string videoUrl, int participantId)
-        {
-            _logger.LogInformation("TryExtractVideoFrame START participant={Id} url={Url}", participantId, videoUrl);
-
-            if (!IsFfmpegAvailable()) return false;
-
-            var ffmpeg = _config["Features:FfmpegPath"] ?? "ffmpeg";
-            var outPath = FilePath(participantId);
-            var tmpOut = outPath + ".ffmpeg.jpg";
-            var tmpVideo = Path.Combine(Path.GetTempPath(), $"thumb_{participantId}_{Guid.NewGuid():N}.mp4");
-
-            try
-            {
-                // 1. Скачиваем через HttpClient
-                try
-                {
-                    var http = _httpFactory.CreateClient();
-                    http.Timeout = TimeSpan.FromSeconds(60);
-
-                    using var resp = await http.GetAsync(videoUrl, HttpCompletionOption.ResponseHeadersRead);
-                    if (!resp.IsSuccessStatusCode)
-                    {
-                        _logger.LogWarning("Video download failed {Code} for {Id}", resp.StatusCode, participantId);
-                        return false;
-                    }
-
-                    var len = resp.Content.Headers.ContentLength ?? 0;
-                    if (len > 100_000_000)
-                    {
-                        _logger.LogWarning("Video too large ({MB} MB) for {Id}", len / 1_000_000, participantId);
-                        return false;
-                    }
-
-                    await using var fs = File.Create(tmpVideo);
-                    await resp.Content.CopyToAsync(fs);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Video download error for {Id}", participantId);
-                    return false;
-                }
-
-                // 2. ffmpeg по локальному файлу
-                var vf = $"scale={Width}:{Height}:force_original_aspect_ratio=increase,crop={Width}:{Height}";
-                var args = $"-y -ss 0 -t 2 -i \"{tmpVideo}\" -vf \"{vf}\" -frames:v 1 -threads 1 -q:v 3 \"{tmpOut}\"";
-                
-                var psi = new ProcessStartInfo
-                {
-                    FileName = ffmpeg,
-                    Arguments = args,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = Process.Start(psi);
-                if (process == null) return false;
-
-                var stderrTask = process.StandardError.ReadToEndAsync();
-                var timeout = Task.Delay(TimeSpan.FromSeconds(60));
-                var completed = await Task.WhenAny(process.WaitForExitAsync(), timeout);
-
-                if (completed == timeout)
-                {
-                    try { process.Kill(true); } catch { }
-                    _logger.LogWarning("ffmpeg timeout for {Id}", participantId);
-                    return false;
-                }
-
-                await stderrTask;
-
-                if (process.ExitCode != 0 || !File.Exists(tmpOut))
-                {
-                    _logger.LogWarning("ffmpeg exit {Code} for {Id}", process.ExitCode, participantId);
-                    return false;
-                }
-
-                if (File.Exists(outPath)) File.Delete(outPath);
-                File.Move(tmpOut, outPath);
-                return true;
-            }
-            finally
-            {
-                try { if (File.Exists(tmpVideo)) File.Delete(tmpVideo); } catch { }
-                try { if (File.Exists(tmpOut)) File.Delete(tmpOut); } catch { }
-            }
-        }
+        
 
         private async Task<bool> DownloadAndResizeAsync(string url, int participantId)
         {
