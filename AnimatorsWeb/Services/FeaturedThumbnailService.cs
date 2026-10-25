@@ -143,7 +143,7 @@ namespace AnimatorsWeb.Services
                     }
 
                     var len = resp.Content.Headers.ContentLength ?? 0;
-                    if (len > 100_000_000)  // 100 МБ — разумный потолок
+                    if (len > 500_000_000)  
                     {
                         _logger.LogWarning("File too large ({MB} MB) for {Id}", len / 1_000_000, participantId);
                         return false;
