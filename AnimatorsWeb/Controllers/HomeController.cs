@@ -3,7 +3,9 @@ using AnimatorsWeb.Models;
 using AnimatorsWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace AnimatorsWeb.Controllers
 {
@@ -20,6 +22,24 @@ namespace AnimatorsWeb.Controllers
             _design = design;
             _config = config;
             _thumbService = thumb;
+        }
+
+        [Route("/sitemap.xml")]
+        public IActionResult SitemapXml()
+        {
+            string host = $"{Request.Scheme}://{Request.Host}";
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+            sb.AppendLine($"  <url>");
+            sb.AppendLine($"    <loc>{host}/</loc>");
+            sb.AppendLine($"    <changefreq>weekly</changefreq>");
+            sb.AppendLine($"    <priority>1.0</priority>");
+            sb.AppendLine($"  </url>");
+            sb.AppendLine("</urlset>");
+
+            return Content(sb.ToString(), "application/xml", System.Text.Encoding.UTF8);
         }
 
         public async Task<IActionResult> Index()

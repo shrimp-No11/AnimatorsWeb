@@ -15,6 +15,7 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -122,6 +123,8 @@ builder.Services.AddSingleton<FeaturedThumbnailService>();
 
 var app = builder.Build();
 
+
+app.UseMiddleware<NoIndexMiddleware>(); 
 app.UseForwardedHeaders();
 
 // Применяем миграции EF Core при старте (нужно для Docker / чистого сервера)
