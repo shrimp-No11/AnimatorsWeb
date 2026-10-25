@@ -77,6 +77,7 @@ namespace AnimatorsWeb.Services
 
             // 3. Публикация
             var existingIds = ParseMessageIds(settings.AllMessageIds);
+            var oldLastId = settings.LastMessageId;   
 
             if (settings.ChannelId != 0 && sections.Any(s => !string.IsNullOrWhiteSpace(s.Content) || s.Attachments.Count > 0))
             {
@@ -88,7 +89,12 @@ namespace AnimatorsWeb.Services
                 settings.LastMessageId = ids.LastOrDefault();
 
                 if (settings.LastMessageId != 0)
+                {
+                    if (oldLastId != 0 && oldLastId != settings.LastMessageId)
+                        await _discord.RemoveOwnAcceptReactionAsync(settings.ChannelId, oldLastId);
+
                     await _discord.AddAcceptReactionAsync(settings.ChannelId, settings.LastMessageId);
+                }
             }
 
             // 4. Сохранение в БД

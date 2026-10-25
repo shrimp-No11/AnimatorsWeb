@@ -1021,6 +1021,20 @@ public class DiscordMessageService
 
         await msg.CreateReactionAsync(DiscordEmoji.FromUnicode(RulesConstants.AcceptEmoji));
     }
+    public async Task RemoveOwnAcceptReactionAsync(ulong channelId, ulong messageId)
+    {
+        var channel = await _client.GetChannelAsync(channelId);
+        if (channel == null) return;
+
+        var msg = await channel.GetMessageAsync(messageId);
+        if (msg == null) return;
+
+        try
+        {
+            await msg.DeleteOwnReactionAsync(DiscordEmoji.FromUnicode(RulesConstants.AcceptEmoji));
+        }
+        catch { }
+    }
 
     // Получает список user_id, поставивших ✅
     public async Task<List<ulong>> GetAcceptReactorsAsync(ulong channelId, ulong messageId)
