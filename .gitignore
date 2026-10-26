@@ -35,8 +35,8 @@ ScaffoldingReadMe.txt
 **/wwwroot/featured/*.tmp
 **/wwwroot/images/guild-avatar.png
 **/wwwroot/images/guild-avatar.png.tmp
-**/wwwroot/favicon-32.png
-**/wwwroot/apple-touch-icon.png
+**/wwwroot/images/favicon-32.png
+**/wwwroot/images/apple-touch-icon.png
 **/wwwroot/uploads/rules/*
 !**/wwwroot/uploads/rules/.gitkeep
 

@@ -141,7 +141,7 @@ namespace AnimatorsWeb.Services
                     Mode = ResizeMode.Crop,
                     Position = AnchorPositionMode.Center
                 }));
-                var favPath = Path.Combine(_env.WebRootPath, "favicon-32.png");
+                var favPath = Path.Combine(_env.WebRootPath, "images", "favicon-32.png");
                 await resized.SaveAsPngAsync(favPath);
             }
             catch (Exception ex)
@@ -159,7 +159,7 @@ namespace AnimatorsWeb.Services
                     Mode = ResizeMode.Crop,
                     Position = AnchorPositionMode.Center
                 }));
-                var touchPath = Path.Combine(_env.WebRootPath, "apple-touch-icon.png");
+                var touchPath = Path.Combine(_env.WebRootPath, "images", "apple-touch-icon.png");
                 await resized.SaveAsPngAsync(touchPath);
             }
             catch (Exception ex)
