@@ -1,0 +1,88 @@
+﻿/* Модалка просмотра работ — общая для всех страниц */
+
+#media-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(8, 8, 14, 0.9);
+    backdrop-filter: blur(10px);
+}
+
+    #media-modal.is-open {
+        display: flex;
+    }
+
+    #media-modal .media-modal-content {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: min(1100px, 100%);
+        max-height: 90vh;
+    }
+
+        #media-modal .media-modal-content iframe,
+        #media-modal .media-modal-content video,
+        #media-modal .media-modal-content img {
+            display: block;
+            max-width: 100%;
+            max-height: 85vh;
+            border: 0;
+            border-radius: 12px;
+            object-fit: contain;
+            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.4);
+            background: #000;
+        }
+
+        #media-modal .media-modal-content iframe {
+            width: min(100%, 1000px);
+            aspect-ratio: 16 / 9;
+            height: auto;
+        }
+
+        /* Обёртка для YouTube-плеера (создаётся JS) */
+        #media-modal .media-modal-content .media-yt-wrap {
+            width: min(1000px, 100%);
+            aspect-ratio: 16 / 9;
+            max-height: 85vh;
+            overflow: hidden;
+            background: #000;
+            border-radius: 12px;
+            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.4);
+        }
+
+            #media-modal .media-modal-content .media-yt-wrap iframe {
+                width: 100% !important;
+                height: 100% !important;
+                display: block;
+                border-radius: 0;
+                box-shadow: none;
+                aspect-ratio: auto;
+            }
+
+    #media-modal .media-modal-close {
+        position: fixed;
+        top: 16px;
+        right: 18px;
+        z-index: 1;
+        width: 44px;
+        height: 44px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        font-size: 25px;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s;
+    }
+
+        #media-modal .media-modal-close:hover {
+            background: rgba(255, 255, 255, 0.22);
+        }

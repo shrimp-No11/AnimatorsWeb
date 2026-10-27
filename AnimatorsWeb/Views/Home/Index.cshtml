@@ -11,7 +11,11 @@
     var avatarUrl = !string.IsNullOrEmpty(Model.GuildIconUrl)
         ? Model.GuildIconUrl
         : "/images/guild-avatar.png";
+
+    // Стартовая громкость: N из 100
+    var initialVolume = 20;
 }
+
 
 <style>
     /* ===== Основа ===== */
@@ -663,69 +667,6 @@
         flex-shrink: 0;
     }
 
-    /* ===== Модальное окно работ ===== */
-    #work-modal-content {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-    #work-modal[hidden] {
-        display: none;
-    }
-
-    #work-modal {
-        position: fixed;
-        z-index: 2000;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        padding: 24px;
-        background: color-mix(in srgb, var(--brand-text) 85%, transparent);
-    }
-
-    .work-modal-panel {
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: min(1100px, 100%);
-        padding: 44px 12px 12px;
-    }
-
-    .work-modal-close {
-        position: absolute;
-        top: 0;
-        right: 0;
-        display: grid;
-        place-items: center;
-        width: 38px;
-        height: 38px;
-        border: 1px solid var(--landing-border);
-        border-radius: 10px;
-        background: var(--brand-card);
-        color: var(--brand-text);
-        font-size: 24px;
-        cursor: pointer;
-    }
-
-    .work-modal-media {
-        display: block;
-        max-width: 100%;
-        max-height: calc(90vh - 70px);
-        border: 0;
-        border-radius: 10px;
-        object-fit: contain;
-        background: var(--brand-bg);
-    }
-
-    iframe.work-modal-media {
-        width: min(1000px, 100%);
-        aspect-ratio: 16 / 9;
-        height: auto;
-        max-height: 85vh;
-    }
 
     /* ===== Появление секций ===== */
 
@@ -1930,34 +1871,15 @@
     </section>
 </main>
 
-<!-- Просмотр работы -->
-<div id="work-modal" hidden role="dialog"
-     aria-modal="true" aria-label="Просмотр работы">
-    <div class="work-modal-panel">
-        <button type="button"
-                class="work-modal-close"
-                aria-label="Закрыть просмотр">
-            ×
-        </button>
-        <div id="work-modal-content"></div>
-    </div>
-</div>
-
 <script>
     (() => {
         // Плавное появление секций с поддержкой reduced motion.
-        const revealElements = document.querySelectorAll(
-            '.landing .reveal'
-        );
+        const revealElements = document.querySelectorAll('.landing .reveal');
 
-        const reducedMotion = window.matchMedia(
-            '(prefers-reduced-motion: reduce)'
-        ).matches;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         if (reducedMotion || !('IntersectionObserver' in window)) {
-            revealElements.forEach(element =>
-                element.classList.add('visible')
-            );
+            revealElements.forEach(element => element.classList.add('visible'));
         } else {
             const observer = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
@@ -1971,173 +1893,16 @@
             revealElements.forEach(element => observer.observe(element));
         }
 
-        // Просмотр работ.
-        const modal = document.getElementById('work-modal');
-        const content = document.getElementById('work-modal-content');
-        const closeButton = modal.querySelector('.work-modal-close');
-
-        let previousFocus = null;
-
-        function extractYouTubeId(url) {
-            if (!url) return null;
-
-            try {
-                const parsed = new URL(url, window.location.origin);
-                const host = parsed.hostname.toLowerCase();
-
-                if (host === 'youtu.be' || host.endsWith('.youtu.be')) {
-                    const id = parsed.pathname.split('/').filter(Boolean)[0];
-                    return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
-                }
-
-                if (
-                    host === 'youtube.com' ||
-                    host.endsWith('.youtube.com') ||
-                    host === 'youtube-nocookie.com' ||
-                    host.endsWith('.youtube-nocookie.com')
-                ) {
-                    const id = parsed.searchParams.get('v')
-                        || parsed.pathname.match(
-                            /^\/(?:embed|shorts|live|v)\/([a-zA-Z0-9_-]{11})/
-                        )?.[1];
-
-                    return id && /^[a-zA-Z0-9_-]{11}$/.test(id)
-                        ? id
-                        : null;
-                }
-            } catch {
-                return null;
-            }
-
-            return null;
-        }
-
-        function addMedia(tagName, src, options = {}) {
-            const element = document.createElement(tagName);
-            element.className = 'work-modal-media';
-            element.src = src;
-
-            if (tagName === 'video') {
-                element.controls = true;
-                element.autoplay = true;
-                element.playsInline = true;
-            }
-
-            if (tagName === 'iframe') {
-                element.title = 'Видео участника';
-                element.allow = 'autoplay; encrypted-media; picture-in-picture';
-                element.allowFullscreen = true;
-                element.referrerPolicy = 'strict-origin-when-cross-origin';
-            }
-
-            if (options.alt) {
-                element.alt = options.alt;
-            }
-
-            content.appendChild(element);
-        }
-
-        function closeModal() {
-            modal.hidden = true;
-            content.replaceChildren();
-
-            if (previousFocus) {
-                previousFocus.focus();
-                previousFocus = null;
-            }
-        }
-
-        function openWork(button) {
-            const workUrl = button.dataset.workUrl || '';
-            const messageUrl = button.dataset.messageUrl || '';
-            const participantId = Number(button.dataset.participantId);
-            const mediaType = button.dataset.mediaType || '';
-
-            const youtubeId = extractYouTubeId(workUrl);
-
-            if (!youtubeId && mediaType === 'link') {
-                const destination = messageUrl || workUrl;
-
-                if (destination) {
-                    window.open(destination, '_blank', 'noopener,noreferrer');
-                }
-
-                return;
-            }
-
-            if (!youtubeId && !(participantId > 0)) {
-                const destination = messageUrl || workUrl;
-
-                if (destination) {
-                    window.open(destination, '_blank', 'noopener,noreferrer');
-                }
-
-                return;
-            }
-
-            content.replaceChildren();
-
-            if (youtubeId) {
-                addMedia(
-                    'iframe',
-                    `https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1`
-                );
-            } else {
-                let pathname = '';
-
-                try {
-                    pathname = new URL(
-                        workUrl,
-                        window.location.origin
-                    ).pathname.toLowerCase();
-                } catch {
-                    pathname = '';
-                }
-
-                const proxyUrl = `/Media/StreamWork/${participantId}`;
-
-                if (/\.(mp4|webm|mov|m4v)$/.test(pathname)) {
-                    addMedia('video', proxyUrl);
-                } else if (/\.(gif|png|jpe?g|webp|avif)$/.test(pathname)) {
-                    addMedia('img', proxyUrl, {
-                        alt: 'Работа участника'
-                    });
-                } else {
-                    const destination = messageUrl || workUrl;
-
-                    if (destination) {
-                        window.open(
-                            destination,
-                            '_blank',
-                            'noopener,noreferrer'
-                        );
-                    }
-
-                    return;
-                }
-            }
-
-            previousFocus = button;
-            modal.hidden = false;
-            closeButton.focus();
-        }
-
+        // Открытие работы в общей модалке
         document.querySelectorAll('.landing-work').forEach(button => {
-            button.addEventListener('click', () => openWork(button));
-        });
-
-        closeButton.addEventListener('click', closeModal);
-
-        modal.addEventListener('click', event => {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && !modal.hidden) {
-                closeModal();
-            }
+            button.addEventListener('click', () => {
+                window.MediaModal.openWork(
+                    button.dataset.workUrl || '',
+                    button.dataset.messageUrl || '',
+                    Number(button.dataset.participantId) || 0,
+                    button.dataset.mediaType || ''
+                );
+            });
         });
     })();
 </script>

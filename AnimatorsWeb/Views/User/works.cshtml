@@ -237,75 +237,7 @@
         text-decoration: underline;
     }
 
-    /* Модальное окно */
 
-    .work-modal {
-        position: fixed;
-        z-index: 2000;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        background: rgba(0, 0, 0, .88);
-        backdrop-filter: blur(5px);
-    }
-
-    .work-modal.is-open {
-        display: flex;
-    }
-
-    .work-modal-content {
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        max-width: 1100px;
-        max-height: 90vh;
-    }
-
-    .work-modal-content iframe {
-        display: block;
-        width: min(100%, 1100px);
-        aspect-ratio: 16 / 9;
-        max-height: 85vh;
-        background: #000;
-        border: 0;
-        border-radius: 12px;
-    }
-
-    .work-modal-content video,
-    .work-modal-content img {
-        display: block;
-        max-width: 100%;
-        max-height: 85vh;
-        object-fit: contain;
-        border-radius: 10px;
-    }
-
-    .work-modal-close {
-        position: fixed;
-        z-index: 2001;
-        top: 16px;
-        right: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 44px;
-        height: 44px;
-        color: white;
-        background: rgba(255, 255, 255, .12);
-        border: 1px solid rgba(255, 255, 255, .2);
-        border-radius: 50%;
-        font-size: 1.6rem;
-        cursor: pointer;
-        transition: background .2s;
-    }
-
-    .work-modal-close:hover {
-        background: rgba(255, 255, 255, .24);
-    }
 
     @@media (max-width: 600px) {
         .works-grid {
@@ -317,20 +249,6 @@
             padding: 12px 13px 14px;
         }
 
-        .work-modal {
-            padding: 12px;
-        }
-
-        .work-modal-content iframe {
-            border-radius: 8px;
-        }
-
-        .work-modal-close {
-            top: 10px;
-            right: 10px;
-            width: 40px;
-            height: 40px;
-        }
     }
 
     @@media (max-width: 420px) {
@@ -364,11 +282,12 @@
             {
                 <article class="work-card">
                     <button type="button"
-                            class="work-preview js-open-work"
-                            data-work-url="@work.WorkUrl"
-                            data-message-url="@work.MessageUrl"
-                            data-work-id="@work.Id"
-                            aria-label="Открыть работу для AniJam #@work.AnimJamNumber">
+                        class="work-preview js-open-work"
+                        data-work-url="@work.WorkUrl"
+                        data-message-url="@work.MessageUrl"
+                        data-participant-id="@work.Id"
+                        data-media-type="@work.MediaType"
+                        aria-label="Открыть работу для AniJam #@work.AnimJamNumber">
 
                         @if (!string.IsNullOrEmpty(work.BadgeHtml))
                         {
@@ -431,125 +350,28 @@
     </a>
 </div>
 
-<div id="work-modal"
-     class="work-modal"
-     role="dialog"
-     aria-modal="true"
-     aria-label="Просмотр работы">
-
-    <button type="button"
-            id="work-modal-close"
-            class="work-modal-close"
-            aria-label="Закрыть просмотр">
-        &times;
-    </button>
-
-    <div id="work-modal-content" class="work-modal-content"></div>
-</div>
 
 <script>
     (() => {
-        const modal = document.getElementById('work-modal');
-        const content = document.getElementById('work-modal-content');
-        const closeButton = document.getElementById('work-modal-close');
-
-        function extractYouTubeId(url) {
-            if (!url) return null;
-
-            const match = url.match(
-                /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/
-            );
-
-            return match ? match[1] : null;
-        }
-
-        function openModal(element) {
-            const workUrl = element.dataset.workUrl || '';
-            const messageUrl = element.dataset.messageUrl || '';
-            const workId = Number.parseInt(element.dataset.workId || '0', 10);
-
-            const youtubeId = extractYouTubeId(workUrl);
-
-            if (youtubeId) {
-                const iframe = document.createElement('iframe');
-
-                iframe.src = `https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1`;
-                iframe.title = 'Видео с YouTube';
-                iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-                iframe.allowFullscreen = true;
-
-                content.replaceChildren(iframe);
-                showModal();
-                return;
-            }
-
-            if (workId > 0) {
-                const lowerUrl = workUrl.toLowerCase();
-                const proxyUrl = `/Media/StreamWork/${workId}`;
-
-                if (/\.(mp4|webm|mov)(?:[?#]|$)/i.test(lowerUrl)) {
-                    const video = document.createElement('video');
-
-                    video.src = proxyUrl;
-                    video.controls = true;
-                    video.autoplay = true;
-                    video.playsInline = true;
-
-                    content.replaceChildren(video);
-                    showModal();
-                    return;
-                }
-
-                if (/\.(gif|png|jpe?g|webp)(?:[?#]|$)/i.test(lowerUrl)) {
-                    const img = document.createElement('img');
-
-                    img.src = proxyUrl;
-                    img.alt = 'Работа участника';
-
-                    content.replaceChildren(img);
-                    showModal();
-                    return;
-                }
-            }
-
-            const externalUrl = messageUrl || workUrl;
-
-            if (externalUrl) {
-                const opened = window.open(externalUrl, '_blank', 'noopener,noreferrer');
-
-                if (opened) {
-                    opened.opener = null;
-                }
-            }
-        }
-
-        function showModal() {
-            modal.classList.add('is-open');
-            document.body.style.overflow = 'hidden';
-            closeButton.focus();
-        }
-
-        function closeModal() {
-            modal.classList.remove('is-open');
-            content.replaceChildren();
-            document.body.style.overflow = '';
-        }
-
+        // Клик по работе → общая модалка
         document.querySelectorAll('.js-open-work').forEach(button => {
-            button.addEventListener('click', () => openModal(button));
+            button.addEventListener('click', () => {
+                window.MediaModal.openWork(
+                    button.dataset.workUrl || '',
+                    button.dataset.messageUrl || '',
+                    Number(button.dataset.participantId || 0),
+                    button.dataset.mediaType || ''
+                );
+            });
         });
 
-        closeButton.addEventListener('click', closeModal);
-
-        modal.addEventListener('click', event => {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && modal.classList.contains('is-open')) {
-                closeModal();
+        // Локальные даты
+        document.querySelectorAll('.local-date').forEach(el => {
+            const date = new Date(el.dataset.utc);
+            if (Number.isNaN(date.getTime())) return;
+            const pad = n => String(n).padStart(2, '0');
+            if (el.dataset.format === 'full') {
+                el.textContent = `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
             }
         });
     })();

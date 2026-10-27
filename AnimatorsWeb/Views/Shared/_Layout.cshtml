@@ -17,6 +17,7 @@
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/media-modal.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AnimatorsWeb.styles.css" asp-append-version="true" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -250,7 +251,7 @@
         }
     </style>
 </head>
-<body>
+<body data-media-initial-volume="20">
     <header class="site-header">
         <nav class="navbar navbar-expand-md">
             <div class="container">
@@ -338,6 +339,12 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     <script>
+        window.MEDIA_MODAL_INITIAL_VOLUME = parseInt(
+            document.body.dataset.mediaInitialVolume || '30', 10
+        );
+    </script>
+
+    <script>
         (function () {
             const header = document.querySelector('.site-header');
             if (!header) return;
@@ -372,6 +379,7 @@
             }, { passive: true });
         })();
     </script>
+    <script src="~/js/media-modal.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

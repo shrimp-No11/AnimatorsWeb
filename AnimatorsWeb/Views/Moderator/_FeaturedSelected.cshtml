@@ -12,16 +12,29 @@ else
     {
         <div class="fw-mini" data-participant-id="@w.ParticipantId">
             <div class="thumb" style="cursor:pointer;"
-                 onclick="openWork('@w.WorkUrl', '@w.MessageUrl', @w.ParticipantId)">
+                 data-work-url="@w.WorkUrl"
+                 data-message-url="@w.MessageUrl"
+                 data-participant-id="@w.ParticipantId"
+                 data-media-type="@w.MediaType">
                 @if (w.MediaType == "link")
                 {
                     <div class="link-icon">🔗</div>
                 }
+                else if (w.HasLocalThumbnail)
+                {
+                    <img src="@w.ThumbnailUrl" loading="lazy" decoding="async" alt="" />
+                }
+                else if (w.MediaType == "youtube" && !string.IsNullOrEmpty(w.ThumbnailUrl))
+                {
+                    <img src="@w.ThumbnailUrl" loading="lazy" decoding="async" alt="" />
+                }
+                else if (w.MediaType == "video")
+                {
+                    <div class="link-icon">🎬</div>
+                }
                 else
                 {
-                    <img src="/Featured/Thumbnail/@w.ParticipantId" loading="lazy" decoding="async" alt=""
-                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-                    <div class="link-icon" style="display:none;">@(w.MediaType == "video" ? "🎬" : "🖼")</div>
+                    <div class="link-icon">🖼</div>
                 }
             </div>
             <div class="meta">

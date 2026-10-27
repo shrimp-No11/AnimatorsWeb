@@ -314,61 +314,7 @@
         text-align: center;
     }
 
-    .detail-modal {
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 2000;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        background: rgba(8, 8, 14, .88);
-        backdrop-filter: blur(10px);
-    }
-
-    .detail-modal.is-open { display: flex; }
-
-    .detail-modal-content {
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: min(1100px, 100%);
-        max-height: 90vh;
-    }
-
-    .detail-modal-content iframe,
-    .detail-modal-content video,
-    .detail-modal-content img {
-        display: block;
-        max-width: 100%;
-        max-height: 85vh;
-        border: 0;
-        border-radius: 12px;
-        object-fit: contain;
-        box-shadow: 0 20px 70px rgba(0,0,0,.4);
-    }
-
-    .detail-modal-content iframe {
-        width: min(100%, 1000px);
-        aspect-ratio: 16 / 9;
-        height: auto;
-    }
-
-    .detail-modal-close {
-        position: fixed;
-        top: 16px;
-        right: 18px;
-        z-index: 1;
-        width: 44px;
-        height: 44px;
-        border: 1px solid rgba(255,255,255,.25);
-        border-radius: 50%;
-        background: rgba(255,255,255,.1);
-        color: white;
-        font-size: 25px;
-        cursor: pointer;
-    }
+    
 
     @@media (max-width: 760px) {
         .detail-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -380,7 +326,6 @@
         .detail-stat { padding: 13px; }
         .detail-actions { display: grid; grid-template-columns: 1fr; }
         .detail-button { width: 100%; }
-        .detail-modal { padding: 12px; }
     }
 
     @@media (prefers-reduced-motion: reduce) {
@@ -506,85 +451,22 @@
     </section>
 </main>
 
-<div id="detailModal" class="detail-modal" aria-hidden="true">
-    <button type="button" class="detail-modal-close" id="detailModalClose" aria-label="Закрыть">×</button>
-    <div id="detailModalContent" class="detail-modal-content"></div>
-</div>
 
 <script>
     (() => {
-        const modal = document.getElementById('detailModal');
-        const content = document.getElementById('detailModalContent');
-        const closeButton = document.getElementById('detailModalClose');
-
-        function extractYouTubeId(url) {
-            const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
-            return match ? match[1] : null;
-        }
-
-        function openWork(workUrl, messageUrl, participantId) {
-            if (!workUrl) return;
-            const lowerUrl = workUrl.toLowerCase();
-            const youtubeId = extractYouTubeId(workUrl);
-            let media = '';
-
-            if (youtubeId) {
-                const iframe = document.createElement('iframe');
-                iframe.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1`;
-                iframe.title = 'Работа участника на YouTube';
-                iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
-                iframe.allowFullscreen = true;
-                content.replaceChildren(iframe);
-            } else if (participantId > 0 &&
-                (/\.(mp4|webm|mov)(\?|#|$)/i.test(lowerUrl) ||
-                 /\.(gif|png|jpe?g)(\?|#|$)/i.test(lowerUrl))) {
-                const source = `/Media/StreamWork/${participantId}`;
-                if (/\.(mp4|webm|mov)(\?|#|$)/i.test(lowerUrl)) {
-                    const video = document.createElement('video');
-                    video.src = source;
-                    video.controls = true;
-                    video.autoplay = true;
-                    video.playsInline = true;
-                    content.replaceChildren(video);
-                } else {
-                    const image = document.createElement('img');
-                    image.src = source;
-                    image.alt = 'Работа участника';
-                    content.replaceChildren(image);
-                }
-            } else {
-                window.open(messageUrl || workUrl, '_blank', 'noopener,noreferrer');
-                return;
-            }
-
-            modal.classList.add('is-open');
-            modal.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeModal() {
-            modal.classList.remove('is-open');
-            modal.setAttribute('aria-hidden', 'true');
-            content.replaceChildren();
-            document.body.style.overflow = '';
-        }
-
+        // Клик по работе → общая модалка
         document.querySelectorAll('.js-open-work').forEach(button => {
-            button.addEventListener('click', () => openWork(
-                button.dataset.workUrl || '',
-                button.dataset.messageUrl || '',
-                Number(button.dataset.participantId || 0)
-            ));
+            button.addEventListener('click', () => {
+                window.MediaModal.openWork(
+                    button.dataset.workUrl || '',
+                    button.dataset.messageUrl || '',
+                    Number(button.dataset.participantId || 0),
+                    button.dataset.mediaType || ''
+                );
+            });
         });
 
-        closeButton?.addEventListener('click', closeModal);
-        modal?.addEventListener('click', event => {
-            if (event.target === modal) closeModal();
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
-        });
-
+        // Локальные даты
         document.querySelectorAll('.local-date').forEach(el => {
             const date = new Date(el.dataset.utc);
             if (Number.isNaN(date.getTime())) return;
