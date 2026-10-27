@@ -664,6 +664,12 @@
     }
 
     /* ===== Модальное окно работ ===== */
+    #work-modal-content {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 
     #work-modal[hidden] {
         display: none;
@@ -685,7 +691,6 @@
         align-items: center;
         justify-content: center;
         width: min(1100px, 100%);
-        max-height: 90vh;
         padding: 44px 12px 12px;
     }
 
@@ -716,9 +721,10 @@
     }
 
     iframe.work-modal-media {
-        width: min(960px, 100%);
+        width: min(1000px, 100%);
         aspect-ratio: 16 / 9;
         height: auto;
+        max-height: 85vh;
     }
 
     /* ===== Появление секций ===== */
