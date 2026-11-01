@@ -95,6 +95,14 @@ namespace AnimatorsWeb.Services
 
                     await _discord.AddAcceptReactionAsync(settings.ChannelId, settings.LastMessageId);
                 }
+                // Прибираемся: убираем ✅ со старых сообщений правил,
+                // оставляем только на последнем
+                if (settings.ChannelId != 0 && settings.LastMessageId != 0)
+                {
+                    var knownIds = ParseMessageIds(settings.AllMessageIds);
+                    await _discord.EnsureOnlyLastMessageHasAcceptReactionAsync(
+                        settings.ChannelId, knownIds, settings.LastMessageId);
+                }
             }
 
             // 4. Сохранение в БД

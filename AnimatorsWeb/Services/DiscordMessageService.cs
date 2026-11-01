@@ -1021,6 +1021,69 @@ public class DiscordMessageService
 
         await msg.CreateReactionAsync(DiscordEmoji.FromUnicode(RulesConstants.AcceptEmoji));
     }
+    /// <summary>
+    /// Убирает реакцию ✅ бота со всех сообщений канала, кроме последнего.
+    /// Также ставит ✅ на последнее, если её нет.
+    /// Захватывает "чужие" сообщения (старые версии правил, вышедшие из AllMessageIds) —
+    /// чтобы там не висели лишние галочки, на которые кто-то может нажать.
+    /// </summary>
+    public async Task EnsureOnlyLastMessageHasAcceptReactionAsync(
+        ulong channelId,
+        IReadOnlyCollection<ulong> knownRuleMessageIds,
+        ulong lastMessageId,
+        int scanLimit = 50)
+    {
+        var channel = await _client.GetChannelAsync(channelId);
+        if (channel == null) return;
+
+        var emoji = DiscordEmoji.FromUnicode(RulesConstants.AcceptEmoji);
+
+        // Загружаем последние N сообщений канала
+        var messages = new List<DiscordMessage>();
+        await foreach (var msg in channel.GetMessagesAsync(scanLimit))
+        {
+            messages.Add(msg);
+            if (messages.Count >= scanLimit) break;
+        }
+
+        // Снимаем ✅ со всех, кроме последнего
+        foreach (var msg in messages)
+        {
+            if (msg.Id == lastMessageId) continue;
+
+            bool hasAccept = msg.Reactions.Any(r => r.Emoji.Name == RulesConstants.AcceptEmoji);
+            if (!hasAccept) continue;
+
+            try
+            {
+                await msg.DeleteOwnReactionAsync(emoji);
+            }
+            catch { }
+        }
+
+        // Гарантируем ✅ на последнем
+        if (lastMessageId != 0)
+        {
+            try
+            {
+                var lastMsg = messages.FirstOrDefault(m => m.Id == lastMessageId)
+                    ?? await channel.GetMessageAsync(lastMessageId);
+
+                if (lastMsg != null)
+                {
+                    bool hasOwn = false;
+                    await foreach (var user in lastMsg.GetReactionsAsync(emoji))
+                    {
+                        if (user.Id == _client.CurrentUser.Id) { hasOwn = true; break; }
+                    }
+
+                    if (!hasOwn)
+                        await lastMsg.CreateReactionAsync(emoji);
+                }
+            }
+            catch { }
+        }
+    }
     public async Task RemoveOwnAcceptReactionAsync(ulong channelId, ulong messageId)
     {
         var channel = await _client.GetChannelAsync(channelId);
