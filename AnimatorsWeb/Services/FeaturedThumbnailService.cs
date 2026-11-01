@@ -94,7 +94,7 @@ namespace AnimatorsWeb.Services
                 Directory.CreateDirectory(FolderPath);
 
                 // YouTube — ImageSharp (mqdefault.jpg маленький, 320x180, безопасно)
-                var ytId = ExtractYouTubeId(workUrl);
+                var ytId = YouTubeHelper.ExtractId(workUrl);
                 if (ytId != null)
                 {
                     return await DownloadAndResizeAsync(
@@ -379,14 +379,6 @@ namespace AnimatorsWeb.Services
                 return null;
             }
             catch { return null; }
-        }
-
-        private static string? ExtractYouTubeId(string url)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            var m = System.Text.RegularExpressions.Regex.Match(url,
-                @"(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|v/))([a-zA-Z0-9_-]{11})");
-            return m.Success ? m.Groups[1].Value : null;
         }
     }
 }

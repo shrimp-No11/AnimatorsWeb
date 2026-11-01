@@ -244,7 +244,7 @@ namespace AnimatorsWeb.Controllers
                     BadgeHtml = BuildBadgeHtml(jamWins, p.AnimJamNumber)
                 };
 
-                var ytId = GetYouTubeId(p.WorkUrl);
+                var ytId = YouTubeHelper.ExtractId(p.WorkUrl);
                 if (ytId != null)
                 {
                     item.MediaType = "youtube";
@@ -297,12 +297,6 @@ namespace AnimatorsWeb.Controllers
             return NominationHelper.GetDisplay(NominationType.HonorableMention, jamNumber);
         }
 
-        private static string? GetYouTubeId(string url)
-        {
-            var regex = new Regex(@"(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|v/))([a-zA-Z0-9_-]{11})");
-            var match = regex.Match(url);
-            return match.Success ? match.Groups[1].Value : null;
-        }
         private string BuildNominationDisplayHtml(List<Winner> jamWins, int jamNumber)
         {
             if (jamWins == null || jamWins.Count == 0) return "";

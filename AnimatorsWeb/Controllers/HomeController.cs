@@ -127,15 +127,9 @@ namespace AnimatorsWeb.Controllers
             return View(model);
         }
 
-        private static string? GetYouTubeId(string url)
-        {
-            var m = Regex.Match(url, @"(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|v/))([a-zA-Z0-9_-]{11})");
-            return m.Success ? m.Groups[1].Value : null;
-        }
-
         private static void FillMedia(LandingWork item)
         {
-            var ytId = GetYouTubeId(item.WorkUrl);
+            var ytId = YouTubeHelper.ExtractId(item.WorkUrl);
             if (ytId != null)
             {
                 item.MediaType = "youtube";

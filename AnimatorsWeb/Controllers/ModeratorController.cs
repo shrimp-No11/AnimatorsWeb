@@ -2087,7 +2087,7 @@ namespace AnimatorsWeb.Controllers
             }
 
             // 2. YouTube — CDN быстрый
-            var ytId = GetYouTubeId(workUrl);
+            var ytId = YouTubeHelper.ExtractId(workUrl);
             if (ytId != null)
             {
                 item.MediaType = "youtube";
@@ -2117,12 +2117,6 @@ namespace AnimatorsWeb.Controllers
             item.MediaType = "link";
             item.ThumbnailUrl = "";
             return item;
-        }
-        private static string? GetYouTubeId(string url)
-        {
-            var m = System.Text.RegularExpressions.Regex.Match(url,
-                @"(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|v/))([a-zA-Z0-9_-]{11})");
-            return m.Success ? m.Groups[1].Value : null;
         }
 
         private static List<List<string>> BuildPollChunks(List<string> options)

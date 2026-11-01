@@ -373,7 +373,7 @@ namespace AnimatorsWeb.Controllers
                     BadgeHtml = group.Badge ?? ""
                 };
 
-                var ytId = GetYouTubeId(p.WorkUrl);
+                var ytId = YouTubeHelper.ExtractId(p.WorkUrl);
                 if (ytId != null)
                 {
                     item.MediaType = "youtube";
@@ -407,11 +407,5 @@ namespace AnimatorsWeb.Controllers
             return url.TrimEnd('&', '?', ' ');
         }
 
-        private static string? GetYouTubeId(string url)
-        {
-            var regex = new Regex(@"(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|v/))([a-zA-Z0-9_-]{11})");
-            var match = regex.Match(url);
-            return match.Success ? match.Groups[1].Value : null;
-        }
     }
 }
