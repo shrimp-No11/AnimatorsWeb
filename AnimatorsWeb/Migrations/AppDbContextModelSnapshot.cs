@@ -296,6 +296,31 @@ namespace AnimatorsWeb.Migrations
                     b.ToTable("WinnerPolls");
                 });
 
+            modelBuilder.Entity("AnimatorsWeb.Models.WinnerPollMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("ChannelId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("MessageId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WinnerPollId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WinnerPollMessages");
+                });
+
             modelBuilder.Entity("Participant", b =>
                 {
                     b.Property<int>("Id")

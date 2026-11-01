@@ -13,6 +13,40 @@
 <div asp-validation-summary="All" style="color: red;"></div>
 
 <form asp-action="CreateWinnerPoll" method="post">
+    @{
+        var uniqueTeams = Model.Sections
+            .SelectMany(s => s.Teams)
+            .Where(t => t.Participants.Any(p => !string.IsNullOrWhiteSpace(p.DisplayName)))
+            .GroupBy(t => string.Join("|", t.Participants
+                .Select(p => p.DisplayName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))))
+            .Select(g => g.First())
+            .ToList();
+
+        int uniqueCount = uniqueTeams.Count;
+        int pollsPerNom = uniqueCount <= 10 ? 1 : 1 + (int)Math.Ceiling((uniqueCount - 9) / 9.0);
+
+        // Если режим Combined — только 1 номинация. Иначе — 2 (Idea + Technical)
+        int nominationsCount = Model.Mode == WinnerPollMode.Combined ? 1 : 2;
+        int totalPolls = pollsPerNom * nominationsCount;
+
+        string modeLabel = Model.Mode == WinnerPollMode.Combined
+            ? "общая номинация"
+            : "две номинации (Идея + Техника)";
+    }
+    @if (uniqueCount > 10)
+    {
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px 16px;
+                    border-radius: 8px; margin-bottom: 16px; font-size: 14px; line-height: 1.6;">
+            ⚠️ Работ: <b>@uniqueCount</b>. Режим: @modeLabel.<br />
+            В каждой номинации будет создано <b>@pollsPerNom</b>
+            @(pollsPerNom == 1 ? "сообщение-опрос" : "сообщений-опросов")
+            (по 9 работ + вариант «#голосую в другом опросе»).<br />
+            Всего в Discord будет <b>@totalPolls</b> @(totalPolls == 1 ? "опрос" : "опросов").
+            Голоса тех, кто проголосует в нескольких опросах, не учитываются.
+        </div>
+    }
+
     <input type="hidden" asp-for="AnimJamNumber" />
 
     <div class="form-group">

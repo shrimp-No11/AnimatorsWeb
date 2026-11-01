@@ -17,6 +17,7 @@ namespace AnimatorsWeb.Data
         public DbSet<LinkedAccount> LinkedAccounts { get; set; }
         public DbSet<DesignSettings> DesignSettings { get; set; }
         public DbSet<LandingFeaturedWork> LandingFeaturedWorks { get; set; }
+        public DbSet<WinnerPollMessage> WinnerPollMessages { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Winner>()

@@ -27,6 +27,7 @@ namespace AnimatorsWeb.Controllers
         const ulong role2dId = 1126390388006072380UL; // ← сюда ID роли 2d Аниматор
         const ulong role3dId = 1536428705105051808UL; // ← сюда ID роли 3d Аниматор
         const ulong ActiveRoleId = 1507425845558509718UL; // роль "Актив"
+        private const string AnotherPollOption = "#голосую в другом опросе";
 
         public ModeratorController(
             DiscordClient discordClient,
@@ -623,63 +624,75 @@ namespace AnimatorsWeb.Controllers
 
             var optionsJson = System.Text.Json.JsonSerializer.Serialize(uniqueWorks);
 
-            var publishedPolls = new List<WinnerPoll>();
+            // Удаляем старые опросы для этого аниджема и номинации
+            var nominationTypesToDelete = model.Mode == WinnerPollMode.Combined
+                ? new[] { NominationType.Winner }
+                : new[] { NominationType.Idea, NominationType.Technical };
+
+            var oldPolls = await _db.WinnerPolls
+                .Where(p => p.AnimJamNumber == model.AnimJamNumber
+                         && nominationTypesToDelete.Contains(p.Nomination))
+                .ToListAsync();
+
+            var oldPollIds = oldPolls.Select(p => p.Id).ToList();
+            var oldPollMessages = await _db.WinnerPollMessages
+                .Where(m => oldPollIds.Contains(m.WinnerPollId))
+                .ToListAsync();
+
+            _db.WinnerPollMessages.RemoveRange(oldPollMessages);
+            _db.WinnerPolls.RemoveRange(oldPolls);
+            await _db.SaveChangesAsync();
+
+            // Публикация в Discord — по одной номинации, возможно несколько сообщений
+            async Task<WinnerPoll> PublishPollAsync(string title, NominationType nomination)
+            {
+                var poll = new WinnerPoll
+                {
+                    AnimJamNumber = model.AnimJamNumber,
+                    Nomination = nomination,
+                    ChannelId = model.ChannelId,
+                    MessageId = 0,  // заполним после публикации первым
+                    CreatedAt = DateTime.UtcNow,
+                    OptionsJson = optionsJson
+                };
+                _db.WinnerPolls.Add(poll);
+                await _db.SaveChangesAsync();  // получаем poll.Id
+
+                var chunks = BuildPollChunks(optionTexts);
+                for (int i = 0; i < chunks.Count; i++)
+                {
+                    var msgId = await _discord.SendCustomPollAsync(
+                        model.ChannelId, title, chunks[i], model.DurationHours);
+
+                    _db.WinnerPollMessages.Add(new WinnerPollMessage
+                    {
+                        WinnerPollId = poll.Id,
+                        ChannelId = model.ChannelId,
+                        MessageId = msgId,
+                        Order = i
+                    });
+
+                    if (i == 0)
+                        poll.MessageId = msgId;  // для обратной совместимости
+                }
+
+                await _db.SaveChangesAsync();
+                return poll;
+            }
 
             if (model.Mode == WinnerPollMode.Combined)
             {
-                var messageId = await _discord.SendCustomPollAsync(
-                    model.ChannelId, model.PollTitle, optionTexts, model.DurationHours);
-
-                publishedPolls.Add(new WinnerPoll
-                {
-                    AnimJamNumber = model.AnimJamNumber,
-                    Nomination = NominationType.Winner,
-                    ChannelId = model.ChannelId,
-                    MessageId = messageId,
-                    CreatedAt = DateTime.UtcNow,
-                    OptionsJson = optionsJson
-                });
+                await PublishPollAsync(model.PollTitle, NominationType.Winner);
             }
             else
             {
-                var ideaMsgId = await _discord.SendCustomPollAsync(
-                    model.ChannelId, model.IdeaTitle, optionTexts, model.DurationHours);
-                var techMsgId = await _discord.SendCustomPollAsync(
-                    model.ChannelId, model.TechnicalTitle, optionTexts, model.DurationHours);
-
-                publishedPolls.Add(new WinnerPoll
-                {
-                    AnimJamNumber = model.AnimJamNumber,
-                    Nomination = NominationType.Idea,
-                    ChannelId = model.ChannelId,
-                    MessageId = ideaMsgId,
-                    CreatedAt = DateTime.UtcNow,
-                    OptionsJson = optionsJson
-                });
-                publishedPolls.Add(new WinnerPoll
-                {
-                    AnimJamNumber = model.AnimJamNumber,
-                    Nomination = NominationType.Technical,
-                    ChannelId = model.ChannelId,
-                    MessageId = techMsgId,
-                    CreatedAt = DateTime.UtcNow,
-                    OptionsJson = optionsJson
-                });
+                await PublishPollAsync(model.IdeaTitle, NominationType.Idea);
+                await PublishPollAsync(model.TechnicalTitle, NominationType.Technical);
             }
-
-            // Удаляем старые опросы для этого аниджема и номинации
-            var nominationTypes = publishedPolls.Select(p => p.Nomination).ToList();
-            var oldPolls = await _db.WinnerPolls
-                .Where(p => p.AnimJamNumber == model.AnimJamNumber && nominationTypes.Contains(p.Nomination))
-                .ToListAsync();
-            _db.WinnerPolls.RemoveRange(oldPolls);
-
-            _db.WinnerPolls.AddRange(publishedPolls);
-            await _db.SaveChangesAsync();
 
             TempData["Result"] = model.Mode == WinnerPollMode.Combined
                 ? "Опрос опубликован!"
-                : "Опубликованы два опроса: за лучшую идею и за техническое исполнение!";
+                : "Опубликованы опросы: за лучшую идею и за техническое исполнение!";
 
             return RedirectToAction("Index");
         }
@@ -727,9 +740,20 @@ namespace AnimatorsWeb.Controllers
 
             var settings = await _settingsService.GetAsync();
 
+            // Загрузка опросов для этого аниджема
             var polls = await _db.WinnerPolls
                 .Where(p => p.AnimJamNumber == jam.Number)
                 .ToListAsync();
+
+            // Сколько сообщений-опросов было (для UI)
+            if (polls.Count > 0)
+            {
+                var pollIds = polls.Select(p => p.Id).ToList();
+                model.PollMessageCount = await _db.WinnerPollMessages
+                    .Where(m => pollIds.Contains(m.WinnerPollId))
+                    .CountAsync();
+            }
+
 
             model.PublishChannelId = settings.WinnersAnnouncementChannelId
                       ?? (polls.Count > 0 ? (ulong?)polls.First().ChannelId : null)
@@ -757,6 +781,7 @@ namespace AnimatorsWeb.Controllers
                 .ToList();
 
             var refreshedMap = new Dictionary<string, string>(); // oldWorkUrl -> freshWorkUrl
+
 
             foreach (var sample in uniqueWorks)
             {
@@ -831,7 +856,11 @@ namespace AnimatorsWeb.Controllers
 
                 if (poll != null)
                 {
-                    var winners = await DetermineWinnersAsync(poll, participants);
+                    var (winners, excludedVotes, totalVotes) =
+                    await DetermineWinnersAsync(poll, participants);
+
+                    section.ExcludedVotes = excludedVotes;
+                    section.TotalVotes = totalVotes;
                     if (winners.Count > 0)
                     {
                         section.Teams = winners;
@@ -850,18 +879,30 @@ namespace AnimatorsWeb.Controllers
                 {
                     var single = participants[0];
                     section.Teams = new List<WinnerTeam>
-            {
-                new WinnerTeam
-                {
-                    WorkUrl = single.WorkUrl,
-                    Participants = new List<string> { single.DisplayName }
-                }
-            };
+                    {
+                        new WinnerTeam
+                        {
+                            WorkUrl = single.WorkUrl,
+                            Participants = new List<string> { single.DisplayName }
+                        }
+                    };
                     allWinnerIds.Add(single.UserId);
                 }
 
                 if (section.Teams.Count == 0)
                     section.Teams.Add(new WinnerTeam());
+
+                // Сколько сообщений-опросов было в этой номинации
+                if (polls.Count > 0)
+                {
+                    var pollForNom = polls.FirstOrDefault(p => p.Nomination == nomination);
+                    if (pollForNom != null)
+                    {
+                        section.PollMessageCount = await _db.WinnerPollMessages
+                            .Where(m => m.WinnerPollId == pollForNom.Id)
+                            .CountAsync();
+                    }
+                }
 
                 model.Sections.Add(section);
             }
@@ -872,7 +913,7 @@ namespace AnimatorsWeb.Controllers
 
             if (honorableSection != null)
                 model.Sections.Add(honorableSection);
-
+            
             return View(model);
         }
 
@@ -947,64 +988,134 @@ namespace AnimatorsWeb.Controllers
             return section;
         }
 
-        private async Task<List<WinnerTeam>> DetermineWinnersAsync(
+        private async Task<(List<WinnerTeam> Teams, int ExcludedVotes, int TotalVotes)> DetermineWinnersAsync(
     WinnerPoll poll, List<ParticipantInfo> participants)
-{
-    // Опции из БД (сохранены при публикации)
-    var savedTeams = string.IsNullOrEmpty(poll.OptionsJson)
-        ? new List<PollTeam>()
-        : System.Text.Json.JsonSerializer.Deserialize<List<PollTeam>>(poll.OptionsJson)
-          ?? new List<PollTeam>();
-
-    var result = new List<WinnerTeam>();
-
-    var pollResults = await _discord.GetPollResultsAsync(poll.ChannelId, poll.MessageId);
-    if (pollResults == null || pollResults.Answers.Count == 0) return result;
-
-    // Одиночный вариант — он победитель
-    if (pollResults.Answers.Count == 1)
     {
-        var single = pollResults.Answers[0];
-        return new List<WinnerTeam> { BuildTeamFromOption(single.Text, savedTeams, participants) };
-    }
+        var savedTeams = string.IsNullOrEmpty(poll.OptionsJson)
+            ? new List<PollTeam>()
+            : System.Text.Json.JsonSerializer.Deserialize<List<PollTeam>>(poll.OptionsJson)
+              ?? new List<PollTeam>();
 
-    // Считаем голоса с поправкой на самоголосование
-    var adjusted = new List<(string Text, int Count)>();
-    foreach (var ans in pollResults.Answers)
-    {
-        var voters = await _discord.GetVotersAsync(poll.ChannelId, poll.MessageId, ans.AnswerId);
-        int selfVotes = 0;
+        var messages = await _db.WinnerPollMessages
+            .Where(m => m.WinnerPollId == poll.Id)
+            .OrderBy(m => m.Order)
+            .ToListAsync();
 
-        var team = savedTeams.FirstOrDefault(t =>
-            FormatTeamNames(t.Participants.Select(p => p.DisplayName).ToList()) == ans.Text);
-
-        if (team != null)
+        // Fallback для старых опросов без WinnerPollMessage
+        if (messages.Count == 0 && poll.MessageId != 0)
         {
-            var authorIds = team.Participants
-                .Where(p => p.DiscordUserId != 0)
-                .Select(p => p.DiscordUserId)
-                .ToHashSet();
-
-            foreach (var voterId in voters)
-                if (authorIds.Contains(voterId)) selfVotes++;
+            var legacy = await DetermineWinnersLegacyAsync(poll, savedTeams, participants);
+            return (legacy, 0, 0);
         }
 
-        adjusted.Add((ans.Text, ans.Count - selfVotes));
+        // userId -> список (pollIdx, optionText) обычных вариантов
+        var userVotes = new Dictionary<ulong, List<(int PollIdx, string OptionText)>>();
+
+        for (int i = 0; i < messages.Count; i++)
+        {
+            var msg = messages[i];
+            var results = await _discord.GetPollResultsAsync(msg.ChannelId, msg.MessageId);
+            if (results == null) continue;
+
+            foreach (var ans in results.Answers)
+            {
+                if (ans.Text == AnotherPollOption) continue;
+
+                var voters = await _discord.GetVotersAsync(msg.ChannelId, msg.MessageId, ans.AnswerId);
+                foreach (var uid in voters)
+                {
+                    if (!userVotes.TryGetValue(uid, out var list))
+                    {
+                        list = new List<(int, string)>();
+                        userVotes[uid] = list;
+                    }
+                    list.Add((i, ans.Text));
+                }
+            }
+        }
+
+        int totalVoters = userVotes.Count;
+        int excluded = userVotes.Values.Count(v => v.Count > 1);
+
+        // Учитываем только тех, кто проголосовал ровно за одного участника
+        var votesByOption = new Dictionary<string, int>();
+        foreach (var votes in userVotes.Values)
+        {
+            if (votes.Count != 1) continue;
+            var opt = votes[0].OptionText;
+            votesByOption[opt] = votesByOption.GetValueOrDefault(opt) + 1;
+        }
+
+        var result = new List<WinnerTeam>();
+
+        if (votesByOption.Count == 0)
+            return (result, excluded, totalVoters);
+
+        if (votesByOption.Count == 1)
+        {
+            var single = votesByOption.Keys.First();
+            return (new List<WinnerTeam> { BuildTeamFromOption(single, savedTeams, participants) },
+                    excluded, totalVoters);
+        }
+
+        int max = votesByOption.Values.Max();
+        var winnerNames = votesByOption
+            .Where(kv => kv.Value == max)
+            .Select(kv => kv.Key)
+            .ToList();
+
+        foreach (var name in winnerNames)
+            result.Add(BuildTeamFromOption(name, savedTeams, participants));
+
+        return (result, excluded, totalVoters);
     }
 
-    int max = adjusted.Max(a => a.Count);
-    if (max <= 0) return result;
+        // Старая логика для опросов, созданных до WinnerPollMessage
+        private async Task<List<WinnerTeam>> DetermineWinnersLegacyAsync(
+            WinnerPoll poll, List<PollTeam> savedTeams, List<ParticipantInfo> participants)
+        {
+            var result = new List<WinnerTeam>();
 
-    var winnerNames = adjusted
-        .Where(a => a.Count == max)
-        .Select(a => a.Text)
-        .ToList();
+            var pollResults = await _discord.GetPollResultsAsync(poll.ChannelId, poll.MessageId);
+            if (pollResults == null || pollResults.Answers.Count == 0) return result;
 
-    foreach (var name in winnerNames)
-        result.Add(BuildTeamFromOption(name, savedTeams, participants));
+            if (pollResults.Answers.Count == 1)
+            {
+                var single = pollResults.Answers[0];
+                return new List<WinnerTeam> { BuildTeamFromOption(single.Text, savedTeams, participants) };
+            }
 
-    return result;
-}
+            var adjusted = new List<(string Text, int Count)>();
+            foreach (var ans in pollResults.Answers)
+            {
+                var voters = await _discord.GetVotersAsync(poll.ChannelId, poll.MessageId, ans.AnswerId);
+                int selfVotes = 0;
+
+                var team = savedTeams.FirstOrDefault(t =>
+                    FormatTeamNames(t.Participants.Select(p => p.DisplayName).ToList()) == ans.Text);
+
+                if (team != null)
+                {
+                    var authorIds = team.Participants
+                        .Where(p => p.DiscordUserId != 0)
+                        .Select(p => p.DiscordUserId)
+                        .ToHashSet();
+                    foreach (var voterId in voters)
+                        if (authorIds.Contains(voterId)) selfVotes++;
+                }
+
+                adjusted.Add((ans.Text, ans.Count - selfVotes));
+            }
+
+            int max = adjusted.Max(a => a.Count);
+            if (max <= 0) return result;
+
+            var winnerNames = adjusted.Where(a => a.Count == max).Select(a => a.Text).ToList();
+            foreach (var name in winnerNames)
+                result.Add(BuildTeamFromOption(name, savedTeams, participants));
+
+            return result;
+        }
 
         private WinnerTeam BuildTeamFromOption(
     string optionText,
@@ -2014,6 +2125,31 @@ namespace AnimatorsWeb.Controllers
             return m.Success ? m.Groups[1].Value : null;
         }
 
+        private static List<List<string>> BuildPollChunks(List<string> options)
+        {
+            // До 10 вариантов — один опрос без служебного
+            if (options.Count <= 10)
+                return new List<List<string>> { new List<string>(options) };
+
+            var chunks = new List<List<string>>();
+
+            // Первый опрос: 9 обычных + служебный в конце
+            var first = options.Take(9).ToList();
+            first.Add(AnotherPollOption);
+            chunks.Add(first);
+
+            int idx = 9;
+            while (idx < options.Count)
+            {
+                var chunk = new List<string> { AnotherPollOption };
+                var take = Math.Min(9, options.Count - idx);
+                chunk.AddRange(options.Skip(idx).Take(take));
+                chunks.Add(chunk);
+                idx += take;
+            }
+
+            return chunks;
+        }
 
     }
 

@@ -10,6 +10,9 @@ namespace AnimatorsWeb.Models
         public WinnerPollMode Mode { get; set; }
         public ulong PublishChannelId { get; set; }
 
+        public int PollMessageCount { get; set; }
+
+
         public List<NominationSection> Sections { get; set; } = new();
 
         [ValidateNever] public string? Message { get; set; }
@@ -22,6 +25,9 @@ namespace AnimatorsWeb.Models
         public string NominationDisplay { get; set; } = "";
         public string NominationDisplayHtml { get; set; } = "";   // ← это
         public List<WinnerTeam> Teams { get; set; } = new();
+        public int PollMessageCount { get; set; }
+        public int ExcludedVotes { get; set; }   // сколько голосов отброшено (мультиголос)
+        public int TotalVotes { get; set; }      // сколько человек проголосовало всего (уникальных)
     }
 
     public class WinnerTeam

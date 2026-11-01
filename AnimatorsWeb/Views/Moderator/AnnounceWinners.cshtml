@@ -69,6 +69,26 @@
 
                 <h4>@Html.Raw(Model.Sections[s].NominationDisplayHtml)</h4>
 
+                @{
+                    var sec = Model.Sections[s];
+                }
+                @if (sec.PollMessageCount > 1 || sec.ExcludedVotes > 0)
+                {
+                    <div style="color: gray; font-size: 12px; margin: -6px 0 12px 0; line-height: 1.6;">
+                        @if (sec.PollMessageCount > 1)
+                        {
+                            <div>Голосование проходило в @sec.PollMessageCount сообщениях-опросах.</div>
+                        }
+                        @if (sec.ExcludedVotes > 0)
+                        {
+                            <div>
+                                Исключено голосов (проголосовали в нескольких опросах):
+                                <b>@sec.ExcludedVotes</b> из @sec.TotalVotes.
+                            </div>
+                        }
+                    </div>
+                }
+
                 <div class="teams-container" data-section="@s">
                     @for (int t = 0; t < Model.Sections[s].Teams.Count; t++)
                     {
