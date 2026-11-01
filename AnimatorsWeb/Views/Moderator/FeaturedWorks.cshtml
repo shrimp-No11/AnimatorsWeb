@@ -379,11 +379,19 @@
         `;
 
         div.querySelector('.thumb').addEventListener('click', () => {
+            let meta = null;
+            if (item.animJamNumber) {
+                meta = {
+                    authors: [{ name: item.displayName }],
+                    jamNumber: item.animJamNumber
+                };
+            }
             window.MediaModal.openWork(
                 item.workUrl || '',
                 item.messageUrl || '',
                 item.participantId,
-                item.mediaType || ''
+                item.mediaType || '',
+                meta
             );
         });
 
@@ -528,32 +536,34 @@
 
 
 
-    selectedSidebar.addEventListener('click', (e) => {
+    selectedSidebar.addEventListener('click', async (e) => {
         // Клик по превью → модалка
         const thumb = e.target.closest('.thumb');
-        if (thumb && thumb.dataset.participantId) {
-            // Не открывать модалку, если кликнули по кнопке-действию
-            if (e.target.closest('button')) return;
-
+        if (thumb && thumb.dataset.participantId && !e.target.closest('button')) {
+            let meta = null;
+            if (thumb.dataset.meta) {
+                try { meta = JSON.parse(thumb.dataset.meta); } catch (err) { meta = null; }
+            }
             window.MediaModal.openWork(
                 thumb.dataset.workUrl || '',
                 thumb.dataset.messageUrl || '',
                 Number(thumb.dataset.participantId) || 0,
-                thumb.dataset.mediaType || ''
+                thumb.dataset.mediaType || '',
+                meta
             );
             return;
         }
 
-        // Клик по кнопке ↑ ↓ ✕
+        // Кнопки ↑ ↓ ✕
         const btn = e.target.closest('button[data-action]');
         if (!btn) return;
 
         const action = btn.dataset.action;
         const id = btn.dataset.id;
 
-        if (action === 'up') postAction('/Moderator/MoveFeaturedWork', { id, delta: -1 });
-        else if (action === 'down') postAction('/Moderator/MoveFeaturedWork', { id, delta: 1 });
-        else if (action === 'remove') postAction('/Moderator/RemoveFeaturedWork', { id });
+        if (action === 'up') await postAction('/Moderator/MoveFeaturedWork', { id, delta: -1 });
+        else if (action === 'down') await postAction('/Moderator/MoveFeaturedWork', { id, delta: 1 });
+        else if (action === 'remove') await postAction('/Moderator/RemoveFeaturedWork', { id });
     });
 
     const sentinel = document.createElement('div');

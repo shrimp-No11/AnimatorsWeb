@@ -83,6 +83,46 @@
         transition: background 0.15s;
     }
 
-        #media-modal .media-modal-close:hover {
-            background: rgba(255, 255, 255, 0.22);
+            #media-modal .media-modal-close:hover {
+                background: rgba(255, 255, 255, 0.22);
+            }
+    /* Заголовок с автором и аниджемом */
+    #media-modal .media-modal-content {
+        flex-direction: column;
+        gap: 12px;
+        max-height: none;
+    }
+
+    #media-modal .media-modal-header {
+        display: block;
+        max-width: 100%;
+        padding: 10px 18px;
+        color: #fff;
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        backdrop-filter: blur(8px);
+        overflow-wrap: anywhere;
+    }
+
+        #media-modal .media-modal-header a {
+            color: #fff;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 3px;
+            transition: color .15s, opacity .15s;
+        }
+
+            #media-modal .media-modal-header a:hover {
+                color: var(--brand-primary);
+                opacity: 1;
+                text-decoration-thickness: 2px;
+            }
+
+        #media-modal .media-modal-header .media-modal-sep {
+            color: rgba(255, 255, 255, 0.4);
+            user-select: none;
         }

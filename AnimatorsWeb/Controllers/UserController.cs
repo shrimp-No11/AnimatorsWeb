@@ -213,7 +213,11 @@ namespace AnimatorsWeb.Controllers
                     displayName = $"ID {discordId}";
             }
 
-            var model = new UserWorksViewModel { DisplayName = displayName };
+            var model = new UserWorksViewModel
+            {
+                DisplayName = displayName,
+                DiscordUserId = discordId
+            };
 
             foreach (var p in participations)
             {

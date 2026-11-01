@@ -281,13 +281,33 @@
             @foreach (var work in Model.Works)
             {
                 <article class="work-card">
+                    @{
+                        var meta = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            authors = new[] { new
+                            {
+                                name = Model.DisplayName,
+                                discordId = Model.DiscordUserId.ToString()
+                            } },
+                            jamNumber = work.AnimJamNumber,
+                            theme = work.Theme
+                        });
+                    }
                     <button type="button"
-                        class="work-preview js-open-work"
-                        data-work-url="@work.WorkUrl"
-                        data-message-url="@work.MessageUrl"
-                        data-participant-id="@work.Id"
-                        data-media-type="@work.MediaType"
-                        aria-label="Открыть работу для AniJam #@work.AnimJamNumber">
+                            class="work-preview js-open-work"
+                        @Html.Raw(WorkButtonHelper.GetAttributes(
+                            work.Id,
+                            work.WorkUrl,
+                            work.MessageUrl,
+                            work.MediaType,
+                            new[] { new WorkButtonHelper.Author
+                                {
+                                    DisplayName = Model.DisplayName,
+                                    DiscordUserId = Model.DiscordUserId
+                                } },
+                            work.AnimJamNumber,
+                            work.Theme))
+                            aria-label="Открыть работу">
 
                         @if (!string.IsNullOrEmpty(work.BadgeHtml))
                         {
@@ -353,17 +373,6 @@
 
 <script>
     (() => {
-        // Клик по работе → общая модалка
-        document.querySelectorAll('.js-open-work').forEach(button => {
-            button.addEventListener('click', () => {
-                window.MediaModal.openWork(
-                    button.dataset.workUrl || '',
-                    button.dataset.messageUrl || '',
-                    Number(button.dataset.participantId || 0),
-                    button.dataset.mediaType || ''
-                );
-            });
-        });
 
         // Локальные даты
         document.querySelectorAll('.local-date').forEach(el => {

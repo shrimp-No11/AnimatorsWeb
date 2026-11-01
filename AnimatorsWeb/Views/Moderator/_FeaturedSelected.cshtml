@@ -10,12 +10,21 @@ else
 {
     @foreach (var w in Model)
     {
+        var meta = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            authors = new[] { new { name = w.DisplayName, discordId = "" } },
+            jamNumber = w.AnimJamNumber,
+            theme = ""
+        });
         <div class="fw-mini" data-participant-id="@w.ParticipantId">
-            <div class="thumb" style="cursor:pointer;"
-                 data-work-url="@w.WorkUrl"
-                 data-message-url="@w.MessageUrl"
-                 data-participant-id="@w.ParticipantId"
-                 data-media-type="@w.MediaType">
+            <div class="thumb js-open-work" style="cursor:pointer;"
+                 @Html.Raw(WorkButtonHelper.GetAttributes(
+                     w.ParticipantId,
+                     w.WorkUrl,
+                     w.MessageUrl,
+                     w.MediaType,
+                     new[] { new WorkButtonHelper.Author { DisplayName = w.DisplayName } },
+                     w.AnimJamNumber))>
                 @if (w.MediaType == "link")
                 {
                     <div class="link-icon">🔗</div>

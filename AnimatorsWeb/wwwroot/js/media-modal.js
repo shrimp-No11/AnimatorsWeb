@@ -30,6 +30,25 @@
         }
     }
 
+    function pauseCurrentMedia() {
+        // YouTube — через API
+        if (currentYouTubePlayer && typeof currentYouTubePlayer.pauseVideo === 'function') {
+            try { currentYouTubePlayer.pauseVideo(); } catch (e) { }
+        }
+
+        // HTML5 <video> — через DOM
+        const video = content?.querySelector('video');
+        if (video && !video.paused) {
+            try { video.pause(); } catch (e) { }
+        }
+
+        // Аудио, если когда-нибудь появится
+        const audio = content?.querySelector('audio');
+        if (audio && !audio.paused) {
+            try { audio.pause(); } catch (e) { }
+        }
+    }
+
     function ensureYouTubeApi(callback) {
         if (window.YT && window.YT.Player) {
             callback();
@@ -138,6 +157,18 @@
             element.controls = true;
             element.autoplay = true;
             element.playsInline = true;
+
+            // Применяем ту же сохранённую громкость, что и для YouTube
+            const startVolume = getInitialVolume();
+            element.volume = Math.min(1, Math.max(0, startVolume / 100));
+
+            // Сохраняем при изменении (0 не сохраняем — как и для YouTube)
+            element.addEventListener('volumechange', () => {
+                const v = Math.round(element.volume * 100);
+                if (v > 0) {
+                    localStorage.setItem('yt_volume', v);
+                }
+            });
         }
 
         if (options.alt) element.alt = options.alt;
@@ -146,9 +177,12 @@
     }
 
     // ===== Публичные методы =====
-    function openWork(workUrl, messageUrl, participantId, mediaType) {
+    function openWork(workUrl, messageUrl, participantId, mediaType, meta) {
         ensureModal();
         content.replaceChildren();
+
+        const header = renderHeader(meta);
+        if (header) content.appendChild(header);
 
         const ytId = extractYouTubeId(workUrl);
         const pid = Number(participantId) || 0;
@@ -193,6 +227,8 @@
         closeButton.focus();
     }
 
+
+
     function closeModal() {
         if (!modal) return;
 
@@ -218,8 +254,103 @@
         }
     });
 
+    // Автоматически вешаем обработчик на все .js-open-work
+    function attachWorkButtons() {
+        document.querySelectorAll('.js-open-work').forEach(button => {
+            // Защита от двойной навески
+            if (button.dataset.workBtnBound === '1') return;
+            button.dataset.workBtnBound = '1';
+
+            button.addEventListener('click', () => {
+                let meta = null;
+                if (button.dataset.meta) {
+                    try { meta = JSON.parse(button.dataset.meta); } catch (e) { meta = null; }
+                }
+                openWork(
+                    button.dataset.workUrl || '',
+                    button.dataset.messageUrl || '',
+                    Number(button.dataset.participantId) || 0,
+                    button.dataset.mediaType || '',
+                    meta
+                );
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachWorkButtons);
+    } else {
+        attachWorkButtons();
+    }
+
+    // Для динамических карточек (модераторская — рисует DOM через JS)
+    window.MediaModalAttach = attachWorkButtons;
+
+
     // Глобальный доступ
     window.MediaModal = { openWork, closeModal };
     // Для старых onclick в partial-вьюхах
     window.openWork = openWork;
-})();
+
+
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function renderHeader(meta) {
+        if (!meta) return null;
+
+        const authors = Array.isArray(meta.authors) ? meta.authors : [];
+        const jamNumber = meta.jamNumber;
+        const theme = meta.theme;
+
+        if (authors.length === 0 && !jamNumber) return null;
+
+        const parts = [];
+
+        if (authors.length > 0) {
+            const authorsHtml = authors
+                .map(a => {
+                    if (!a) return null;
+                    const name = escapeHtml((a.name || '').trim());
+                    const id = (a.discordId || '').trim();
+                    if (!name && !id) return null;
+                    if (id) {
+                        return `<a href="/User/PublicProfile/${encodeURIComponent(id)}" target="_blank" rel="noopener">${name || 'Участник'}</a>`;
+                    }
+                    return name;
+                })
+                .filter(Boolean)
+                .join(', ');
+            if (authorsHtml) parts.push(authorsHtml);
+        }
+
+        if (jamNumber) {
+            const jamText = theme
+                ? `#${jamNumber} ${escapeHtml(theme)}`
+                : `#${jamNumber}`;
+            parts.push(`<a href="/AnimJams/Details?number=${encodeURIComponent(jamNumber)}" target="_blank" rel="noopener">${jamText}</a>`);
+        }
+
+        if (parts.length === 0) return null;
+
+        const header = document.createElement('div');
+        header.className = 'media-modal-header';
+        header.innerHTML = parts.join(' <span class="media-modal-sep">—</span> ');
+
+        // ⬇⬇⬇ НОВОЕ: пауза при клике по ссылке в заголовке
+        header.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                pauseCurrentMedia();
+            });
+        });
+
+        return header;
+    }
+
+}
+)();
+

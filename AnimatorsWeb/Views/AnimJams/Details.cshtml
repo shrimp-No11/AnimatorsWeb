@@ -290,12 +290,23 @@
     }
 
     .detail-work-people {
-        display: flex;
-        flex-wrap: wrap;
+        display: block;
+        word-wrap: break-word;
+        line-height: 1.5;
         gap: 6px 8px;
         padding: 14px 15px 16px;
         font-size: 14px;
-        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+    .detail-person-link {
+        color: inherit;
+        text-decoration: none;
+        transition: color .15s;
+    }
+
+    .detail-person-link:hover {
+        color: var(--brand-primary);
+        text-decoration: underline;
     }
 
     .detail-work-people a {
@@ -406,11 +417,34 @@
                 @foreach (var work in Model.Participants)
                 {
                     <article class="detail-work-card">
-                        <button type="button" class="detail-work-preview js-open-work"
-                                data-work-url="@work.WorkUrl"
-                                data-message-url="@work.MessageUrl"
-                                data-participant-id="@work.Id"
-                                aria-label="Открыть работу">
+                        @{
+                            var meta = System.Text.Json.JsonSerializer.Serialize(new
+                            {
+                                authors = work.People.Select(p => new
+                                {
+                                    name = p.DisplayName,
+                                    discordId = p.DiscordUserId.ToString()
+                                }),
+                                jamNumber = Model.Number,
+                                theme = Model.Theme
+                            });
+                        }
+                        <button type="button"
+                            class="detail-work-preview js-open-work"
+                            @Html.Raw(WorkButtonHelper.GetAttributes(
+                                work.Id,
+                                work.WorkUrl,
+                                work.MessageUrl,
+                                work.MediaType,
+                                work.People.Select(p => new WorkButtonHelper.Author
+                                {
+                                    DisplayName = p.DisplayName,
+                                    DiscordUserId = p.DiscordUserId
+                                }),
+                                Model.Number,
+                                Model.Theme))
+                            aria-label="Открыть работу">
+
                             @if (!string.IsNullOrEmpty(work.BadgeHtml))
                             {
                                 <span class="detail-work-badge">@Html.Raw(work.BadgeHtml)</span>
@@ -430,19 +464,25 @@
                         </button>
 
                         <div class="detail-work-people">
-                            @for (int i = 0; i < work.People.Count; i++)
-                            {
-                                var person = work.People[i];
-                                <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@person.DiscordUserId">@person.DisplayName</a>
-                                if (i < work.People.Count - 2)
+                            @{
+                                var visiblePeople = work.People
+                                    .Where(p => !string.IsNullOrWhiteSpace(p.DisplayName))
+                                    .ToList();
+
+                                var peopleHtml = new System.Text.StringBuilder();
+                                for (int i = 0; i < visiblePeople.Count; i++)
                                 {
-                                    <span>,</span>
-                                }
-                                else if (i == work.People.Count - 2)
-                                {
-                                    <span>и</span>
+                                    var p = visiblePeople[i];
+                                    var name = System.Net.WebUtility.HtmlEncode(p.DisplayName.Trim());
+                                    peopleHtml.Append($"<a href=\"/User/PublicProfile/{p.DiscordUserId}\" class=\"detail-person-link\"><b>{name}</b></a>");
+
+                                    if (i < visiblePeople.Count - 2)
+                                        peopleHtml.Append(", ");
+                                    else if (i == visiblePeople.Count - 2)
+                                        peopleHtml.Append(" и ");
                                 }
                             }
+                            @Html.Raw(peopleHtml.ToString())
                         </div>
                     </article>
                 }
@@ -454,18 +494,6 @@
 
 <script>
     (() => {
-        // Клик по работе → общая модалка
-        document.querySelectorAll('.js-open-work').forEach(button => {
-            button.addEventListener('click', () => {
-                window.MediaModal.openWork(
-                    button.dataset.workUrl || '',
-                    button.dataset.messageUrl || '',
-                    Number(button.dataset.participantId || 0),
-                    button.dataset.mediaType || ''
-                );
-            });
-        });
-
         // Локальные даты
         document.querySelectorAll('.local-date').forEach(el => {
             const date = new Date(el.dataset.utc);

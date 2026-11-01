@@ -6,6 +6,7 @@ namespace AnimatorsWeb.Models
     {
         public string DisplayName { get; set; } = "";
         public List<UserWorkItem> Works { get; set; } = new();
+        public ulong DiscordUserId { get; set; }
     }
 
     public class UserWorkItem
@@ -17,8 +18,8 @@ namespace AnimatorsWeb.Models
         public string MessageUrl { get; set; } = "";
         public NominationType? Nomination { get; set; }
         public string NominationDisplay { get; set; } = "";
-        public string NominationDisplayHtml { get; set; } = "";   // ← новое
-        public string BadgeHtml { get; set; } = "";               // ← новое
+        public string NominationDisplayHtml { get; set; } = "";  
+        public string BadgeHtml { get; set; } = "";             
         public string ThumbnailUrl { get; set; } = "";
         public string MediaType { get; set; } = "";
     }

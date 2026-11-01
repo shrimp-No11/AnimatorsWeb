@@ -1756,15 +1756,28 @@
             </div>
 
             <div class="landing-mosaic">
-                @foreach (var work in Model.RecentWorks.Take(10))
+                @foreach (var work in Model.RecentWorks)
                 {
+                    var meta = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        authors = new[] { new { name = work.DisplayName } },
+                        jamNumber = work.AnimJamNumber
+                    });
+
                     <button type="button"
-                            class="landing-work"
-                            aria-label="Открыть работу участника"
-                            data-work-url="@work.WorkUrl"
-                            data-message-url="@work.MessageUrl"
-                            data-participant-id="@work.ParticipantId"
-                            data-media-type="@work.MediaType">
+                        class="landing-work js-open-work"
+                        @Html.Raw(WorkButtonHelper.GetAttributes(
+                            work.ParticipantId,
+                            work.WorkUrl,
+                            work.MessageUrl,
+                            work.MediaType,
+                            work.Authors.Select(a => new WorkButtonHelper.Author
+                            {
+                                DisplayName = a.DisplayName,
+                                DiscordUserId = a.DiscordUserId 
+                            }),
+                            work.AnimJamNumber))
+                        aria-label="Открыть работу участника">
 
                         @if (work.MediaType == "link")
                         {
@@ -1893,16 +1906,5 @@
             revealElements.forEach(element => observer.observe(element));
         }
 
-        // Открытие работы в общей модалке
-        document.querySelectorAll('.landing-work').forEach(button => {
-            button.addEventListener('click', () => {
-                window.MediaModal.openWork(
-                    button.dataset.workUrl || '',
-                    button.dataset.messageUrl || '',
-                    Number(button.dataset.participantId) || 0,
-                    button.dataset.mediaType || ''
-                );
-            });
-        });
     })();
 </script>

@@ -85,7 +85,6 @@ namespace AnimatorsWeb.Controllers
             }
             else
             {
-                // Авто-выбор, как раньше
                 var recent = await _db.Participants
                     .OrderByDescending(p => p.AnimJamNumber)
                     .Select(p => new { p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName })
@@ -101,6 +100,36 @@ namespace AnimatorsWeb.Controllers
                     .ToList();
             }
 
+            // ⬇⬇⬇ НОВОЕ: подтянуть всех соавторов для выбранных работ
+            var chosenWorkUrls = chosen
+                .Select(c => c.WorkUrl)
+                .Where(u => !string.IsNullOrEmpty(u))
+                .Distinct()
+                .ToList();
+
+            var authorsByUrl = new Dictionary<string, List<LandingAuthor>>();
+
+            if (chosenWorkUrls.Count > 0)
+            {
+                var allAuthors = await _db.Participants
+                    .Where(p => chosenWorkUrls.Contains(p.WorkUrl))
+                    .Select(p => new { p.WorkUrl, p.DiscordUserId, p.DisplayName })
+                    .ToListAsync();
+
+                authorsByUrl = allAuthors
+                    .GroupBy(p => p.WorkUrl)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.GroupBy(x => x.DiscordUserId)
+                              .Select(x => x.First())
+                              .Select(x => new LandingAuthor
+                              {
+                                  DisplayName = x.DisplayName,
+                                  DiscordUserId = x.DiscordUserId
+                              })
+                              .ToList());
+            }
+
             foreach (var w in chosen)
             {
                 var item = new LandingWork
@@ -111,13 +140,26 @@ namespace AnimatorsWeb.Controllers
                     MessageUrl = w.MessageUrl,
                     DisplayName = w.DisplayName
                 };
+
+                // Авторы: все с этим WorkUrl, либо один текущий
+                if (!string.IsNullOrEmpty(w.WorkUrl) && authorsByUrl.TryGetValue(w.WorkUrl, out var authors))
+                {
+                    item.Authors = authors;
+                }
+                else
+                {
+                    item.Authors.Add(new LandingAuthor
+                    {
+                        DisplayName = w.DisplayName
+                    });
+                }
+
                 FillMedia(item);
 
                 var local = _thumbService.GetUrl(item.ParticipantId);
                 if (!string.IsNullOrEmpty(local))
                 {
                     item.ThumbnailUrl = local;
-                    // если обложка есть — считаем её «image», даже если исходник видео
                     if (item.MediaType == "video") item.MediaType = "image";
                 }
 
