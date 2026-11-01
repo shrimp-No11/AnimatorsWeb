@@ -4,6 +4,69 @@
 @{
     ViewData["Title"] = "Голосование за победителя";
 }
+<style>
+    .team-block {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        border: 1px solid #ccc;
+        padding: 12px;
+        margin-bottom: 12px;
+        border-radius: 6px;
+    }
+
+    .team-main {
+        flex: 1;
+        min-width: 0; /* чтобы длинные имена не распирали */
+    }
+
+    .team-preview {
+        width: 220px;
+        flex-shrink: 0;
+    }
+
+    .team-preview .preview-wrapper {
+        width: 100%;
+        height: 140px;
+        background: #000;
+        border-radius: 6px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .team-main .links-block {
+        margin: 12px 0;
+    }
+
+    .team-main .links-block summary {
+        cursor: pointer;
+        color: #555;
+        font-size: 14px;
+    }
+
+    .team-main .links-block textarea {
+        font-family: monospace;
+        font-size: 13px;
+        resize: vertical;
+    }
+
+    .team-remove {
+        margin-top: 12px;
+    }
+
+    @@media (max-width: 700px) {
+        .team-block {
+            flex-direction: column;
+        }
+
+        .team-preview {
+            width: 100%;
+            order: -1; /* превью сверху */
+        }
+    }
+</style>
 
 <h1>Голосование за победителя</h1>
 
@@ -95,62 +158,57 @@
                     var team = Model.Sections[0].Teams[t];
                     var hasLinks = !string.IsNullOrEmpty(team.WorkUrl) || !string.IsNullOrEmpty(team.MessageUrl);
 
-                    <div class="team-block" style="border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px;">
+                    <div class="team-block">
+                        <div class="team-main">
+                            <label>Участники:</label>
+                            <div class="participants-container">
+                                @for (int p = 0; p < team.Participants.Count; p++)
+                                {
+                                    <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
+                                        <input class="form-control participant-name"
+                                                name="Sections[0].Teams[@t].Participants[@p].DisplayName"
+                                                value="@team.Participants[p].DisplayName"
+                                                list="guild-members-list" autocomplete="off"
+                                                placeholder="Имя участника" />
+                                        <input type="hidden"
+                                                name="Sections[0].Teams[@t].Participants[@p].DiscordUserId"
+                                                value="@team.Participants[p].DiscordUserId"
+                                                class="participant-id" />
+                                        <button type="button" onclick="removeParticipant(this)">Удалить</button>
+                                    </div>
+                                }
+                            </div>
+                            <button type="button" onclick="addParticipant(this)">+ Добавить участника</button>
 
-                        <div class="work-preview" style="margin-bottom: 10px;">
-                            @if (!string.IsNullOrEmpty(team.WorkUrl))
-                            {
-                                <div class="preview-wrapper" data-url="@team.WorkUrl" style="height: 140px; background: #000; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                                    <span style="color: gray; font-size: 13px;">Загрузка превью...</span>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="preview-wrapper" data-url="" style="height: 60px; background: #f0f0f0; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                                    <span style="color: gray; font-size: 13px;">Превью появится после вставки ссылки</span>
-                                </div>
-                            }
-                        </div>
-
-                        <label>Участники:</label>
-                        <div class="participants-container">
-                            @for (int p = 0; p < team.Participants.Count; p++)
-                            {
-                                <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
-                                    <input class="form-control participant-name"
-                                           name="Sections[0].Teams[@t].Participants[@p].DisplayName"
-                                           value="@team.Participants[p].DisplayName"
-                                           list="guild-members-list" autocomplete="off"
-                                           placeholder="Имя участника" />
-                                    <input type="hidden"
-                                           name="Sections[0].Teams[@t].Participants[@p].DiscordUserId"
-                                           value="@team.Participants[p].DiscordUserId"
-                                           class="participant-id" />
-                                    <button type="button" onclick="removeParticipant(this)">Удалить</button>
-                                </div>
-                            }
-                        </div>
-                        <button type="button" onclick="addParticipant(this)">+ Добавить участника</button>
-
-                        <details class="links-block" @(hasLinks ? "" : "open") style="margin-top: 10px;">
-                            <summary style="cursor: pointer; color: #555;">Ссылки на работу</summary>
-                            <div style="margin-top: 8px;">
-                                <div class="form-group">
+                            <details class="links-block" @(hasLinks ? "" : "open")>
+                                <summary>Ссылки на работу</summary>
+                                <div class="form-group" style="margin-top: 8px;">
                                     <label>Ссылка на работу (YouTube или CDN):</label>
-                                    <input name="Sections[0].Teams[@t].WorkUrl" value="@team.WorkUrl"
-                                           class="form-control work-url-input" />
+                                    <textarea name="Sections[0].Teams[@t].WorkUrl" rows="3"
+                                                class="form-control work-url-input">@team.WorkUrl</textarea>
                                 </div>
-
                                 <div class="form-group">
                                     <label>Ссылка на сообщение в Discord:</label>
-                                    <input name="Sections[0].Teams[@t].MessageUrl" value="@team.MessageUrl"
-                                           class="form-control message-url-input" />
+                                    <textarea name="Sections[0].Teams[@t].MessageUrl" rows="3"
+                                                class="form-control message-url-input">@team.MessageUrl</textarea>
                                 </div>
-                            </div>
-                        </details>
+                            </details>
 
-                        <br />
-                        <button type="button" onclick="removeTeam(this)">Удалить работу</button>
+                            <button type="button" onclick="removeTeam(this)" class="team-remove">Удалить работу</button>
+                        </div>
+
+                        <div class="team-preview">
+                            <div class="preview-wrapper" data-url="@team.WorkUrl">
+                                @if (!string.IsNullOrEmpty(team.WorkUrl))
+                                {
+                                    <span style="color: gray; font-size: 13px;">Загрузка превью...</span>
+                                }
+                                else
+                                {
+                                    <span style="color: gray; font-size: 12px; text-align: center;">Превью появится<br />после вставки ссылки</span>
+                                }
+                            </div>
+                        </div>
                     </div>
                 }
             </div>
@@ -257,7 +315,7 @@
         if (!previewWrapper) return;
 
         const urlInput = block.querySelector('.work-url-input');
-        const url = urlInput ? urlInput.value.trim() : '';
+        const url = urlInput ? (urlInput.value.trim().split(/\s+/)[0] || '') : '';
 
         if (!url) {
             previewWrapper.style.height = '60px';
@@ -345,46 +403,43 @@
         const t = teamsContainer.querySelectorAll('.team-block').length;
         const block = document.createElement('div');
         block.className = 'team-block';
-        block.style.cssText = 'border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px;';
         block.innerHTML = `
-            <div class="work-preview" style="margin-bottom: 10px;">
-                <div class="preview-wrapper" data-url="" style="height: 60px; background: #f0f0f0; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                    <span style="color: gray; font-size: 13px;">Превью появится после вставки ссылки</span>
+            <div class="team-main">
+                <label>Участники:</label>
+                <div class="participants-container">
+                    <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
+                        <input class="form-control participant-name" list="guild-members-list" autocomplete="off" placeholder="Имя участника" />
+                        <input type="hidden" class="participant-id" value="0" />
+                        <button type="button" onclick="removeParticipant(this)">Удалить</button>
+                    </div>
                 </div>
-            </div>
+                <button type="button" onclick="addParticipant(this)">+ Добавить участника</button>
 
-            <label>Участники:</label>
-            <div class="participants-container">
-                <div class="participant-row" style="display: flex; gap: 8px; margin-bottom: 5px;">
-                    <input class="form-control participant-name" list="guild-members-list" autocomplete="off" placeholder="Имя участника" />
-                    <input type="hidden" class="participant-id" value="0" />
-                    <button type="button" onclick="removeParticipant(this)">Удалить</button>
-                </div>
-            </div>
-            <button type="button" onclick="addParticipant(this)">+ Добавить участника</button>
-
-            <details class="links-block" open style="margin-top: 10px;">
-                <summary style="cursor: pointer; color: #555;">Ссылки на работу</summary>
-                <div style="margin-top: 8px;">
-                    <div class="form-group">
+                <details class="links-block" open>
+                    <summary>Ссылки на работу</summary>
+                    <div class="form-group" style="margin-top: 8px;">
                         <label>Ссылка на работу (YouTube или CDN):</label>
-                        <input class="form-control work-url-input" />
+                        <textarea class="form-control work-url-input" rows="3"></textarea>
                     </div>
                     <div class="form-group">
                         <label>Ссылка на сообщение в Discord:</label>
-                        <input class="form-control message-url-input" />
+                        <textarea class="form-control message-url-input" rows="3"></textarea>
                     </div>
-                </div>
-            </details>
+                </details>
 
-            <br />
-            <button type="button" onclick="removeTeam(this)">Удалить работу</button>
+                <button type="button" onclick="removeTeam(this)" class="team-remove">Удалить работу</button>
+            </div>
+
+            <div class="team-preview">
+                <div class="preview-wrapper" data-url="">
+                    <span style="color: gray; font-size: 12px; text-align: center;">Превью появится<br />после вставки ссылки</span>
+                </div>
+            </div>
         `;
         teamsContainer.appendChild(block);
         renumberAll();
         updatePreview();
     }
-
     function removeTeam(btn) {
         const block = btn.closest('.team-block');
         const container = block.parentElement;
