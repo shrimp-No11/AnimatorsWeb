@@ -107,7 +107,7 @@ namespace AnimatorsWeb.Controllers
                 var lastParticipation = clusterParticipations
                     .OrderByDescending(p => p.AnimJamNumber)
                     .FirstOrDefault();
-                string displayName = lastParticipation?.DisplayName ?? $"ID {repId}";
+                string displayName = lastParticipation?.DisplayName ?? $"████████";
 
                 var winsByJam = clusterWins.GroupBy(w => w.AnimJamNumber).ToList();
 

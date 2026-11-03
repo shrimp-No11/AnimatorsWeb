@@ -70,6 +70,8 @@ namespace AnimatorsWeb.Controllers
             var model = new UserProfileViewModel { DiscordUserId = discordId };
 
             var guild = _discordClient.Guilds.Values.FirstOrDefault();
+            bool resolved = false;
+
             if (guild != null)
             {
                 try
@@ -80,16 +82,17 @@ namespace AnimatorsWeb.Controllers
                         model.DisplayName = member.DisplayName;
                         model.Username = member.Username;
                         model.AvatarUrl = member.AvatarUrl ?? "";
+                        resolved = true;
                     }
                 }
-                catch
-                {
-                    model.DisplayName = fallbackName ?? $"ID {discordId}";
-                }
+                catch { }
             }
-            else
+
+            if (!resolved)
             {
-                model.DisplayName = fallbackName ?? $"ID {discordId}";
+                model.DisplayName = !string.IsNullOrEmpty(fallbackName)
+                    ? fallbackName
+                    : await ResolveDisplayNameAsync(discordId);
             }
 
             // === Связанные аккаунты (все подтверждённые, достижимые по цепочке) ===
@@ -107,6 +110,10 @@ namespace AnimatorsWeb.Controllers
                     }
                     catch { }
                 }
+
+                if (string.IsNullOrEmpty(name))
+                    name = await ResolveDisplayNameAsync(id);
+
                 if (!string.IsNullOrEmpty(name))
                     model.LinkedAccounts.Add(new LinkedAccountDisplay { DiscordId = id, Name = name });
             }
@@ -197,21 +204,7 @@ namespace AnimatorsWeb.Controllers
 
             var displayName = fallbackName;
             if (string.IsNullOrEmpty(displayName))
-            {
-                var guild = _discordClient.Guilds.Values.FirstOrDefault();
-                if (guild != null)
-                {
-                    try
-                    {
-                        var member = await guild.GetMemberAsync(discordId);
-                        if (member != null)
-                            displayName = member.DisplayName;
-                    }
-                    catch { }
-                }
-                if (string.IsNullOrEmpty(displayName))
-                    displayName = $"ID {discordId}";
-            }
+                displayName = await ResolveDisplayNameAsync(discordId);
 
             var model = new UserWorksViewModel
             {
@@ -372,10 +365,14 @@ namespace AnimatorsWeb.Controllers
                     }
                     catch { }
                 }
+
+                if (string.IsNullOrEmpty(name))
+                    name = await ResolveDisplayNameAsync(id);
+
                 model.Connected.Add(new LinkedAccountDisplay
                 {
                     DiscordId = id,
-                    Name = name ?? $"ID {id}"
+                    Name = name
                 });
             }
 
@@ -488,6 +485,34 @@ namespace AnimatorsWeb.Controllers
             }
 
             return result;
+        }
+        /// <summary>
+        /// Возвращает отображаемое имя: живой Discord-ник → последний ник из БД → "ID x".
+        /// </summary>
+        private async Task<string> ResolveDisplayNameAsync(ulong discordId)
+        {
+            var guild = _discordClient.Guilds.Values.FirstOrDefault();
+            if (guild != null)
+            {
+                try
+                {
+                    var member = await guild.GetMemberAsync(discordId);
+                    if (member != null)
+                        return member.DisplayName ?? member.Username;
+                }
+                catch { }
+            }
+
+            var dbName = await _db.Participants
+                .Where(p => p.DiscordUserId == discordId)
+                .OrderByDescending(p => p.AnimJamNumber)
+                .Select(p => p.DisplayName)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrEmpty(dbName))
+                return dbName;
+
+            return $"██████████";
         }
     }
 }
