@@ -1021,69 +1021,7 @@ public class DiscordMessageService
 
         await msg.CreateReactionAsync(DiscordEmoji.FromUnicode(RulesConstants.AcceptEmoji));
     }
-    /// <summary>
-    /// Убирает реакцию ✅ бота со всех сообщений канала, кроме последнего.
-    /// Также ставит ✅ на последнее, если её нет.
-    /// Захватывает "чужие" сообщения (старые версии правил, вышедшие из AllMessageIds) —
-    /// чтобы там не висели лишние галочки, на которые кто-то может нажать.
-    /// </summary>
-    public async Task EnsureOnlyLastMessageHasAcceptReactionAsync(
-        ulong channelId,
-        IReadOnlyCollection<ulong> knownRuleMessageIds,
-        ulong lastMessageId,
-        int scanLimit = 50)
-    {
-        var channel = await _client.GetChannelAsync(channelId);
-        if (channel == null) return;
-
-        var emoji = DiscordEmoji.FromUnicode(RulesConstants.AcceptEmoji);
-
-        // Загружаем последние N сообщений канала
-        var messages = new List<DiscordMessage>();
-        await foreach (var msg in channel.GetMessagesAsync(scanLimit))
-        {
-            messages.Add(msg);
-            if (messages.Count >= scanLimit) break;
-        }
-
-        // Снимаем ✅ со всех, кроме последнего
-        foreach (var msg in messages)
-        {
-            if (msg.Id == lastMessageId) continue;
-
-            bool hasAccept = msg.Reactions.Any(r => r.Emoji.Name == RulesConstants.AcceptEmoji);
-            if (!hasAccept) continue;
-
-            try
-            {
-                await msg.DeleteOwnReactionAsync(emoji);
-            }
-            catch { }
-        }
-
-        // Гарантируем ✅ на последнем
-        if (lastMessageId != 0)
-        {
-            try
-            {
-                var lastMsg = messages.FirstOrDefault(m => m.Id == lastMessageId)
-                    ?? await channel.GetMessageAsync(lastMessageId);
-
-                if (lastMsg != null)
-                {
-                    bool hasOwn = false;
-                    await foreach (var user in lastMsg.GetReactionsAsync(emoji))
-                    {
-                        if (user.Id == _client.CurrentUser.Id) { hasOwn = true; break; }
-                    }
-
-                    if (!hasOwn)
-                        await lastMsg.CreateReactionAsync(emoji);
-                }
-            }
-            catch { }
-        }
-    }
+    
     public async Task RemoveOwnAcceptReactionAsync(ulong channelId, ulong messageId)
     {
         var channel = await _client.GetChannelAsync(channelId);
@@ -1186,6 +1124,86 @@ public class DiscordMessageService
         }
 
         return result;
+    }
+    /// <summary>
+    /// Полная приборка правил:
+    /// - собирает всех, кто ставил ✅ на любое сообщение правил;
+    /// - при grantRoles=true выдаёт им роль (если нет);
+    /// - удаляет все реакции ✅ со всех сообщений правил (включая ушедших с сервера);
+    /// - ставит свою ✅ на последнем сообщении.
+    /// </summary>
+    public async Task CleanupRulesReactionsAsync(
+        ulong channelId,
+        IReadOnlyCollection<ulong> ruleMessageIds,
+        ulong lastMessageId,
+        ulong roleId,
+        bool grantRoles)
+    {
+        var channel = await _client.GetChannelAsync(channelId);
+        if (channel == null) return;
+
+        var emoji = DiscordEmoji.FromUnicode(RulesConstants.AcceptEmoji);
+        var guild = _client.Guilds.Values.FirstOrDefault();
+
+        // 1. Собираем всех реакторов со всех сообщений правил
+        var allReactors = new HashSet<ulong>();
+        foreach (var msgId in ruleMessageIds)
+        {
+            try
+            {
+                var msg = await channel.GetMessageAsync(msgId);
+                if (msg == null) continue;
+
+                await foreach (var user in msg.GetReactionsAsync(emoji))
+                {
+                    if (!user.IsBot) allReactors.Add(user.Id);
+                }
+            }
+            catch { }
+        }
+
+        Console.WriteLine($"Правила: найдено реакторов {allReactors.Count}");
+
+        // 2. Выдаём роли (только при catch-up)
+        if (grantRoles && roleId != 0 && guild != null)
+        {
+            foreach (var userId in allReactors)
+            {
+                try
+                {
+                    await GrantRoleAsync(guild.Id, userId, roleId);
+                }
+                catch { }
+                await Task.Delay(200);
+            }
+        }
+
+        // 3. Удаляем все реакции ✅ со всех сообщений правил
+        //    (DeleteReactionsEmojiAsync удаляет и реакции ушедших с сервера)
+        foreach (var msgId in ruleMessageIds)
+        {
+            try
+            {
+                var msg = await channel.GetMessageAsync(msgId);
+                if (msg == null) continue;
+
+                await msg.DeleteReactionsEmojiAsync(emoji);
+                await Task.Delay(300);
+            }
+            catch { }
+        }
+
+        // 4. Ставим свою ✅ на последнее
+        if (lastMessageId != 0)
+        {
+            try
+            {
+                var lastMsg = await channel.GetMessageAsync(lastMessageId);
+                if (lastMsg != null)
+                    await lastMsg.CreateReactionAsync(emoji);
+            }
+            catch { }
+        }
     }
 
 }

@@ -1623,6 +1623,45 @@ namespace AnimatorsWeb.Controllers
             TempData["Result"] = "Правила сохранены и опубликованы";
             return RedirectToAction("Rules");
         }
+        [HttpPost]
+        public async Task<IActionResult> CleanupRulesReactions()
+        {
+            try
+            {
+                var settings = await _rulesService.GetAsync();
+
+                if (settings.ChannelId == 0 || settings.LastMessageId == 0)
+                {
+                    TempData["Error"] = "Сначала сохраните правила — канал и сообщения не настроены.";
+                    return RedirectToAction("Rules");
+                }
+
+                // Парсим AllMessageIds (fallback на LastMessageId)
+                var messageIds = (settings.AllMessageIds ?? "")
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => ulong.TryParse(s.Trim(), out var id) ? id : 0)
+                    .Where(id => id != 0)
+                    .ToList();
+
+                if (messageIds.Count == 0)
+                    messageIds.Add(settings.LastMessageId);
+
+                await _discord.CleanupRulesReactionsAsync(
+                    settings.ChannelId,
+                    messageIds,
+                    settings.LastMessageId,
+                    settings.RoleId,
+                    grantRoles: true);
+
+                TempData["Result"] = $"Приборка выполнена: обработано {messageIds.Count} сообщений, всем проголосовавшим выданы роли, лишние ✅ удалены.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Ошибка приборки: {ex.Message}";
+            }
+
+            return RedirectToAction("Rules");
+        }
 
 
         private static string FormatNames(List<string> names)

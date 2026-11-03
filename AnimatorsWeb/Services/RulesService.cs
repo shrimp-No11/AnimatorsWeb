@@ -100,8 +100,12 @@ namespace AnimatorsWeb.Services
                 if (settings.ChannelId != 0 && settings.LastMessageId != 0)
                 {
                     var knownIds = ParseMessageIds(settings.AllMessageIds);
-                    await _discord.EnsureOnlyLastMessageHasAcceptReactionAsync(
-                        settings.ChannelId, knownIds, settings.LastMessageId);
+                    await _discord.CleanupRulesReactionsAsync(
+                        settings.ChannelId,
+                        knownIds,
+                        settings.LastMessageId,
+                        settings.RoleId,
+                        grantRoles: false);   // при сохранении роли не выдаём
                 }
             }
 

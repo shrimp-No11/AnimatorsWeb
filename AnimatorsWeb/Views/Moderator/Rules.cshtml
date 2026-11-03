@@ -144,6 +144,13 @@
 }
 <div asp-validation-summary="All" style="color: red;"></div>
 
+<button type="button" class="btn btn-secondary"
+        style="margin-left: 10px;"
+        onclick="cleanupRulesReactions()">
+    🧹 Прибраться в реакциях
+</button>
+<form id="cleanupForm" method="post" asp-action="CleanupRulesReactions" style="display: none;"></form>
+
 <form asp-action="SaveRules" method="post">
     <input type="hidden" asp-for="Settings.Id" />
     <input type="hidden" asp-for="Settings.LastMessageId" />
@@ -163,6 +170,7 @@
         <input asp-for="Settings.RoleId" class="form-control" />
         <small>Узнать ID: включи режим разработчика в Discord, правый клик по роли → Copy Role ID</small>
     </div>
+
 
     <hr />
 
@@ -256,6 +264,18 @@
 
 <p style="margin-top: 20px;"><a asp-action="Index">← Назад к модераторской</a></p>
 
+
+
+<script>
+    function cleanupRulesReactions() {
+        if (!confirm('Пройти по всем сообщениям правил?\n\n' +
+                     '• Всем, кто поставил ✅, будет выдана роль (если её нет)\n' +
+                     '• Все реакции ✅ будут удалены со всех сообщений\n' +
+                     '• Своя ✅ останется только на последнем сообщении\n\n' +
+                     'Может занять несколько секунд.')) return;
+        document.getElementById('cleanupForm').submit();
+    }
+</script>
 <script>
     // ===== Пересчёт индексов =====
     function reindex() {

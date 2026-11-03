@@ -43,39 +43,40 @@ public class DiscordBotService : BackgroundService
             var discord = scope.ServiceProvider.GetRequiredService<DiscordMessageService>();
 
             var settings = db.RulesSettings.FirstOrDefault();
-            if (settings == null || settings.LastMessageId == 0 || settings.RoleId == 0) return;
-
-            // Получаем всех, кто поставил ✅
-            var reactors = await discord.GetAcceptReactorsAsync(settings.ChannelId, settings.LastMessageId);
-
-            Console.WriteLine($"Догоняющая проверка реакций: {reactors.Count} пользователей");
-
-            foreach (var userId in reactors)
+            if (settings == null || settings.LastMessageId == 0)
             {
-                if (ct.IsCancellationRequested) break;
-
-                try
-                {
-                    await discord.GrantRoleAsync(settings.GuildId, userId, settings.RoleId);
-                    await discord.RemoveAcceptReactionAsync(settings.ChannelId, settings.LastMessageId, userId);
-
-                    // Небольшая пауза, чтобы не спамить API
-                    await Task.Delay(200, ct);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка выдачи роли {userId}: {ex.Message}");
-                }
+                Console.WriteLine("Догоняющая проверка правил: настройки не найдены, пропуск");
+                return;
             }
 
-            // Восстанавливаем свою реакцию (если удалилась)
-            await discord.AddAcceptReactionAsync(settings.ChannelId, settings.LastMessageId);
+            // Парсим AllMessageIds — все сообщения правил
+            var messageIds = (settings.AllMessageIds ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => ulong.TryParse(s.Trim(), out var id) ? id : 0)
+                .Where(id => id != 0)
+                .ToList();
 
-            Console.WriteLine("Догоняющая проверка завершена");
+            // Если AllMessageIds пуст — fallback на LastMessageId
+            if (messageIds.Count == 0)
+                messageIds.Add(settings.LastMessageId);
+
+            Console.WriteLine($"Догоняющая проверка правил: сообщений {messageIds.Count}");
+
+            // Полная приборка: выдать роли всем, кто ставил ✅,
+            // удалить все реакции ✅ со всех сообщений,
+            // поставить свою ✅ на последнее
+            await discord.CleanupRulesReactionsAsync(
+                settings.ChannelId,
+                messageIds,
+                settings.LastMessageId,
+                settings.RoleId,
+                grantRoles: true);
+
+            Console.WriteLine("Догоняющая проверка правил завершена");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Ошибка catch-up: {ex.Message}");
+            Console.WriteLine($"Ошибка catch-up правил: {ex.Message}");
         }
     }
 }
