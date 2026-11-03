@@ -2183,6 +2183,126 @@ namespace AnimatorsWeb.Controllers
 
             return chunks;
         }
+        // === МОДЕРАЦИЯ РАБОТ АНИДЖЕМА ===
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteParticipant(int id, int animJamNumber)
+        {
+            var p = await _db.Participants.FirstOrDefaultAsync(x => x.Id == id);
+            if (p == null) return Json(new { success = false, error = "Запись не найдена" });
+
+            if (p.AnimJamNumber != animJamNumber)
+                return Json(new { success = false, error = "Неверный номер аниджема" });
+
+            // Удаляем обложку
+            _thumbService.Remove(p.Id);
+
+            _db.Participants.Remove(p);
+            await _db.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddParticipantToJam(
+    int animJamNumber, ulong discordId, string workUrl)
+        {
+            if (animJamNumber <= 0)
+                return Json(new { success = false, error = "Неверный номер аниджема" });
+
+            if (discordId == 0)
+                return Json(new { success = false, error = "Укажите Discord ID" });
+
+            if (string.IsNullOrWhiteSpace(workUrl))
+                return Json(new { success = false, error = "Укажите ссылку на работу" });
+
+            var input = workUrl.Trim();
+
+            string finalWorkUrl = input;
+            string finalMessageUrl = "";
+            string mediaType = "link";
+
+            if (YouTubeHelper.IsYouTubeUrl(input))
+            {
+                mediaType = "youtube";
+            }
+            else if (input.Contains("discord.com/channels/"))
+            {
+                var (chId, msgId) = DiscordLinkParser.ParseMessageUrl(input);
+                if (chId == null || msgId == null)
+                    return Json(new { success = false, error = "Не удалось разобрать Discord-ссылку" });
+
+                var fresh = await _discord.GetFreshAttachmentUrlAsync(chId.Value, msgId.Value);
+                if (string.IsNullOrEmpty(fresh))
+                    return Json(new { success = false, error = "В сообщении нет вложения (или оно недоступно)" });
+
+                finalMessageUrl = input;
+                finalWorkUrl = fresh;
+
+                var lower = fresh.ToLowerInvariant();
+                if (lower.Contains(".mp4") || lower.Contains(".webm") || lower.Contains(".mov"))
+                    mediaType = "video";
+                else if (System.Text.RegularExpressions.Regex.IsMatch(fresh, @"\.(gif|png|jpg|jpeg)(\?|$)",
+                         System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    mediaType = "image";
+            }
+            else
+            {
+                return Json(new { success = false, error = "Поддерживаются только YouTube и ссылки на сообщения Discord" });
+            }
+
+            // Имя: Discord → последнее из БД → заглушка
+            string finalName = "";
+            var guild = _discordClient.Guilds.Values.FirstOrDefault();
+            if (guild != null)
+            {
+                try
+                {
+                    var member = await guild.GetMemberAsync(discordId);
+                    if (member != null) finalName = member.DisplayName ?? member.Username ?? "";
+                }
+                catch { }
+            }
+
+            if (string.IsNullOrEmpty(finalName))
+            {
+                finalName = await _db.Participants
+                    .Where(p => p.DiscordUserId == discordId)
+                    .OrderByDescending(p => p.AnimJamNumber)
+                    .Select(p => p.DisplayName)
+                    .FirstOrDefaultAsync() ?? "";
+            }
+
+            if (string.IsNullOrEmpty(finalName))
+                finalName = "[аккаунт удалён]";
+
+            // Дубликат?
+            var exists = await _db.Participants.AnyAsync(p =>
+                p.AnimJamNumber == animJamNumber &&
+                p.DiscordUserId == discordId &&
+                p.WorkUrl == finalWorkUrl);
+
+            if (exists)
+                return Json(new { success = false, error = "Такая работа уже есть в аниджеме" });
+
+            var participant = new Participant
+            {
+                AnimJamNumber = animJamNumber,
+                DiscordUserId = discordId,
+                DisplayName = finalName,
+                WorkUrl = finalWorkUrl,
+                MessageUrl = finalMessageUrl
+            };
+
+            _db.Participants.Add(participant);
+            await _db.SaveChangesAsync();
+
+            var pid = participant.Id;
+            var mt = mediaType;
+            _ = Task.Run(() => _thumbService.EnsureAsync(pid, finalWorkUrl, finalMessageUrl, mt));
+
+            return Json(new { success = true, id = participant.Id });
+        }
 
     }
 

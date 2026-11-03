@@ -111,10 +111,6 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ChannelSettingsService>();
 builder.Services.AddScoped<RulesService>();
-builder.Services.ConfigureEventHandlers(handling => handling
-    .AddEventHandlers<BotStartedHandler>(ServiceLifetime.Singleton)
-    .AddEventHandlers<RulesReactionHandler>(ServiceLifetime.Transient)
-);
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<PaletteExtractionService>();

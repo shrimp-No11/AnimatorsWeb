@@ -1080,18 +1080,41 @@ public class DiscordMessageService
     public async Task GrantRoleAsync(ulong guildId, ulong userId, ulong roleId)
     {
         var guild = await _client.GetGuildAsync(guildId);
-        if (guild == null) return;
+        if (guild == null)
+        {
+            Console.WriteLine($"[GrantRole] guild {guildId} не найден");
+            return;
+        }
 
         var member = await guild.GetMemberAsync(userId);
-        if (member == null) return;
+        if (member == null)
+        {
+            Console.WriteLine($"[GrantRole] member {userId} не найден в guild {guildId}");
+            return;
+        }
 
-        // Проверяем, есть ли уже роль
-        if (member.Roles.Any(r => r.Id == roleId)) return;
+        if (member.Roles.Any(r => r.Id == roleId))
+        {
+            Console.WriteLine($"[GrantRole] {userId} уже имеет роль {roleId}");
+            return;
+        }
 
         var role = await guild.GetRoleAsync(roleId);
-        if (role == null) return;
+        if (role == null)
+        {
+            Console.WriteLine($"[GrantRole] роль {roleId} не найдена на сервере");
+            return;
+        }
 
-        await member.GrantRoleAsync(role);
+        try
+        {
+            await member.GrantRoleAsync(role);
+            Console.WriteLine($"[GrantRole] {userId} → роль {role.Name} выдана");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GrantRole] ошибка выдачи {userId}: {ex.Message}");
+        }
     }
     public ulong GetFirstGuildId()
     {
