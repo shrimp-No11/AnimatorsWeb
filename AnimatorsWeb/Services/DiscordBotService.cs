@@ -79,4 +79,79 @@ public class DiscordBotService : BackgroundService
             Console.WriteLine($"Ошибка catch-up правил: {ex.Message}");
         }
     }
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await _client.ConnectAsync();
+
+        // Догоняем реакции, пропущенные во время офлайна
+        _ = Task.Run(() => CatchUpReactionsAsync(stoppingToken), stoppingToken);
+
+        // Watchdog: если gateway умер и не оживает — принудительный рестарт контейнера
+        _ = Task.Run(() => WatchdogAsync(stoppingToken), stoppingToken);
+
+        await Task.Delay(Timeout.Infinite, stoppingToken);
+        await _client.DisconnectAsync();
+    }
+
+    private async Task WatchdogAsync(CancellationToken ct)
+    {
+        // Первые 5 минут — grace period (даём gateway инициализироваться,
+        // heartbeat может ещё не измеряться, реконнект после старта — нормально)
+        try { await Task.Delay(TimeSpan.FromMinutes(5), ct); }
+        catch (OperationCanceledException) { return; }
+
+        var lastPing = -1;
+        var lastPingChange = DateTime.UtcNow;
+
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(60), ct);
+
+                int currentPing;
+                try { currentPing = _client.Ping; }
+                catch { currentPing = -1; }
+
+                // Ping = -1 → gateway не подключён или не измерял ещё
+                if (currentPing < 0)
+                {
+                    var offlineMin = (DateTime.UtcNow - lastPingChange).TotalMinutes;
+                    if (offlineMin > 5)
+                    {
+                        Console.WriteLine(
+                            $"[watchdog] ping={currentPing}, gateway недоступен {offlineMin:F1} мин. Рестарт контейнера.");
+                        Environment.Exit(1);
+                    }
+                    continue;
+                }
+
+                // Ping изменился — соединение живое
+                if (currentPing != lastPing)
+                {
+                    lastPing = currentPing;
+                    lastPingChange = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Ping не менялся > 5 минут — gateway мёртв
+                    var staleMin = (DateTime.UtcNow - lastPingChange).TotalMinutes;
+                    if (staleMin > 5)
+                    {
+                        Console.WriteLine(
+                            $"[watchdog] ping не менялся {staleMin:F1} мин. Рестарт контейнера.");
+                        Environment.Exit(1);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[watchdog] ошибка: {ex.Message}");
+            }
+        }
+    }
 }
