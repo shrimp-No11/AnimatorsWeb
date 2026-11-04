@@ -1,0 +1,719 @@
+﻿@model AnimatorsWeb.Models.AnimJamEditPageViewModel
+@using AnimatorsWeb.Models
+
+@{
+    ViewData["Title"] = $"Редактор аниджема #{Model.Number}";
+}
+
+<style>
+    .edit-work-row {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        padding: 14px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        background: #fafafa;
+    }
+
+    .edit-work-row .thumb {
+        width: 140px;
+        height: 84px;
+        flex-shrink: 0;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .edit-work-row .thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .edit-work-row .thumb .icon {
+        color: #999;
+        font-size: 28px;
+    }
+
+    .edit-work-row .info {
+        flex: 1;
+        min-width: 0;
+        font-size: 14px;
+    }
+
+    .edit-work-row .info .title {
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .edit-work-row .info .links {
+        color: #666;
+        font-size: 12px;
+        overflow-wrap: anywhere;
+    }
+
+    .edit-work-row .info .nom {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .edit-work-row .info .nom.participant { background: #eee; color: #666; }
+    .edit-work-row .info .nom.idea { background: #e8f3ff; color: #2464c9; }
+    .edit-work-row .info .nom.technical { background: #fff2e2; color: #c97b24; }
+    .edit-work-row .info .nom.winner { background: #e9ffe8; color: #2e8b2e; }
+    .edit-work-row .info .nom.absolute { background: #ffe8f5; color: #c924a4; }
+    .edit-work-row .info .nom.honorable { background: #fffbe2; color: #a98b00; }
+
+    .edit-work-row .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .edit-work-row .actions button {
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .edit-work-row .actions .edit {
+        background: var(--brand-primary);
+        color: white;
+        border: 1px solid var(--brand-primary);
+    }
+
+    .edit-work-row .actions .delete {
+        background: white;
+        color: #b3261e;
+        border: 1px solid #b3261e;
+    }
+
+    /* Модалка */
+    .edit-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        background: rgba(0,0,0,0.6);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .edit-modal.is-open { display: flex; }
+
+    .edit-modal-content {
+        background: var(--brand-card);
+        border-radius: 14px;
+        padding: 24px;
+        max-width: 720px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .edit-modal h3 { margin: 0 0 16px; }
+
+    .edit-modal label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .edit-modal input[type=text],
+    .edit-modal textarea,
+    .edit-modal select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-bottom: 14px;
+    }
+
+    .edit-modal textarea {
+        font-family: monospace;
+        font-size: 13px;
+        resize: vertical;
+    }
+
+    .edit-modal .form-group { margin-bottom: 14px; }
+
+    .edit-modal .person-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 6px;
+        align-items: center;
+    }
+
+    .edit-modal .person-row input[type=text] {
+        margin-bottom: 0;
+    }
+
+    .edit-modal .person-row button {
+        flex-shrink: 0;
+        padding: 6px 10px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    .edit-modal .person-row button.remove {
+        color: #b3261e;
+        border-color: #b3261e;
+    }
+
+    .edit-modal .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .edit-modal .modal-actions button {
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .edit-modal .modal-actions .cancel {
+        background: white;
+        border: 1px solid #ccc;
+    }
+
+    .edit-modal .modal-actions .save {
+        background: var(--brand-primary);
+        color: white;
+        border: 1px solid var(--brand-primary);
+    }
+
+    .edit-modal .error-box {
+        color: #b3261e;
+        font-size: 13px;
+        padding: 8px 12px;
+        background: #fdecea;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        display: none;
+    }
+</style>
+
+<h1>Редактор аниджема #@Model.Number</h1>
+<p style="color: gray;">@Model.Theme</p>
+
+<div style="margin-bottom: 20px;">
+    <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@Model.Number" class="btn btn-secondary">← Назад к аниджему</a>
+    <button type="button" class="btn btn-primary" onclick="openNewWorkModal()" style="margin-left: 10px;">➕ Добавить работу</button>
+</div>
+<div style="border: 1px solid #ddd; border-radius: 10px; padding: 18px; margin-bottom: 20px; background: #fafafa;">
+    <h3 style="margin-top: 0;">Параметры аниджема</h3>
+
+    <div id="metaError" style="display: none; color: #b3261e; background: #fdecea;
+         padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px;"></div>
+
+    <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px 16px; max-width: 720px;">
+        <label style="font-weight: 600; align-self: center;">Номер:</label>
+        <input type="number" id="metaNumber" min="1" value="@Model.Number"
+               style="padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;" />
+
+        <label style="font-weight: 600; align-self: center;">Тема:</label>
+        <input type="text" id="metaTheme" value="@Model.Theme"
+               style="padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;" />
+
+        <label style="font-weight: 600; align-self: center;">Начало:</label>
+        <input type="datetime-local" id="metaStartDate"
+               style="padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;" />
+
+        <label style="font-weight: 600; align-self: center;">Окончание:</label>
+        <input type="datetime-local" id="metaEndDate"
+               style="padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;" />
+    </div>
+
+    <div style="margin-top: 16px; display: flex; gap: 10px;">
+        <button type="button" class="btn btn-primary" onclick="saveMeta()" id="metaSaveBtn">
+            💾 Сохранить
+        </button>
+        <button type="button" onclick="deleteAnimJam()"
+                style="padding: 8px 16px; border: 1px solid #b3261e; background: white;
+                       color: #b3261e; border-radius: 6px; cursor: pointer;">
+            🗑 Удалить аниджем
+        </button>
+    </div>
+</div>
+@if (!Model.Works.Any())
+{
+    <p style="color: gray;">В аниджеме нет работ.</p>
+}
+else
+{
+    @foreach (var work in Model.Works)
+    {
+        var firstPerson = work.People.FirstOrDefault();
+        var mediaType = string.IsNullOrEmpty(work.WorkUrl) ? "link"
+            : work.WorkUrl.Contains("youtu", StringComparison.OrdinalIgnoreCase) ? "youtube"
+            : "video";
+
+        var nomClass = work.Nomination switch
+        {
+            NominationEditType.Participant => "participant",
+            NominationEditType.Idea => "idea",
+            NominationEditType.Technical => "technical",
+            NominationEditType.Winner => "winner",
+            NominationEditType.Absolute => "absolute",
+            NominationEditType.HonorableMention => "honorable",
+            _ => "participant"
+        };
+        var nomLabel = work.Nomination switch
+        {
+            NominationEditType.Participant => "Участник",
+            NominationEditType.Idea => "Лучшая идея",
+            NominationEditType.Technical => "Лучшая техника",
+            NominationEditType.Winner => "Победитель (старый)",
+            NominationEditType.Absolute => "Абсолютный победитель",
+            NominationEditType.HonorableMention => "Почётное упоминание",
+            _ => "—"
+        };
+
+        <div class="edit-work-row" data-group-key="@work.GroupKey">
+            <div class="thumb">
+                @if (string.IsNullOrEmpty(work.WorkUrl))
+                {
+                    <span class="icon">🔗</span>
+                }
+                else
+                {
+                    <img src="/Featured/Thumbnail/@work.GroupKey"
+                         loading="lazy"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                    <span class="icon" style="display:none;">🎬</span>
+                }
+            </div>
+
+            <div class="info">
+                <div class="title">
+                    @string.Join(", ", work.People.Select(p => p.DisplayName))
+                </div>
+                <div class="links">
+                    @if (!string.IsNullOrEmpty(work.WorkUrl))
+                    {
+                        <div>Work: @work.WorkUrl</div>
+                    }
+                    @if (!string.IsNullOrEmpty(work.MessageUrl))
+                    {
+                        <div>Msg: @work.MessageUrl</div>
+                    }
+                </div>
+                <span class="nom @nomClass">@nomLabel</span>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="edit" onclick="openEditWorkModal(@work.GroupKey)">✏️ Изменить</button>
+                <button type="button" class="delete" onclick="deleteWork(@work.GroupKey)">🗑 Удалить</button>
+            </div>
+        </div>
+    }
+}
+
+<!-- Модалка редактирования/добавления -->
+<div id="workModal" class="edit-modal" onclick="if (event.target === this) closeWorkModal();">
+    <div class="edit-modal-content">
+        <h3 id="workModalTitle">Работа</h3>
+
+        <div id="workError" class="error-box"></div>
+
+        <input type="hidden" id="workGroupKey" value="0" />
+
+        <div class="form-group">
+            <label>Участники команды *</label>
+            <div id="peopleList"></div>
+            <button type="button" onclick="addPersonRow()" style="margin-top: 4px; padding: 6px 10px; border: 1px dashed #ccc; background: white; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                + Добавить участника
+            </button>
+        </div>
+
+        <div class="form-group">
+            <label>Ссылка на работу (YouTube или CDN)</label>
+            <textarea id="workWorkUrl" rows="2" placeholder="https://youtu.be/... или https://cdn.discordapp.com/..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Ссылка на сообщение в Discord</label>
+            <textarea id="workMessageUrl" rows="2" placeholder="https://discord.com/channels/.../..."></textarea>
+            <small style="color: gray; font-size: 12px;">Если заполнить и оставить WorkUrl пустым — система попробует достать файл из сообщения.</small>
+        </div>
+
+        <div class="form-group">
+            <label>Номинация</label>
+            <select id="workNomination">
+                <option value="0">Участник (без победы)</option>
+                <option value="1">Лучшая идея</option>
+                <option value="2">Лучшее техническое исполнение</option>
+                <option value="3">Победитель (старый формат)</option>
+                <option value="4">Абсолютный победитель (идея + техника)</option>
+                <option value="5">Почётное упоминание</option>
+            </select>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" class="cancel" onclick="closeWorkModal()">Отмена</button>
+            <button type="button" class="save" onclick="saveWork()" id="workSaveBtn">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<datalist id="guild-members-list">
+    @foreach (var m in Model.GuildMembers)
+    {
+        <option data-id="@m.Id" value="@m.Name"></option>
+    }
+</datalist>
+<datalist id="db-members-list">
+    @foreach (var m in Model.DbMembers)
+    {
+        <option data-id="@m.Id" value="@m.Name"></option>
+    }
+</datalist>
+
+<script>
+    // === Инициализация дат (UTC → локальное) ===
+
+    function utcToLocalInput(utcStr) {
+        const d = new Date(utcStr);
+        if (isNaN(d)) return '';
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    document.getElementById('metaStartDate').value = utcToLocalInput('@Model.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")');
+    document.getElementById('metaEndDate').value = utcToLocalInput('@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")');
+
+    // === Сохранение параметров ===
+
+    function saveMeta() {
+        const newNumber = parseInt(document.getElementById('metaNumber').value) || 0;
+        const theme = document.getElementById('metaTheme').value.trim();
+        const startLocal = document.getElementById('metaStartDate').value;
+        const endLocal = document.getElementById('metaEndDate').value;
+
+        const err = document.getElementById('metaError');
+        err.style.display = 'none';
+
+        if (!newNumber || newNumber <= 0) {
+            err.textContent = 'Неверный номер';
+            err.style.display = 'block';
+            return;
+        }
+        if (!startLocal || !endLocal) {
+            err.textContent = 'Укажите даты';
+            err.style.display = 'block';
+            return;
+        }
+
+        // Локальное → UTC ISO
+        const startUtc = new Date(startLocal).toISOString();
+        const endUtc = new Date(endLocal).toISOString();
+
+        const btn = document.getElementById('metaSaveBtn');
+        btn.disabled = true;
+        btn.textContent = 'Сохраняю...';
+
+        fetch('/Moderator/SaveAnimJamMeta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                number: '@Model.Number',
+                newNumber: newNumber,
+                theme: theme,
+                startDateUtc: startUtc,
+                endDateUtc: endUtc
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // Если номер изменился — переходим на новую страницу
+                if (data.newNumber && data.newNumber !== @Model.Number) {
+                    window.location.href = '/Moderator/EditAnimJam/' + data.newNumber;
+                } else {
+                    location.reload();
+                }
+            } else {
+                err.textContent = data.error || 'Ошибка';
+                err.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = '💾 Сохранить';
+            }
+        })
+        .catch(() => {
+            err.textContent = 'Сетевая ошибка';
+            err.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = '💾 Сохранить';
+        });
+    }
+
+    // === Удаление ===
+
+    function deleteAnimJam() {
+        if (!confirm('Удалить аниджем #@Model.Number и все его работы, победителей, опросы? Это действие необратимо.'))
+            return;
+        if (!confirm('Точно? Данные будут стёрты из БД.'))
+            return;
+
+        fetch('/Moderator/DeleteAnimJam', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ number: '@Model.Number' })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/AnimJams';
+            } else {
+                alert(data.error || 'Ошибка');
+            }
+        })
+        .catch(() => alert('Сетевая ошибка'));
+    }
+
+
+    const worksData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Works.Select(w => new
+        {
+            groupKey = w.GroupKey,
+            workUrl = w.WorkUrl,
+            messageUrl = w.MessageUrl,
+            nomination = (int)w.Nomination,
+            people = w.People.Select(p => new
+            {
+                discordUserId = p.DiscordUserId.ToString(),
+                displayName = p.DisplayName
+            })
+        })
+    ));
+
+
+    // === Справочники для автозаполнения ===
+
+    // Из БД — по имени находим ID (при вводе ника)
+    const dbMembersByName = {};
+    const dbMembersById = {};
+    document.querySelectorAll('#db-members-list option').forEach(opt => {
+        dbMembersByName[opt.value.toLowerCase()] = opt.dataset.id;
+        dbMembersById[opt.dataset.id] = opt.value;
+    });
+
+    // Из Discord — по ID находим актуальный ник (при вводе ID)
+    const guildMembersById = {};
+    document.querySelectorAll('#guild-members-list option').forEach(opt => {
+        guildMembersById[opt.dataset.id] = opt.value;
+    });
+
+    // === Синхронизация полей ===
+
+    const peopleList = document.getElementById('peopleList');
+
+    // Имя → ID (из БД): когда модератор выбирает ник из автозаполнения
+    peopleList.addEventListener('input', e => {
+        if (!e.target.classList.contains('person-name')) return;
+        const row = e.target.closest('.person-row');
+        const idInput = row.querySelector('.person-id');
+        const name = e.target.value.trim().toLowerCase();
+
+        if (dbMembersByName[name]) {
+            idInput.value = dbMembersByName[name];
+        }
+    });
+
+    // ID → Имя (из Discord): когда модератор ввёл ID и ушёл с поля
+    peopleList.addEventListener('blur', e => {
+        if (!e.target.classList.contains('person-id')) return;
+
+        const id = e.target.value.trim();
+        if (!id || id === '0') return;
+
+        const row = e.target.closest('.person-row');
+        const nameInput = row.querySelector('.person-name');
+        const currentName = nameInput.value.trim();
+
+        // 1) Актуальный ник из Discord
+        if (guildMembersById[id]) {
+            nameInput.value = guildMembersById[id];
+        }
+        // 2) Или последний ник из БД (если в Discord нет)
+        else if (!currentName && dbMembersById[id]) {
+            nameInput.value = dbMembersById[id];
+        }
+    }, true);   // true — ловим blur в capturing phase (blur не всплывает)
+
+
+    function openNewWorkModal() {
+        document.getElementById('workModalTitle').textContent = 'Новая работа';
+        document.getElementById('workGroupKey').value = '0';
+        document.getElementById('workWorkUrl').value = '';
+        document.getElementById('workMessageUrl').value = '';
+        document.getElementById('workNomination').value = '0';
+        document.getElementById('peopleList').innerHTML = '';
+        addPersonRow();
+        document.getElementById('workError').style.display = 'none';
+        document.getElementById('workModal').classList.add('is-open');
+    }
+
+    function openEditWorkModal(groupKey) {
+        const work = worksData.find(w => w.groupKey === groupKey);
+        if (!work) return;
+
+        document.getElementById('workModalTitle').textContent = 'Редактирование работы';
+        document.getElementById('workGroupKey').value = String(work.groupKey);
+        document.getElementById('workWorkUrl').value = work.workUrl || '';
+        document.getElementById('workMessageUrl').value = work.messageUrl || '';
+        document.getElementById('workNomination').value = String(work.nomination);
+
+        const list = document.getElementById('peopleList');
+        list.innerHTML = '';
+        work.people.forEach(p => addPersonRow(p.discordUserId, p.displayName));
+        if (work.people.length === 0) addPersonRow();
+
+        document.getElementById('workError').style.display = 'none';
+        document.getElementById('workModal').classList.add('is-open');
+    }
+
+    function closeWorkModal() {
+        document.getElementById('workModal').classList.remove('is-open');
+    }
+
+   function addPersonRow(discordUserId, displayName) {
+        const list = document.getElementById('peopleList');
+        const row = document.createElement('div');
+        row.className = 'person-row';
+        row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 6px; align-items: center;';
+
+        row.innerHTML = `
+            <input type="text" class="person-name" list="db-members-list"
+                   placeholder="Ник"
+                   value="${escapeHtml(displayName || '')}"
+                   autocomplete="off"
+                   style="flex: 2; margin-bottom: 0;" />
+            <input type="text" class="person-id"
+                   placeholder="Discord ID"
+                   value="${discordUserId && discordUserId !== '0' ? discordUserId : ''}"
+                   autocomplete="off"
+                   style="flex: 1; margin-bottom: 0;" />
+            <button type="button" class="remove"
+                    onclick="this.parentElement.remove()"
+                    style="flex-shrink: 0; padding: 6px 10px;
+                           border: 1px solid #b3261e; background: white;
+                           color: #b3261e; border-radius: 6px; cursor: pointer;">×</button>
+        `;
+
+        list.appendChild(row);
+    }
+
+
+    document.getElementById('peopleList').addEventListener('input', e => {
+        if (e.target.classList.contains('person-name')) syncPersonId(e.target);
+    });
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function saveWork() {
+        const groupKey = parseInt(document.getElementById('workGroupKey').value) || 0;
+        const workUrl = document.getElementById('workWorkUrl').value.trim();
+        const messageUrl = document.getElementById('workMessageUrl').value.trim();
+        const nomination = document.getElementById('workNomination').value;
+
+        const people = [];
+        document.querySelectorAll('#peopleList .person-row').forEach(row => {
+            const name = row.querySelector('.person-name').value.trim();
+            const idRaw = row.querySelector('.person-id').value.trim();
+            const id = idRaw && idRaw !== '0' ? idRaw : '0';
+
+            // пропускаем строку, если оба поля пустые
+            if (!name && id === '0') return;
+
+            people.push({ discordUserId: id, displayName: name });
+        });
+
+        if (people.length === 0) {
+            showWorkError('Добавьте хотя бы одного участника');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('animJamNumber', '@Model.Number');
+        formData.append('groupKey', groupKey);
+        formData.append('workUrl', workUrl);
+        formData.append('messageUrl', messageUrl);
+        formData.append('nomination', nomination);
+
+        people.forEach((p, i) => {
+            formData.append(`people[${i}].DiscordUserId`, p.discordUserId);
+            formData.append(`people[${i}].DisplayName`, p.displayName);
+        });
+
+        const btn = document.getElementById('workSaveBtn');
+        btn.disabled = true;
+        btn.textContent = 'Сохраняю...';
+
+        fetch('/Moderator/SaveWork', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    showWorkError(data.error || 'Ошибка');
+                    btn.disabled = false;
+                    btn.textContent = 'Сохранить';
+                }
+            })
+            .catch(() => {
+                showWorkError('Сетевая ошибка');
+                btn.disabled = false;
+                btn.textContent = 'Сохранить';
+            });
+    }
+
+    function showWorkError(msg) {
+        const box = document.getElementById('workError');
+        box.textContent = msg;
+        box.style.display = 'block';
+    }
+
+    function deleteWork(groupKey) {
+        if (!confirm('Удалить работу?\n\nВсе записи победителей для этой работы тоже будут удалены.')) return;
+
+        fetch('/Moderator/DeleteWork', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ animJamNumber: '@Model.Number', groupKey: groupKey })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else alert(data.error || 'Ошибка');
+        })
+        .catch(() => alert('Сетевая ошибка'));
+    }
+</script>

@@ -471,14 +471,8 @@
         <div class="detail-eyebrow">Архив аниджемов · выпуск #@Model.Number</div>
         <h1 class="detail-title">AniJam #@Model.Number</h1>
         <p class="detail-theme">@Model.Theme</p>
-        @if (User.HasClaim("is_moderator", "true"))
-        {
-            <div class="detail-mod-panel">
-                <span>🛡 Модератор:</span>
-                <button type="button" onclick="openAddWorkModal()">➕ Добавить работу</button>
-            </div>
-        }
     </header>
+
 
     <section class="detail-stats" aria-label="Информация об аниджеме">
         <div class="detail-stat">
@@ -506,6 +500,11 @@
         @if (!string.IsNullOrEmpty(Model.AnnouncementUrl))
         {
             <a href="@Model.AnnouncementUrl" target="_blank" rel="noopener noreferrer" class="detail-button">смотреть в discord</a>
+        }
+        @if (User.HasClaim("is_moderator", "true"))
+        {
+            <a asp-controller="Moderator" asp-action="EditAnimJam" asp-route-number="@Model.Number"
+               class="detail-button">🛠 редактировать</a>
         }
     </nav>
 
@@ -545,12 +544,6 @@
                 @foreach (var work in Model.Participants)
                 {
                     <article class="detail-work-card">
-                        @if (User.HasClaim("is_moderator", "true"))
-                        {
-                            <button type="button" class="detail-work-delete"
-                                    title="Удалить работу"
-                                    onclick="deleteParticipantWork(@work.Id, @Model.Number)">×</button>
-                        }
 
                         @{
                             var meta = System.Text.Json.JsonSerializer.Serialize(new

@@ -412,6 +412,17 @@
         </p>
     </header>
 
+    @if (User.HasClaim("is_moderator", "true"))
+    {
+        <form method="post" asp-controller="Moderator" asp-action="CreateAnimJamQuick"
+              style="display: inline-block; margin-bottom: 15px;">
+            <button type="submit" class="btn btn-primary"
+                    onclick="return confirm('Создать новый аниджем?');">
+                ➕ Добавить аниджем
+            </button>
+        </form>
+    }
+
     @if (Model.Status != null)
     {
         var s = Model.Status;
