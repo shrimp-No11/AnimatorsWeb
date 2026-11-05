@@ -270,17 +270,17 @@
             <table id="participants-table">
                 <thead>
                     <tr>
-                        <th data-sort="name" scope="col">Имя</th>
-                        <th data-sort="participations" scope="col">Участий</th>
-                        <th data-sort="works" scope="col">Работ</th>
-                        <th data-sort="wins" scope="col">Побед</th>
-                        <th data-sort="absolute" scope="col">@EmojiHelper.Medal абс.</th>
-                        <th data-sort="idea" scope="col">@EmojiHelper.Star идея</th>
-                        <th data-sort="tech" scope="col">@EmojiHelper.Hammer техника</th>
-                        <th data-sort="legacy" scope="col">@EmojiHelper.Trophy старый</th>
-                        <th data-sort="honorable" scope="col">@Html.Raw(EmojiHelper.GoldPoopHtml)</th>
-                        <th data-sort="first" scope="col">Первое</th>
-                        <th data-sort="last" scope="col">Последнее</th>
+                        <th data-sort="name" scope="col" data-title="Сортировать по имени участника">Имя</th>
+                        <th data-sort="participations" scope="col" data-title="Количество пройденных ивентов">Участий</th>
+                        <th data-sort="works" scope="col" data-title="Количество опубликованных работ на ивентах">Работ</th>
+                        <th data-sort="wins" scope="col" data-title="Суммарно побед">Побед</th>
+                        <th data-sort="absolute" scope="col" data-title="Абсолютных побед (идея+техника)">@EmojiHelper.Medal абсолют</th>
+                        <th data-sort="idea" scope="col" data-title="Побед в категории лучшей идеи">@EmojiHelper.Star идея</th>
+                        <th data-sort="tech" scope="col" data-title="Побед в категории технического исполнения">@EmojiHelper.Hammer техника</th>
+                        <th data-sort="legacy" scope="col" data-title="Побед старого формата, когда не было разделения на категории">@EmojiHelper.Trophy старый</th>
+                        <th data-sort="honorable" scope="col" data-title="Почетных наград (не побед)">@Html.Raw(EmojiHelper.GoldPoopHtml)</th>
+                        <th data-sort="first" scope="col" data-title="Первый аниджем">Первое</th>
+                        <th data-sort="last" scope="col" data-title="Последний аниджем">Последнее</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -395,7 +395,10 @@
         searchInput.addEventListener('input', updateVisibleRows);
 
         headers.forEach(header => {
-            header.title = 'Нажмите, чтобы отсортировать';
+            const customTitle = header.dataset.title;
+            header.title = customTitle
+                ? `${customTitle}`
+                : 'Нажмите, чтобы отсортировать';
             header.setAttribute('aria-sort', 'none');
             header.tabIndex = 0;
 

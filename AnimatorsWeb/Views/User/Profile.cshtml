@@ -373,19 +373,22 @@
                 <span class="profile-win-value">@Model.TechnicalWins</span>
             </li>
 
-            <li class="profile-win-item">
+            <li class="profile-win-item"
+                title="Победа в обеих номинациях одного аниджема: и лучшая идея, и лучшее техническое исполнение — одной работой">
                 <span aria-hidden="true">@EmojiHelper.Medal</span>
                 <span class="profile-win-label">Абсолютная победа</span>
                 <span class="profile-win-value">@Model.AbsoluteVictoriesCount</span>
             </li>
 
-            <li class="profile-win-item">
+            <li class="profile-win-item"
+                title="Победа в старой номинации «Победитель аниджема» (до разделения на идею и технику)">
                 <span aria-hidden="true">@EmojiHelper.Trophy</span>
                 <span class="profile-win-label">Победа старого формата</span>
                 <span class="profile-win-value">@Model.LegacyVictoriesCount</span>
             </li>
 
-            <li class="profile-win-item">
+            <li class="profile-win-item"
+                title="Золотая какаха — забавная номинация, не считается за победу">
                 <span aria-hidden="true">@Html.Raw(EmojiHelper.GoldPoopHtml)</span>
                 <span class="profile-win-label">Почётное упоминание <span class="profile-meta-text">(не победа)</span></span>
                 <span class="profile-win-value">@Model.HonorableWins</span>

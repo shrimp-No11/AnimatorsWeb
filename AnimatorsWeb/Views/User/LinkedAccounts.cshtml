@@ -3,62 +3,214 @@
     ViewData["Title"] = "Связанные аккаунты";
 }
 
-<h1>Связанные аккаунты</h1>
+<style>
+    .linked-page { max-width: 720px; }
+    .linked-intro {
+        padding: 20px 24px;
+        margin-bottom: 28px;
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--brand-primary) 6%, var(--brand-card));
+        border: 1px solid color-mix(in srgb, var(--brand-primary) 25%, transparent);
+        font-size: 15px;
+        line-height: 1.7;
+    }
+    .linked-intro h2 {
+        margin: 0 0 10px;
+        font-size: 17px;
+        color: var(--brand-primary);
+    }
+    .linked-intro p { margin: 0 0 10px; }
+    .linked-intro p:last-child { margin-bottom: 0; }
+    .linked-intro .example {
+        font-size: 13px;
+        color: var(--brand-muted, color-mix(in srgb, var(--brand-text) 65%, transparent));
+        font-style: italic;
+    }
 
-@if (TempData["Result"] != null)
-{
-    <div style="color: green; margin: 10px 0;">@TempData["Result"]</div>
-}
-@if (TempData["Error"] != null)
-{
-    <div style="color: red; margin: 10px 0;">@TempData["Error"]</div>
-}
+    .linked-section {
+        margin-bottom: 28px;
+    }
+    .linked-section h3 {
+        margin: 0 0 12px;
+        font-size: 17px;
+    }
 
-<h3>Добавить аккаунт</h3>
-<form method="post" asp-action="AddLinkedAccount" style="margin-bottom: 20px;">
-    <input type="text" name="input" placeholder="Discord ID или ник" style="width: 300px;" />
-    <button type="submit" class="btn">Отправить на проверку</button>
-</form>
-<p style="color: gray; font-size: 13px;">
-    Введите ID старого аккаунта (лучше) или его ник на сервере. Заявку рассмотрит модератор в течении недели.
-</p>
+    .linked-form {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+    .linked-form input[type=text] {
+        flex: 1;
+        min-width: 240px;
+        padding: 9px 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .linked-form button {
+        padding: 9px 18px;
+        border-radius: 8px;
+        border: 1px solid var(--brand-primary);
+        background: var(--brand-primary);
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .linked-form button:hover { background: var(--brand-primary-hover); }
 
-<h3>Ваши связи</h3>
-@if (!Model.Connected.Any())
-{
-    <p>Пока нет подтверждённых связей.</p>
-}
-else
-{
-    <ul>
-        @foreach (var c in Model.Connected)
-        {
-            <li>@c.Name</li>
-        }
-    </ul>
-}
+    .linked-hint {
+        color: color-mix(in srgb, var(--brand-text) 65%, transparent);
+        font-size: 13px;
+        line-height: 1.6;
+        margin: 0;
+    }
 
-<h3>Заявки на рассмотрении</h3>
-@if (!Model.Pending.Any())
-{
-    <p>Нет активных заявок.</p>
-}
-else
-{
-    <ul>
-        @foreach (var p in Model.Pending)
-        {
-            <li>
-                @if (p.LinkedDiscordId.HasValue)
+    .linked-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .linked-list li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 14px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 12%, transparent);
+        border-radius: 10px;
+        background: var(--brand-card);
+        font-size: 14px;
+    }
+    .linked-list .icon {
+        flex-shrink: 0;
+        font-size: 18px;
+    }
+    .linked-list .name { flex: 1; font-weight: 600; }
+    .linked-list .status {
+        font-size: 12px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: #fef3c7;
+        color: #92400e;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .linked-list .id-hint {
+        color: color-mix(in srgb, var(--brand-text) 55%, transparent);
+        font-size: 12px;
+    }
+
+    .linked-empty-note {
+        color: color-mix(in srgb, var(--brand-text) 55%, transparent);
+        font-size: 13px;
+        margin: 0;
+    }
+
+    .linked-result {
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 18px;
+        font-size: 14px;
+    }
+    .linked-result.ok {
+        background: #e7f7ec;
+        color: #1a7f37;
+        border: 1px solid #b9e5c4;
+    }
+    .linked-result.err {
+        background: #fdecea;
+        color: #b3261e;
+        border: 1px solid #f5c2be;
+    }
+</style>
+
+<div class="linked-page">
+    <h1>Связанные аккаунты</h1>
+
+    @if (TempData["Result"] != null)
+    {
+        <div class="linked-result ok">@TempData["Result"]</div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="linked-result err">@TempData["Error"]</div>
+    }
+
+    <div class="linked-intro">
+        <h2>Потеряли доступ к старому аккаунту?</h2>
+        <p>
+            Бывает: забыли пароль, аккаунт увели мошенники, а может, просто завели новый —
+            и вся история участия в ивентах осталась на старом.
+        </p>
+        <p>
+            Укажите старый аккаунт ниже, и его работы и победы будут считаться вашими.
+            Заявку рассмотрит модератор — обычно это занимает не больше недели.
+        </p>
+        <p class="example">
+            Например: вы участвовали в аниджемах под ником <b>Artist123</b>,
+            а теперь у вас новый аккаунт <b>Artist123_new</b>. Добавьте <b>Artist123</b> сюда.
+        </p>
+    </div>
+
+    <div class="linked-section">
+        <h3>Добавить аккаунт</h3>
+        <form method="post" asp-action="AddLinkedAccount" class="linked-form">
+            <input type="text" name="input" placeholder="Discord ID или ник на сервере" />
+            <button type="submit">Отправить</button>
+        </form>
+        <p class="linked-hint">
+            <b>ID</b> надёжнее — его не сменить, в отличие от ника. Если не знаете ID,
+            подойдёт любой ник, под которым вы участвовали.
+        </p>
+    </div>
+
+    @if (Model.Connected.Any())
+    {
+        <div class="linked-section">
+            <h3>Мои другие аккаунты</h3>
+            <ul class="linked-list">
+                @foreach (var c in Model.Connected)
                 {
-                    <span>ID @p.LinkedDiscordId</span>
+                    <li>
+                        <span class="icon">👤</span>
+                        <span class="name">@c.Name</span>
+                    </li>
                 }
-                else
+            </ul>
+        </div>
+    }
+
+    @if (Model.Pending.Any())
+    {
+        <div class="linked-section">
+            <h3>Заявки на рассмотрении</h3>
+            <ul class="linked-list">
+                @foreach (var p in Model.Pending)
                 {
-                    <span>Ник: @p.LinkedName</span>
+                    <li>
+                        <span class="icon">⏳</span>
+                        <span class="name">
+                            @if (p.LinkedDiscordId.HasValue)
+                            {
+                                <span>ID @p.LinkedDiscordId</span>
+                            }
+                            else
+                            {
+                                <span>Ник: @p.LinkedName</span>
+                            }
+                        </span>
+                        <span class="status">ожидает модератора</span>
+                    </li>
                 }
-                <span style="color: gray;"> (ожидает модератора)</span>
-            </li>
-        }
-    </ul>
-}   
+            </ul>
+        </div>
+    }
+
+    <p style="margin-top: 24px;">
+        <a asp-action="Profile" style="color: var(--brand-primary);">← Назад в профиль</a>
+    </p>
+</div>
