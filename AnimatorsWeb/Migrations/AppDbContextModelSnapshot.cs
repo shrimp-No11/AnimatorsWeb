@@ -98,6 +98,9 @@ namespace AnimatorsWeb.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("BackgroundDecorationFileName")
+                        .HasColumnType("text");
+
                     b.Property<string>("CardColor")
                         .IsRequired()
                         .HasColumnType("text");
@@ -112,6 +115,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<string>("PrimaryHoverColor")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("RepeatBackgroundDecoration")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("TextColor")
                         .IsRequired()

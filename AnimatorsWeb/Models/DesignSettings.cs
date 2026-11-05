@@ -24,5 +24,8 @@
 
         // Когда последний раз обновляли палитру из аватарки
         public DateTime? PaletteUpdatedAt { get; set; }
+
+        public string? BackgroundDecorationFileName { get; set; }  // "bg-decoration.png" или null
+        public bool RepeatBackgroundDecoration { get; set; }       // true = repeat-y, false = no-repeat
     }
 }

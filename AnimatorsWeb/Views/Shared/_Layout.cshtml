@@ -1,6 +1,7 @@
 ﻿@inject AnimatorsWeb.Services.DesignSettingsService DesignService
 @{
     var __design = await DesignService.GetAsync();
+    var bgDecorationUrl = DesignService.GetBackgroundDecorationUrl(__design);
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     string ActiveClass(string c) => c == currentController ? "nav-link active" : "nav-link";
 }
@@ -34,15 +35,21 @@
             --font-body: 'Inter', system-ui, -apple-system, sans-serif;
             --surface-border: color-mix(in srgb, var(--brand-text) 10%, transparent);
             --surface-muted: color-mix(in srgb, var(--brand-text) 5%, transparent);
+            --bg-decoration-image: @Html.Raw(string.IsNullOrEmpty(bgDecorationUrl) ? "none" : $"url('{bgDecorationUrl}')");
+            --bg-decoration-repeat: @(__design.RepeatBackgroundDecoration ? "repeat-y" : "no-repeat");
         }
 
         html, body { min-height: 100%; }
         html { scroll-padding-top: 88px; }
         body {
-            background:
+            background-color: var(--brand-bg);
+            background-image:
+                var(--bg-decoration-image),
                 radial-gradient(ellipse at 12% 0%, color-mix(in srgb, var(--brand-primary) 8%, transparent), transparent 36rem),
-                radial-gradient(ellipse at 92% 24%, color-mix(in srgb, var(--brand-accent) 7%, transparent), transparent 32rem),
-                var(--brand-bg);
+                radial-gradient(ellipse at 92% 24%, color-mix(in srgb, var(--brand-accent) 7%, transparent), transparent 32rem);
+            background-position: center top, center center, center center;
+            background-size: 100% auto, auto, auto;
+            background-repeat: var(--bg-decoration-repeat), no-repeat, no-repeat;
             color: var(--brand-text);
             font-family: var(--font-body);
             display: flex;
@@ -248,6 +255,11 @@
 
         @@media (prefers-reduced-motion: reduce) {
             .site-header, .site-header .nav-link, .site-header .nav-link.cta, .user-chip { transition: none; }
+        }
+        @@media (max-width: 991.98px) {
+            :root {
+                --bg-decoration-image: none;
+            }
         }
     </style>
 </head>

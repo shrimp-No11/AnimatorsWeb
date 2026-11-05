@@ -199,5 +199,72 @@ namespace AnimatorsWeb.Services
 
             return null;
         }
+
+        public async Task<string?> SaveBackgroundDecorationFileAsync(IFormFile file, bool repeat)
+        {
+            const long maxSize = 5_000_000;
+            if (file.Length > maxSize) return "Файл больше 5 МБ";
+
+            try
+            {
+                var dir = Path.Combine(_env.WebRootPath, "images");
+                Directory.CreateDirectory(dir);
+                var finalPath = Path.Combine(dir, "bg-decoration.png");
+                var tmpPath = finalPath + ".tmp";
+
+                await using (var stream = file.OpenReadStream())
+                {
+                    using var image = await Image.LoadAsync<Rgba32>(stream);
+                    await image.SaveAsPngAsync(tmpPath);
+                }
+
+                if (File.Exists(finalPath)) File.Delete(finalPath);
+                File.Move(tmpPath, finalPath);
+
+                var settings = await _db.DesignSettings.OrderBy(x => x.Id).FirstOrDefaultAsync();
+                if (settings == null)
+                {
+                    settings = new DesignSettings();
+                    _db.DesignSettings.Add(settings);
+                }
+                settings.BackgroundDecorationFileName = "bg-decoration.png";
+                settings.RepeatBackgroundDecoration = repeat;
+                await _db.SaveChangesAsync();
+                _cache.Remove(CacheKey);
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return $"Ошибка сохранения: {ex.Message}";
+            }
+        }
+
+        public async Task RemoveBackgroundDecorationAsync()
+        {
+            try
+            {
+                var path = Path.Combine(_env.WebRootPath, "images", "bg-decoration.png");
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch { }
+
+            var settings = await _db.DesignSettings.OrderBy(x => x.Id).FirstOrDefaultAsync();
+            if (settings != null)
+            {
+                settings.BackgroundDecorationFileName = null;
+                await _db.SaveChangesAsync();
+                _cache.Remove(CacheKey);
+            }
+        }
+
+        public string? GetBackgroundDecorationUrl(DesignSettings settings)
+        {
+            if (string.IsNullOrEmpty(settings.BackgroundDecorationFileName)) return null;
+            var path = Path.Combine(_env.WebRootPath, "images", settings.BackgroundDecorationFileName);
+            if (!File.Exists(path)) return null;
+            var stamp = File.GetLastWriteTimeUtc(path).Ticks;
+            return $"/images/{settings.BackgroundDecorationFileName}?v={stamp}";
+        }
     }
 }

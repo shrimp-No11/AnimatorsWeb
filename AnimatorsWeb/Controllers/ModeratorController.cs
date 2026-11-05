@@ -1844,6 +1844,32 @@ namespace AnimatorsWeb.Controllers
             TempData["Result"] = "Настройки дизайна сохранены";
             return RedirectToAction(nameof(Design));
         }
+        [HttpPost]
+        public async Task<IActionResult> SaveBackgroundDecoration(IFormFile? file, bool repeat)
+        {
+            if (file != null && file.Length > 0)
+            {
+                var err = await _designService.SaveBackgroundDecorationFileAsync(file, repeat);
+                if (err == null) TempData["Result"] = "Фон-украшение обновлён";
+                else TempData["Error"] = err;
+            }
+            else
+            {
+                var settings = await _designService.GetAsync();
+                settings.RepeatBackgroundDecoration = repeat;
+                await _designService.SaveAsync(settings);
+                TempData["Result"] = "Настройки сохранены";
+            }
+            return RedirectToAction(nameof(Design));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RemoveBackgroundDecoration()
+        {
+            await _designService.RemoveBackgroundDecorationAsync();
+            TempData["Result"] = "Фон-украшение удалён";
+            return RedirectToAction(nameof(Design));
+        }
 
         [HttpPost]
         public async Task<IActionResult> UpdatePaletteFromAvatar()
