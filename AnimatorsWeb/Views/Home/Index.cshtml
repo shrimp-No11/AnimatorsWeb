@@ -4,10 +4,6 @@
     ViewData["Title"] = "Приглашаем";
     ViewData["Description"] = "Присоединяйтесь к сообществу аниматоров! Еженедельные ивенты, дружелюбная атмосфера, обмен опытом и поддержка для аниматоров и художников любого уровня.";
 
-    const string DiscordUrl = "https://discord.gg/community-of-animators";
-    const string YouTubeUrl = "https://www.youtube.com/@Animators_community";
-    const string TelegramUrl = "https://t.me/community_animators";
-
     var avatarUrl = !string.IsNullOrEmpty(Model.GuildIconUrl)
         ? Model.GuildIconUrl
         : "/images/guild-avatar.png";
@@ -1566,7 +1562,7 @@
                 </p>
 
                 <div class="landing-hero-actions">
-                    <a href="@DiscordUrl"
+                    <a href="@SiteLinks.Discord"
                        target="_blank"
                        rel="noopener noreferrer"
                        class="landing-button landing-button-primary">
@@ -1657,7 +1653,7 @@
                 </p>
 
                 <div class="landing-event-footer">
-                    <a href="@DiscordUrl" target="_blank" rel="noopener noreferrer" class="landing-event-link">
+                    <a href="@SiteLinks.Discord" target="_blank" rel="noopener noreferrer" class="landing-event-link">
                         Предложить идею в Discord <span aria-hidden="true">↗</span>
                     </a>
                 </div>
@@ -1676,7 +1672,7 @@
                 </p>
 
                 <div class="landing-event-footer">
-                    <a href="@DiscordUrl" target="_blank" rel="noopener noreferrer" class="landing-event-link">
+                    <a href="@SiteLinks.Discord" target="_blank" rel="noopener noreferrer" class="landing-event-link">
                         Найти свой ивент <span aria-hidden="true">↗</span>
                     </a>
                 </div>
@@ -1817,7 +1813,7 @@
 
 
             <div class="landing-social-list">
-                <a href="@DiscordUrl"
+                <a href="@SiteLinks.Discord"
                    target="_blank"
                    rel="noopener noreferrer"
                    class="landing-social">
@@ -1829,7 +1825,7 @@
                     <span class="landing-arrow" aria-hidden="true">↗</span>
                 </a>
 
-                <a href="@YouTubeUrl"
+                <a href="@SiteLinks.YouTube"
                    target="_blank"
                    rel="noopener noreferrer"
                    class="landing-social">
@@ -1841,7 +1837,7 @@
                     <span class="landing-arrow" aria-hidden="true">↗</span>
                 </a>
 
-                <a href="@TelegramUrl"
+                <a href="@SiteLinks.Telegram"
                    target="_blank"
                    rel="noopener noreferrer"
                    class="landing-social">
@@ -1876,7 +1872,7 @@
             </p>
         </div>
 
-        <a href="@DiscordUrl"
+        <a href="@SiteLinks.Discord"
            target="_blank"
            rel="noopener noreferrer"
            class="landing-button landing-button-primary">

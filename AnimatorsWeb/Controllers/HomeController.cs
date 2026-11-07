@@ -1,4 +1,5 @@
 using AnimatorsWeb.Data;
+using AnimatorsWeb.Helpers;
 using AnimatorsWeb.Models;
 using AnimatorsWeb.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -48,7 +49,6 @@ namespace AnimatorsWeb.Controllers
             {
                 Design = await _design.GetAsync(),
                 GuildIconUrl = _design.GetLocalAvatarUrl() ?? _design.GetGuildIconUrl(),
-                InviteUrl = _config["Discord:InviteUrl"] ?? "#",
 
                 ParticipantsCount = await _db.Participants
                     .Select(p => p.DiscordUserId).Distinct().CountAsync(),

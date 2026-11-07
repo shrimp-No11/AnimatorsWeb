@@ -4,7 +4,6 @@
     {
         public DesignSettings Design { get; set; } = new();
         public string? GuildIconUrl { get; set; }
-        public string InviteUrl { get; set; } = "#";
         public int ParticipantsCount { get; set; }
         public int AnimJamsCount { get; set; }
         public int WorksCount { get; set; }
