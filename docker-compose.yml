@@ -32,7 +32,6 @@ services:
     image: postgres:17-alpine
     ports:
       - "127.0.0.1:5433:5432"
-    restart: unless-stopped
     command: >
       postgres
       -c shared_buffers=128MB
