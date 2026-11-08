@@ -4,6 +4,7 @@ namespace AnimatorsWeb.Models
 {
     public class AnimJam
     {
+        public EventType EventType { get; set; } = EventType.AniJam;
         public int Id { get; set; }
         public int Number { get; set; }
         public string Theme { get; set; }

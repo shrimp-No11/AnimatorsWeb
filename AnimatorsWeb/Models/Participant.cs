@@ -1,5 +1,8 @@
-﻿public class Participant
+﻿using AnimatorsWeb.Models;
+
+public class Participant
 {
+    public EventType EventType { get; set; } = EventType.AniJam;
     public int Id { get; set; }
     public int AnimJamNumber { get; set; }
     public ulong DiscordUserId { get; set; }

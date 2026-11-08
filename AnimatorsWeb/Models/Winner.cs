@@ -2,6 +2,7 @@
 {
     public class Winner
     {
+        public EventType EventType { get; set; } = EventType.AniJam;
         public int Id { get; set; }
         public int AnimJamNumber { get; set; }
         public ulong DiscordUserId { get; set; }

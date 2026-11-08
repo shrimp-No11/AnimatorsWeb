@@ -4,11 +4,16 @@
     {
         public int Id { get; set; }
 
-        // Каналы для разных типов публикаций
-        public ulong? ThemePollChannelId { get; set; }        // Голосование за тему
-        public ulong? AnimJamStartChannelId { get; set; }     // Старт аниджема
-        public ulong? WinnerPollChannelId { get; set; }       // Голосование за победителя
-        public ulong? WinnersAnnouncementChannelId { get; set; } // Объявление победителей
-        public ulong? AnnouncementChannelId { get; set; }     // Общие оповещения
+        public ulong? ThemePollChannelId { get; set; }
+        public ulong? AnimJamStartChannelId { get; set; }
+        public ulong? WinnerPollChannelId { get; set; }      
+        public ulong? WinnersAnnouncementChannelId { get; set; } 
+        public ulong? AnnouncementChannelId { get; set; }     
+
+
+        public ulong? ArtJamThemePollChannelId { get; set; }
+        public ulong? ArtJamStartChannelId { get; set; }
+        public ulong? ArtJamWinnerPollChannelId { get; set; }
+        public ulong? ArtJamWinnersAnnouncementChannelId { get; set; }
     }
 }

@@ -36,6 +36,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Number")
                         .HasColumnType("integer");
 
@@ -66,6 +69,18 @@ namespace AnimatorsWeb.Migrations
                         .HasColumnType("numeric(20,0)");
 
                     b.Property<decimal?>("AnnouncementChannelId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("ArtJamStartChannelId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("ArtJamThemePollChannelId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("ArtJamWinnerPollChannelId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("ArtJamWinnersAnnouncementChannelId")
                         .HasColumnType("numeric(20,0)");
 
                     b.Property<decimal?>("ThemePollChannelId")
@@ -233,6 +248,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("MessageId")
                         .HasColumnType("numeric(20,0)");
 
@@ -255,6 +273,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<decimal>("DiscordUserId")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Nomination")
                         .HasColumnType("integer");
 
@@ -264,9 +285,9 @@ namespace AnimatorsWeb.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AnimJamNumber", "DiscordUserId", "Nomination", "WorkUrl")
+                    b.HasIndex("EventType", "AnimJamNumber", "DiscordUserId", "Nomination", "WorkUrl")
                         .IsUnique()
-                        .HasDatabaseName("IX_Winners_AnimJamNumber_DiscordUserId_Nomination_WorkUrl");
+                        .HasDatabaseName("IX_Winners_EventType_AnimJamNumber_DiscordUserId_Nomination_WorkUrl");
 
                     b.ToTable("Winners");
                 });
@@ -279,6 +300,9 @@ namespace AnimatorsWeb.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AllowMultiSelect")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("AnimJamNumber")
                         .HasColumnType("integer");
 
@@ -287,6 +311,9 @@ namespace AnimatorsWeb.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("MessageId")
                         .HasColumnType("numeric(20,0)");
@@ -344,6 +371,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
 
                     b.Property<string>("MessageUrl")
                         .IsRequired()

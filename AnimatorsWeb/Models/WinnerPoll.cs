@@ -2,6 +2,8 @@
 {
     public class WinnerPoll
     {
+        public EventType EventType { get; set; } = EventType.AniJam;
+        public bool AllowMultiSelect { get; set; }
         public int Id { get; set; }
         public int AnimJamNumber { get; set; }
         public NominationType Nomination { get; set; }   
