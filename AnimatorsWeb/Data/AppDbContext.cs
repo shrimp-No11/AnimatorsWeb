@@ -18,6 +18,8 @@ namespace AnimatorsWeb.Data
         public DbSet<DesignSettings> DesignSettings { get; set; }
         public DbSet<LandingFeaturedWork> LandingFeaturedWorks { get; set; }
         public DbSet<WinnerPollMessage> WinnerPollMessages { get; set; }
+        public DbSet<UserActivity> UserActivities { get; set; }
+        public DbSet<ActiveRoleSettings> ActiveRoleSettings { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Winner>()
@@ -31,6 +33,9 @@ namespace AnimatorsWeb.Data
                 .HasFilter("\"LinkedDiscordId\" IS NOT NULL");
             modelBuilder.Entity<LandingFeaturedWork>()
                 .HasIndex(x => x.ParticipantId)
+                .IsUnique();
+            modelBuilder.Entity<UserActivity>()
+                .HasIndex(a => new { a.DiscordUserId, a.Date, a.Type })
                 .IsUnique();
             base.OnModelCreating(modelBuilder);
         }

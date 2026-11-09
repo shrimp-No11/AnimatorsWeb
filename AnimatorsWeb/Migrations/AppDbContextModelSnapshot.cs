@@ -22,6 +22,55 @@ namespace AnimatorsWeb.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AnimatorsWeb.Models.ActiveRoleSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("EventEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("EventRequired")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EventWindowDays")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastCheckUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MessageDaysRequired")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("MessageEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MessageWindowDays")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("RoleId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("VoiceDaysRequired")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("VoiceEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("VoiceWindowDays")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ActiveRoleSettings");
+                });
+
             modelBuilder.Entity("AnimatorsWeb.Models.AnimJam", b =>
                 {
                     b.Property<int>("Id")
@@ -257,6 +306,31 @@ namespace AnimatorsWeb.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ThemePolls");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.UserActivity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("DiscordUserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscordUserId", "Date", "Type")
+                        .IsUnique();
+
+                    b.ToTable("UserActivities");
                 });
 
             modelBuilder.Entity("AnimatorsWeb.Models.Winner", b =>

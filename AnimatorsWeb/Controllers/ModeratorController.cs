@@ -23,7 +23,9 @@ namespace AnimatorsWeb.Controllers
         private readonly RulesService _rulesService;
         private readonly DesignSettingsService _designService;
         private readonly FeaturedThumbnailService _thumbService;
+        private readonly ActiveRoleService _activeRoleService;
         private readonly IWebHostEnvironment _env;
+
 
         const ulong role2dId = 1126390388006072380UL; 
         const ulong role3dId = 1536428705105051808UL;
@@ -40,7 +42,7 @@ namespace AnimatorsWeb.Controllers
             RulesService rulesService,
             DesignSettingsService designService,
             FeaturedThumbnailService thumbService,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env, ActiveRoleService activeRoleService)
         {
             _discordClient = discordClient;
             _db = db;
@@ -50,6 +52,7 @@ namespace AnimatorsWeb.Controllers
             _designService = designService;
             _thumbService = thumbService;
             _env = env;
+            _activeRoleService = activeRoleService;
         }
 
         // Главная модераторская — настройки каналов
@@ -3553,6 +3556,89 @@ namespace AnimatorsWeb.Controllers
 
             TempData["Result"] = $"АртДжем #{nextNumber} создан. Заполните данные в редакторе.";
             return RedirectToAction("EditAnimJam", new { number = nextNumber, eventType = "ArtJam" });
+        }
+        [HttpGet]
+        public async Task<IActionResult> ActiveRole()
+        {
+            var settings = await _db.ActiveRoleSettings.FirstOrDefaultAsync();
+            if (settings == null)
+            {
+                settings = new ActiveRoleSettings();
+                _db.ActiveRoleSettings.Add(settings);
+                await _db.SaveChangesAsync();
+            }
+
+            var model = new ActiveRolePageViewModel { Settings = settings };
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SaveActiveRoleSettings(ActiveRoleSettings settings)
+        {
+            var existing = await _db.ActiveRoleSettings.FirstOrDefaultAsync();
+            if (existing == null)
+            {
+                settings.Id = 0;
+                _db.ActiveRoleSettings.Add(settings);
+            }
+            else
+            {
+                existing.IsEnabled = settings.IsEnabled;
+                existing.RoleId = settings.RoleId;
+
+                existing.MessageEnabled = settings.MessageEnabled;
+                existing.MessageDaysRequired = settings.MessageDaysRequired;
+                existing.MessageWindowDays = settings.MessageWindowDays;
+
+                existing.VoiceEnabled = settings.VoiceEnabled;
+                existing.VoiceDaysRequired = settings.VoiceDaysRequired;
+                existing.VoiceWindowDays = settings.VoiceWindowDays;
+
+                existing.EventEnabled = settings.EventEnabled;
+                existing.EventRequired = settings.EventRequired;
+                existing.EventWindowDays = settings.EventWindowDays;
+            }
+
+            await _db.SaveChangesAsync();
+
+            TempData["Result"] = "Настройки роли «Актив» сохранены";
+            return RedirectToAction(nameof(ActiveRole));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> PreviewActiveRole()
+        {
+            var result = await _activeRoleService.PreviewAsync();
+
+            var settings = await _db.ActiveRoleSettings.FirstOrDefaultAsync();
+            if (settings == null) settings = new ActiveRoleSettings();
+
+            var model = new ActiveRolePageViewModel
+            {
+                Settings = settings,
+                Preview = result
+            };
+
+            if (!result.Success && result.Error != null)
+                TempData["Error"] = result.Error;
+
+            return View("ActiveRole", model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ApplyActiveRole()
+        {
+            var result = await _activeRoleService.ApplyAsync();
+
+            if (!result.Success)
+            {
+                TempData["Error"] = result.Error ?? "Ошибка применения";
+                return RedirectToAction(nameof(ActiveRole));
+            }
+
+            TempData["Result"] =
+                $"Готово. Выдано: {result.WillGrant}, снято: {result.WillRevoke}, без изменений: {result.NoChange}.";
+            return RedirectToAction(nameof(ActiveRole));
         }
 
     }

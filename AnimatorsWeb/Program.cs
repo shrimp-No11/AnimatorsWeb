@@ -46,6 +46,7 @@ builder.Services.AddHostedService<ThumbnailCleanupService>();
 builder.Services.ConfigureEventHandlers(handling => handling
     .AddEventHandlers<BotStartedHandler>(ServiceLifetime.Singleton)
     .AddEventHandlers<RulesReactionHandler>(ServiceLifetime.Transient)
+    .AddEventHandlers<ActivityTrackingHandler>(ServiceLifetime.Transient)
 );
 
 builder.Services.AddAuthentication(options =>
@@ -119,6 +120,8 @@ builder.Services.AddHttpClient<PaletteExtractionService>();
 builder.Services.AddScoped<DesignSettingsService>();
 builder.Services.AddSingleton<FeaturedThumbnailService>();
 
+builder.Services.AddScoped<ActiveRoleService>();
+builder.Services.AddHostedService<ActiveRoleBackgroundService>();
 
 
 var app = builder.Build();

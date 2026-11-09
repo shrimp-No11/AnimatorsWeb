@@ -1,0 +1,293 @@
+﻿@model AnimatorsWeb.Models.ActiveRolePageViewModel
+@using AnimatorsWeb.Models
+
+@{
+    ViewData["Title"] = "Роль «Актив»";
+    var s = Model.Settings;
+}
+
+<style>
+    .ar-card {
+        background: var(--brand-card);
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 20px;
+    }
+    .ar-card h3 {
+        margin: 0 0 14px;
+        font-size: 17px;
+    }
+
+    .ar-row {
+        display: grid;
+        grid-template-columns: 60px 1fr 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .ar-row:last-child { border-bottom: none; }
+
+    .ar-row label.switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .ar-row input[type=number] {
+        width: 80px;
+        padding: 6px 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+    }
+
+    .ar-hint {
+        font-size: 12px;
+        color: #888;
+        grid-column: 2 / 4;
+    }
+
+    .ar-actions {
+        display: flex;
+        gap: 12px;
+        margin: 20px 0;
+        flex-wrap: wrap;
+    }
+
+    .ar-actions form { margin: 0; }
+
+    .ar-preview {
+        margin-top: 20px;
+    }
+
+    .ar-preview-header {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        background: #fafafa;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+    .ar-preview-header strong { font-size: 16px; }
+
+    .ar-preview table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .ar-preview th {
+        text-align: left;
+        padding: 8px 10px;
+        background: #f0f0f0;
+        font-weight: 700;
+        border-bottom: 1px solid #ddd;
+    }
+    .ar-preview td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #eee;
+    }
+    .ar-action-grant { color: #1a7f37; font-weight: 700; }
+    .ar-action-revoke { color: #b3261e; font-weight: 700; }
+    .ar-action-nochange { color: #999; }
+    .ar-check-yes { color: #1a7f37; }
+    .ar-check-no { color: #ccc; }
+
+    .ar-error {
+        background: #fdecea;
+        color: #b3261e;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+</style>
+
+<h1>Роль «Актив»</h1>
+
+@if (TempData["Result"] != null)
+{
+    <div style="background: #e7f7ec; color: #1a7f37; padding: 10px 16px; border-radius: 8px; margin-bottom: 16px;">
+        @TempData["Result"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="ar-error">@TempData["Error"]</div>
+}
+
+<form asp-action="SaveActiveRoleSettings" method="post">
+    <input type="hidden" asp-for="Settings.Id" />
+    <input type="hidden" asp-for="Settings.LastCheckUtc" />
+
+    <div class="ar-card">
+        <h3>Общее</h3>
+
+        <div style="margin-bottom: 14px;">
+            <label class="switch">
+                <input type="checkbox" asp-for="Settings.IsEnabled" />
+                <span>Функция включена</span>
+            </label>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                Если выключено — активность не записывается, роль не выдаётся и не снимается.
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>ID роли «Актив»:</label>
+            <input asp-for="Settings.RoleId" class="form-control" style="max-width: 300px;"
+                   placeholder="Например, 1507425845558509718" />
+            <small style="color: #888;">Правый клик по роли в Discord → Copy Role ID</small>
+        </div>
+    </div>
+
+    <div class="ar-card">
+        <h3>Условия (любое из)</h3>
+
+        <div class="ar-row">
+            <label class="switch">
+                <input type="checkbox" asp-for="Settings.MessageEnabled" />
+            </label>
+            <div>
+                <label>Дней с сообщениями:</label>
+                <input type="number" min="1" max="30" asp-for="Settings.MessageDaysRequired" />
+            </div>
+            <div>
+                <label>за дней:</label>
+                <input type="number" min="1" max="90" asp-for="Settings.MessageWindowDays" />
+            </div>
+            <div class="ar-hint">
+                Уникальные дни, в которые пользователь писал хотя бы одно сообщение.
+            </div>
+        </div>
+
+        <div class="ar-row">
+            <label class="switch">
+                <input type="checkbox" asp-for="Settings.VoiceEnabled" />
+            </label>
+            <div>
+                <label>Дней в голосовом:</label>
+                <input type="number" min="1" max="30" asp-for="Settings.VoiceDaysRequired" />
+            </div>
+            <div>
+                <label>за дней:</label>
+                <input type="number" min="1" max="90" asp-for="Settings.VoiceWindowDays" />
+            </div>
+            <div class="ar-hint">
+                Уникальные дни, в которые пользователь заходил в любой голосовой канал.
+            </div>
+        </div>
+
+        <div class="ar-row">
+            <label class="switch">
+                <input type="checkbox" asp-for="Settings.EventEnabled" />
+            </label>
+            <div>
+                <label>Участий в ивентах:</label>
+                <input type="number" min="1" max="10" asp-for="Settings.EventRequired" />
+            </div>
+            <div>
+                <label>за дней:</label>
+                <input type="number" min="1" max="365" asp-for="Settings.EventWindowDays" />
+            </div>
+            <div class="ar-hint">
+                Учитываются ивенты которые есть на сайте.
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">💾 Сохранить настройки</button>
+</form>
+
+<div class="ar-actions">
+    <form asp-action="PreviewActiveRole" method="post">
+        <button type="submit" class="btn btn-secondary">🔍 Проверить сейчас</button>
+    </form>
+
+    @if (Model.Preview != null && Model.Preview.Success && (Model.Preview.WillGrant > 0 || Model.Preview.WillRevoke > 0))
+    {
+        <form asp-action="ApplyActiveRole" method="post"
+              onsubmit="return confirm('Применить изменения? Будет выдано: @Model.Preview.WillGrant, снято: @Model.Preview.WillRevoke.');">
+            <button type="submit" class="btn btn-primary">✅ Применить</button>
+        </form>
+    }
+</div>
+
+@if (Model.Preview != null)
+{
+    <div class="ar-preview">
+        @if (!Model.Preview.Success)
+        {
+            <div class="ar-error">@Model.Preview.Error</div>
+        }
+        else
+        {
+            <div class="ar-preview-header">
+                <div>Участников: <strong>@Model.Preview.TotalMembers</strong></div>
+                <div>Выдать: <strong class="ar-action-grant">@Model.Preview.WillGrant</strong></div>
+                <div>Снять: <strong class="ar-action-revoke">@Model.Preview.WillRevoke</strong></div>
+                <div>Без изменений: <strong class="ar-action-nochange">@Model.Preview.NoChange</strong></div>
+                @if (Model.Preview.IsFirstRun)
+                {
+                    <div style="color: #c97b24; font-weight: 600;">⚠ Первый прогон — только выдача, без снятия</div>
+                }
+            </div>
+
+            @if (Model.Preview.Items.Any(i => i.Action != ActiveRoleAction.NoChange))
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Пользователь</th>
+                            <th>Действие</th>
+                            <th>Сейчас роль</th>
+                            <th>Сообщения</th>
+                            <th>Войс</th>
+                            <th>Ивент</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Preview.Items
+                            .Where(i => i.Action != ActiveRoleAction.NoChange)
+                            .OrderBy(i => i.Action == ActiveRoleAction.Grant ? 0 : 1)
+                            .ThenBy(i => i.DisplayName))
+                        {
+                            <tr>
+                                <td>@item.DisplayName</td>
+                                <td>
+                                    @if (item.Action == ActiveRoleAction.Grant)
+                                    {
+                                        <span class="ar-action-grant">+ выдать</span>
+                                    }
+                                    else if (item.Action == ActiveRoleAction.Revoke)
+                                    {
+                                        <span class="ar-action-revoke">− снять</span>
+                                    }
+                                </td>
+                                <td>@(item.HasRoleNow ? "да" : "нет")</td>
+                                <td class="@(item.MessageCondition ? "ar-check-yes" : "ar-check-no")">
+                                    @(item.MessageCondition ? "✓" : "—")
+                                </td>
+                                <td class="@(item.VoiceCondition ? "ar-check-yes" : "ar-check-no")">
+                                    @(item.VoiceCondition ? "✓" : "—")
+                                </td>
+                                <td class="@(item.EventCondition ? "ar-check-yes" : "ar-check-no")">
+                                    @(item.EventCondition ? "✓" : "—")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p style="color: gray;">Все в порядке — изменений не требуется.</p>
+            }
+        }
+    </div>
+}
+
+<p style="margin-top: 24px;"><a asp-action="Index">← Назад в модераторскую</a></p>
