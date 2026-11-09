@@ -241,6 +241,52 @@
             padding: 11px 14px;
         }
     }
+    .participants-tabs {
+        display: flex;
+        gap: 4px;
+        margin: 16px 0 20px;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        flex-wrap: wrap;
+    }
+    .participants-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        text-decoration: none;
+        color: #666;
+        font-weight: 700;
+        font-size: 14px;
+        border-radius: 10px 10px 0 0;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color .15s, background .15s, border-color .15s;
+    }
+    .participants-tab:hover {
+        color: var(--brand-text, #333);
+        background: rgba(0,0,0,0.04);
+    }
+    .participants-tab.active {
+        color: var(--brand-primary, #e8743b);
+        border-bottom-color: var(--brand-primary, #e8743b);
+    }
+    .participants-tab-count {
+        display: inline-flex;
+        min-width: 24px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 6px;
+        background: rgba(0,0,0,0.06);
+        color: #666;
+        font-size: 11px;
+        font-weight: 700;
+        align-items: center;
+        justify-content: center;
+    }
+    .participants-tab.active .participants-tab-count {
+        background: color-mix(in srgb, var(--brand-primary, #e8743b) 15%, transparent);
+        color: var(--brand-primary, #e8743b);
+    }
 </style>
 
 <div class="participants-page">
@@ -248,6 +294,17 @@
         <h1>Участники</h1>
         <span class="participants-count">@Model.Rows.Count человек</span>
     </div>
+
+    <div class="participants-tabs">
+    <a asp-action="Index" asp-route-tab="anijam"
+       class="participants-tab @(Model.Tab == "anijam" ? "active" : "")">
+        АниДжем <span class="participants-tab-count">@Model.AniJamCount</span>
+    </a>
+    <a asp-action="Index" asp-route-tab="artjam"
+       class="participants-tab @(Model.Tab == "artjam" ? "active" : "")">
+        АртДжем <span class="participants-tab-count">@Model.ArtJamCount</span>
+    </a>
+</div>
 
     <p class="participants-description">
         Ищите участников и сортируйте статистику нажатием на заголовок столбца.
@@ -270,17 +327,20 @@
             <table id="participants-table">
                 <thead>
                     <tr>
-                        <th data-sort="name" scope="col" data-title="Сортировать по имени участника">Имя</th>
-                        <th data-sort="participations" scope="col" data-title="Количество пройденных ивентов">Участий</th>
-                        <th data-sort="works" scope="col" data-title="Количество опубликованных работ на ивентах">Работ</th>
-                        <th data-sort="wins" scope="col" data-title="Суммарно побед">Побед</th>
-                        <th data-sort="absolute" scope="col" data-title="Абсолютных побед (идея+техника)">@EmojiHelper.Medal абсолют</th>
-                        <th data-sort="idea" scope="col" data-title="Побед в категории лучшей идеи">@EmojiHelper.Star идея</th>
-                        <th data-sort="tech" scope="col" data-title="Побед в категории технического исполнения">@EmojiHelper.Hammer техника</th>
-                        <th data-sort="legacy" scope="col" data-title="Побед старого формата, когда не было разделения на категории">@EmojiHelper.Trophy старый</th>
-                        <th data-sort="honorable" scope="col" data-title="Почетных наград (не побед)">@Html.Raw(EmojiHelper.GoldPoopHtml)</th>
-                        <th data-sort="first" scope="col" data-title="Первый аниджем">Первое</th>
-                        <th data-sort="last" scope="col" data-title="Последний аниджем">Последнее</th>
+                        <th data-sort="name" ...>Имя</th>
+                        <th data-sort="participations" ...>Участий</th>
+                        <th data-sort="works" ...>Работ</th>
+                        <th data-sort="wins" ...>Побед</th>
+                        @if (Model.Tab == "anijam")
+                        {
+                            <th data-sort="absolute" ...>@EmojiHelper.Medal абс.</th>
+                            <th data-sort="idea" ...>@EmojiHelper.Star идея</th>
+                            <th data-sort="tech" ...>@EmojiHelper.Hammer техника</th>
+                            <th data-sort="legacy" ...>@EmojiHelper.Trophy старый</th>
+                            <th data-sort="honorable" ...>@Html.Raw(EmojiHelper.GoldPoopHtml)</th>
+                        }
+                        <th data-sort="first" ...>Первое</th>
+                        <th data-sort="last" ...>Последнее</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -308,37 +368,56 @@
                             <td>@row.ParticipationsCount</td>
                             <td>@row.WorksCount</td>
                             <td class="participant-wins">@row.WinsCount</td>
-                            <td>@row.AbsoluteVictories</td>
-                            <td>@row.IdeaWins</td>
-                            <td>@row.TechnicalWins</td>
-                            <td>@row.LegacyWins</td>
-                            <td>@row.HonorableMentions</td>
+                            @if (Model.Tab == "anijam")
+                            {
+                                <td>@row.AbsoluteVictories</td>
+                                <td>@row.IdeaWins</td>
+                                <td>@row.TechnicalWins</td>
+                                <td>@row.LegacyWins</td>
+                                <td>@row.HonorableMentions</td>
+                            }
                             <td>
-                                @if (row.FirstAnimJam > 0)
+                                @if (row.FirstEventType == AnimatorsWeb.Models.EventType.ArtJam)
                                 {
-                                    <a asp-controller="AnimJams"
-                                       asp-action="Details"
-                                       asp-route-number="@row.FirstAnimJam"
-                                       title="@row.FirstDate.ToString("dd.MM.yyyy")"
-                                       class="participant-jam-link">
-                                        #@row.FirstAnimJam
+                                    <a asp-controller="Events" asp-action="Details" asp-route-type="ArtJam" asp-route-number="@row.FirstAnimJam"
+                                        title="@row.FirstDate.ToString("dd.MM.yyyy")"
+                                        style="text-decoration: none; color: inherit;">
+                                        Art #@row.FirstAnimJam
                                     </a>
                                 }
                                 else
                                 {
-                                    <span aria-label="Нет данных">—</span>
+                                    <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@row.FirstAnimJam"
+                                        title="@row.FirstDate.ToString("dd.MM.yyyy")"
+                                        style="text-decoration: none; color: inherit;">
+                                        #@row.FirstAnimJam
+                                    </a>
                                 }
                             </td>
                             <td>
                                 @if (row.LastAnimJam > 0)
                                 {
-                                    <a asp-controller="AnimJams"
-                                       asp-action="Details"
-                                       asp-route-number="@row.LastAnimJam"
-                                       title="@row.LastDate.ToString("dd.MM.yyyy")"
-                                       class="participant-jam-link">
-                                        #@row.LastAnimJam
-                                    </a>
+                                    @if (row.LastEventType == AnimatorsWeb.Models.EventType.ArtJam)
+                                    {
+                                        <a asp-controller="Events"
+                                            asp-action="Details"
+                                            asp-route-type="ArtJam"
+                                            asp-route-number="@row.LastAnimJam"
+                                            title="@row.LastDate.ToString("dd.MM.yyyy")"
+                                            class="participant-jam-link">
+                                            Art #@row.LastAnimJam
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <a asp-controller="AnimJams"
+                                            asp-action="Details"
+                                            asp-route-number="@row.LastAnimJam"
+                                            title="@row.LastDate.ToString("dd.MM.yyyy")"
+                                            class="participant-jam-link">
+                                            #@row.LastAnimJam
+                                        </a>
+                                    }
                                 }
                                 else
                                 {

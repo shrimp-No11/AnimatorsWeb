@@ -1,0 +1,104 @@
+﻿@model AnimatorsWeb.Models.ArtJamWinnerPollViewModel
+@using AnimatorsWeb.Models
+
+@{
+    ViewData["Title"] = "АртДжем: голосование за победителей";
+    int uniqueCount = Model.Works.Count(w => w.People.Any(p => !string.IsNullOrWhiteSpace(p.DisplayName)));
+    int pollsPerNom = uniqueCount <= 10 ? 1 : 1 + (int)Math.Ceiling((uniqueCount - 9) / 9.0);
+}
+
+<h1>АртДжем: голосование за победителей</h1>
+
+@if (Model.Message != null) { <p style="color: darkblue;">@Model.Message</p> }
+@if (TempData["Result"] != null) { <p style="color: green;">@TempData["Result"]</p> }
+@if (TempData["Info"] != null) { <p style="color: darkblue;">@TempData["Info"]</p> }
+<div asp-validation-summary="All" style="color: red;"></div>
+
+@if (uniqueCount > 10)
+{
+    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px 16px;
+                border-radius: 8px; margin-bottom: 16px; font-size: 14px; line-height: 1.6;">
+        ⚠️ Работ: <b>@uniqueCount</b>. Будет создано <b>@pollsPerNom</b> сообщений-опросов
+        (по 9 работ + служебный «#голосую в другом опросе»).<br />
+        Голосование с <b>мультивыбором</b> — пользователь может выбрать несколько работ.
+        Итог — <b>топ-3</b> по числу голосов.
+    </div>
+}
+
+<form asp-action="ArtJamCreateWinnerPoll" method="post">
+    <input type="hidden" asp-for="ArtJamNumber" />
+
+    <div class="form-group">
+        <label>Номер АртДжема:</label>
+        <input asp-for="ArtJamNumber" type="number" class="form-control" style="max-width: 120px;" />
+    </div>
+
+    <div class="form-group">
+        <label>Заголовок опроса:</label>
+        <input asp-for="PollTitle" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Канал для опроса:</label>
+        <select asp-for="ChannelId" asp-items="Model.ChannelList" class="form-control">
+            <option value="">-- Выберите канал --</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Длительность (часов):</label>
+        <input asp-for="DurationHours" type="number" min="1" max="168" class="form-control" style="max-width: 120px;" />
+    </div>
+
+    <h3>Работы</h3>
+
+    <div id="works-container">
+        @for (int i = 0; i < Model.Works.Count; i++)
+        {
+            <div class="work-block" style="border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; border-radius: 6px;">
+                <label>Участники:</label>
+                <div class="people-container">
+                    @for (int j = 0; j < Model.Works[i].People.Count; j++)
+                    {
+                        <div style="display: flex; gap: 8px; margin-bottom: 5px;">
+                            <input class="form-control person-name"
+                                   name="Works[@i].People[@j].DisplayName"
+                                   value="@Model.Works[i].People[j].DisplayName"
+                                   list="guild-members-list" autocomplete="off"
+                                   placeholder="Имя участника" />
+                            <input type="hidden"
+                                   name="Works[@i].People[@j].DiscordUserId"
+                                   value="@Model.Works[i].People[j].DiscordUserId"
+                                   class="person-id" />
+                        </div>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label>Ссылка на работу:</label>
+                    <input name="Works[@i].WorkUrl" value="@Model.Works[i].WorkUrl" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label>Ссылка на сообщение:</label>
+                    <input name="Works[@i].MessageUrl" value="@Model.Works[i].MessageUrl" class="form-control" />
+                </div>
+            </div>
+        }
+    </div>
+
+    <p style="color: gray; font-size: 13px;">
+        При публикации участники сохранятся в БД автоматически.
+    </p>
+
+    <button type="submit" class="btn btn-primary">Опубликовать опрос</button>
+</form>
+
+<datalist id="guild-members-list">
+    @foreach (var m in Model.GuildMembers)
+    {
+        <option data-id="@m.Id" value="@m.Name"></option>
+    }
+</datalist>
+
+<p style="margin-top: 20px;"><a asp-action="Index">← Назад в модераторскую</a></p>

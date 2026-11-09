@@ -21,29 +21,30 @@ namespace AnimatorsWeb.Controllers
             _discordClient = discordClient;
         }
 
-        public async Task<IActionResult> Profile()
+        public async Task<IActionResult> Profile(string? tab)
         {
             var discordIdStr = User.FindFirst("discord_id")?.Value;
             if (string.IsNullOrEmpty(discordIdStr) || !ulong.TryParse(discordIdStr, out ulong discordId))
                 return RedirectToAction("Login", "Account");
 
-            var model = await BuildProfileModel(discordId, User.Identity?.Name);
+            tab = (tab ?? "anijam").ToLowerInvariant();
+            if (tab != "artjam") tab = "anijam";
+
+            var model = await BuildProfileModel(discordId, User.Identity?.Name, tab);
             return View(model);
         }
 
         [AllowAnonymous]
-        public async Task<IActionResult> Works(ulong? id = null)
+        public async Task<IActionResult> Works(ulong? id = null, string? tab = null)
         {
             ulong discordId;
 
             if (id.HasValue)
             {
-                // Просмотр чужих работ — публичный доступ
                 discordId = id.Value;
             }
             else
             {
-                // Свои работы — нужна авторизация
                 if (!User.Identity?.IsAuthenticated ?? true)
                     return RedirectToAction("Login", "Account");
 
@@ -52,20 +53,27 @@ namespace AnimatorsWeb.Controllers
                     return RedirectToAction("Login", "Account");
             }
 
-            var model = await BuildWorksModel(discordId, null);
+            tab = (tab ?? "anijam").ToLowerInvariant();
+            if (tab != "artjam") tab = "anijam";
+
+            var model = await BuildWorksModel(discordId, null, tab);
             return View(model);
         }
 
         [AllowAnonymous]
-        public async Task<IActionResult> PublicProfile(ulong id)
+
+        public async Task<IActionResult> PublicProfile(ulong id, string? tab)
         {
-            var model = await BuildProfileModel(id, null);
+            tab = (tab ?? "anijam").ToLowerInvariant();
+            if (tab != "artjam") tab = "anijam";
+
+            var model = await BuildProfileModel(id, null, tab);
             return View("Profile", model);
         }
 
         // === Общие методы ===
 
-        private async Task<UserProfileViewModel> BuildProfileModel(ulong discordId, string? fallbackName)
+        private async Task<UserProfileViewModel> BuildProfileModel(ulong discordId, string? fallbackName, string tab = "anijam")
         {
             var model = new UserProfileViewModel { DiscordUserId = discordId };
 
@@ -122,9 +130,24 @@ namespace AnimatorsWeb.Controllers
             var allIds = new HashSet<ulong>(connectedIds) { discordId };
 
             // === Участия ===
-            var participations = await _db.Participants
+            var allParticipations = await _db.Participants
                 .Where(p => allIds.Contains(p.DiscordUserId))
                 .ToListAsync();
+
+            model.AniJamParticipationsCount = allParticipations
+                .Where(p => p.EventType == EventType.AniJam)
+                .Select(p => p.AnimJamNumber).Distinct().Count();
+
+            model.ArtJamParticipationsCount = allParticipations
+                .Where(p => p.EventType == EventType.ArtJam)
+                .Select(p => p.AnimJamNumber).Distinct().Count();
+
+            model.Tab = tab;
+            var targetType = tab == "artjam" ? EventType.ArtJam : EventType.AniJam;
+
+            var participations = allParticipations
+                .Where(p => p.EventType == targetType)
+                .ToList();
 
             model.ParticipationsCount = participations
                 .Select(p => p.AnimJamNumber)
@@ -135,9 +158,23 @@ namespace AnimatorsWeb.Controllers
                 model.FirstParticipationDate = participations.Min(p => p.AnimJamNumber);
 
             // === Победы ===
-            var wins = await _db.Winners
+            var allWins = await _db.Winners
                 .Where(w => allIds.Contains(w.DiscordUserId))
                 .ToListAsync();
+
+            model.AniJamWinsCount = allWins
+                .Where(w => w.EventType == EventType.AniJam && w.Nomination != NominationType.HonorableMention)
+                .GroupBy(w => w.AnimJamNumber)
+                .Count();
+
+            model.ArtJamWinsCount = allWins
+                .Where(w => w.EventType == EventType.ArtJam)
+                .GroupBy(w => w.AnimJamNumber)
+                .Count();
+
+            var wins = allWins
+                .Where(w => w.EventType == targetType)
+                .ToList();
 
             var winsByJam = wins.GroupBy(w => w.AnimJamNumber).ToList();
 
@@ -174,33 +211,48 @@ namespace AnimatorsWeb.Controllers
             return model;
         }
 
-        private async Task<UserWorksViewModel> BuildWorksModel(ulong discordId, string? fallbackName)
+        private async Task<UserWorksViewModel> BuildWorksModel(ulong discordId, string? fallbackName, string tab = "anijam")
         {
             var connectedIds = await GetConnectedIdsAsync(discordId);
             var allIds = new HashSet<ulong>(connectedIds) { discordId };
 
-            // === Участия (связанные + сам) ===
-            var rawParticipations = await _db.Participants
+            var allRawParticipations = await _db.Participants
                 .Where(p => allIds.Contains(p.DiscordUserId))
                 .OrderByDescending(p => p.AnimJamNumber)
                 .ToListAsync();
 
-            // Дедуп по (AnimJamNumber, WorkUrl): если несколько связанных указаны авторами одной работы — одна карточка
+            var allWins = await _db.Winners
+                .Where(w => allIds.Contains(w.DiscordUserId))
+                .ToListAsync();
+
+            var targetType = tab == "artjam" ? EventType.ArtJam : EventType.AniJam;
+
+            var rawParticipations = allRawParticipations
+                .Where(p => p.EventType == targetType)
+                .ToList();
+
             var participations = rawParticipations
                 .GroupBy(p => new { p.AnimJamNumber, p.WorkUrl })
                 .Select(g => g.First())
                 .OrderByDescending(p => p.AnimJamNumber)
                 .ToList();
 
-            // === Победы (связанные + сам) ===
-            var wins = await _db.Winners
-                .Where(w => allIds.Contains(w.DiscordUserId))
+            var wins = allWins
+                .Where(w => w.EventType == targetType)
+                .ToList();
+
+            var jamKeys = participations
+                .Select(p => (p.EventType, p.AnimJamNumber))
+                .Distinct()
+                .ToList();
+
+            var allJams = await _db.AnimJams
+                .Select(j => new { j.Number, j.Theme, j.EventType })
                 .ToListAsync();
 
-            var jamNumbers = participations.Select(p => p.AnimJamNumber).Distinct().ToList();
-            var jams = await _db.AnimJams
-                .Where(j => jamNumbers.Contains(j.Number))
-                .ToDictionaryAsync(j => j.Number, j => j.Theme);
+            var jams = allJams
+                .Where(j => jamKeys.Contains((j.EventType, j.Number)))
+                .ToDictionary(j => (j.EventType, j.Number), j => j.Theme);
 
             var displayName = fallbackName;
             if (string.IsNullOrEmpty(displayName))
@@ -209,7 +261,16 @@ namespace AnimatorsWeb.Controllers
             var model = new UserWorksViewModel
             {
                 DisplayName = displayName,
-                DiscordUserId = discordId
+                DiscordUserId = discordId,
+                Tab = tab,
+                AniJamWorksCount = allRawParticipations
+                                    .Where(p => p.EventType == EventType.AniJam)
+                                    .GroupBy(p => new { p.AnimJamNumber, p.WorkUrl })
+                                    .Count(),
+                ArtJamWorksCount = allRawParticipations
+                                    .Where(p => p.EventType == EventType.ArtJam)
+                                    .GroupBy(p => new { p.AnimJamNumber, p.WorkUrl })
+                                    .Count()
             };
 
             foreach (var p in participations)
@@ -229,13 +290,14 @@ namespace AnimatorsWeb.Controllers
                 {
                     Id = p.Id,
                     AnimJamNumber = p.AnimJamNumber,
-                    Theme = jams.GetValueOrDefault(p.AnimJamNumber, ""),
+                    Theme = jams.GetValueOrDefault((p.EventType, p.AnimJamNumber), ""),
+                    EventType = p.EventType,
                     WorkUrl = p.WorkUrl,
                     MessageUrl = p.MessageUrl,
                     Nomination = jamWins
-                        .Where(w => w.Nomination != NominationType.HonorableMention)
-                        .Select(w => (NominationType?)w.Nomination)
-                        .FirstOrDefault(),
+                                .Where(w => w.Nomination != NominationType.HonorableMention)
+                                .Select(w => (NominationType?)w.Nomination)
+                                .FirstOrDefault(),
                     NominationDisplay = BuildNominationDisplay(jamWins, p.AnimJamNumber),
                     NominationDisplayHtml = BuildNominationDisplayHtml(jamWins, p.AnimJamNumber),
                     BadgeHtml = BuildBadgeHtml(jamWins, p.AnimJamNumber)

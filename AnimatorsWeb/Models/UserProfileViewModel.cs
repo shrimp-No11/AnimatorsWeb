@@ -23,5 +23,11 @@
         public int FirstParticipationDate { get; set; }
 
         public List<LinkedAccountDisplay> LinkedAccounts { get; set; } = new();
+
+        public string Tab { get; set; } = "anijam";
+        public int AniJamWinsCount { get; set; }
+        public int ArtJamWinsCount { get; set; }
+        public int AniJamParticipationsCount { get; set; }
+        public int ArtJamParticipationsCount { get; set; }
     }
 }

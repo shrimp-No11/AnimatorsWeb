@@ -2,7 +2,7 @@
 @using AnimatorsWeb.Models
 
 @{
-    ViewData["Title"] = $"Редактор аниджема #{Model.Number}";
+    ViewData["Title"] = $"Редактор {Model.EventTypeLabel} #{Model.Number}";
 }
 
 <style>
@@ -216,11 +216,18 @@
     }
 </style>
 
-<h1>Редактор аниджема #@Model.Number</h1>
+<h1>Редактор @(Model.EventType == EventType.ArtJam ? "АртДжема" : "АниДжема") #@Model.Number</h1>
 <p style="color: gray;">@Model.Theme</p>
 
 <div style="margin-bottom: 20px;">
-    <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@Model.Number" class="btn btn-secondary">← Назад к аниджему</a>
+    @if (Model.EventType == EventType.ArtJam)
+    {
+        <a asp-controller="Events" asp-action="Details" asp-route-type="ArtJam" asp-route-number="@Model.Number" class="btn btn-secondary">← К АртДжему</a>
+    }
+    else
+    {
+        <a asp-controller="AnimJams" asp-action="Details" asp-route-number="@Model.Number" class="btn btn-secondary">← К аниджему</a>
+    }
     <button type="button" class="btn btn-primary" onclick="openNewWorkModal()" style="margin-left: 10px;">➕ Добавить работу</button>
 </div>
 <div style="border: 1px solid #ddd; border-radius: 10px; padding: 18px; margin-bottom: 20px; background: #fafafa;">
@@ -443,7 +450,8 @@ else
                 newNumber: newNumber,
                 theme: theme,
                 startDateUtc: startUtc,
-                endDateUtc: endUtc
+                endDateUtc: endUtc,
+                eventType: '@Model.EventTypeLabel'
             })
         })
         .then(r => r.json())
@@ -451,7 +459,7 @@ else
             if (data.success) {
                 // Если номер изменился — переходим на новую страницу
                 if (data.newNumber && data.newNumber !== @Model.Number) {
-                    window.location.href = '/Moderator/EditAnimJam/' + data.newNumber;
+                    window.location.href = `/Moderator/EditAnimJam?number=${data.newNumber}&eventType=@Model.EventTypeLabel`;
                 } else {
                     location.reload();
                 }
@@ -481,12 +489,15 @@ else
         fetch('/Moderator/DeleteAnimJam', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ number: '@Model.Number' })
+            body: new URLSearchParams({
+                number: '@Model.Number',
+                eventType: '@Model.EventTypeLabel'
+            })
         })
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                window.location.href = '/AnimJams';
+                window.location.href = '@(Model.EventType == EventType.ArtJam ? "/Events?tab=artjam" : "/Events?tab=anijam")';
             } else {
                 alert(data.error || 'Ошибка');
             }
@@ -628,10 +639,6 @@ else
     }
 
 
-    document.getElementById('peopleList').addEventListener('input', e => {
-        if (e.target.classList.contains('person-name')) syncPersonId(e.target);
-    });
-
     function escapeHtml(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -667,6 +674,7 @@ else
         formData.append('workUrl', workUrl);
         formData.append('messageUrl', messageUrl);
         formData.append('nomination', nomination);
+        formData.append('eventType', '@Model.EventTypeLabel');
 
         people.forEach((p, i) => {
             formData.append(`people[${i}].DiscordUserId`, p.discordUserId);
@@ -707,7 +715,11 @@ else
         fetch('/Moderator/DeleteWork', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ animJamNumber: '@Model.Number', groupKey: groupKey })
+            body: new URLSearchParams({
+                animJamNumber: '@Model.Number',
+                groupKey: groupKey,
+                eventType: '@Model.EventTypeLabel'
+            })
         })
         .then(r => r.json())
         .then(data => {

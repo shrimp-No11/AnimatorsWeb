@@ -290,6 +290,52 @@
             padding: 15px;
         }
     }
+    .profile-tabs {
+        display: flex;
+        gap: 4px;
+        margin: 16px 0 20px;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        flex-wrap: wrap;
+    }
+    .profile-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        text-decoration: none;
+        color: #666;
+        font-weight: 700;
+        font-size: 14px;
+        border-radius: 10px 10px 0 0;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color .15s, background .15s, border-color .15s;
+    }
+    .profile-tab:hover {
+        color: var(--brand-text, #333);
+        background: rgba(0,0,0,0.04);
+    }
+    .profile-tab.active {
+        color: var(--brand-primary, #e8743b);
+        border-bottom-color: var(--brand-primary, #e8743b);
+    }
+    .profile-tab-count {
+        display: inline-flex;
+        min-width: 24px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 6px;
+        background: rgba(0,0,0,0.06);
+        color: #666;
+        font-size: 11px;
+        font-weight: 700;
+        align-items: center;
+        justify-content: center;
+    }
+    .profile-tab.active .profile-tab-count {
+        background: color-mix(in srgb, var(--brand-primary, #e8743b) 15%, transparent);
+        color: var(--brand-primary, #e8743b);
+    }
 </style>
 
 <div class="profile-page">
@@ -345,6 +391,22 @@
         </div>
     </section>
 
+    <div class="profile-tabs">
+        <a asp-action="@(ViewContext.RouteData.Values["action"]?.ToString())"
+           asp-route-id="@Model.DiscordUserId"
+           asp-route-tab="anijam"
+           class="profile-tab @(Model.Tab == "anijam" ? "active" : "")">
+            АниДжем <span class="profile-tab-count">@Model.AniJamWinsCount</span>
+        </a>
+        <a asp-action="@(ViewContext.RouteData.Values["action"]?.ToString())"
+           asp-route-id="@Model.DiscordUserId"
+           asp-route-tab="artjam"
+           class="profile-tab @(Model.Tab == "artjam" ? "active" : "")">
+            АртДжем <span class="profile-tab-count">@Model.ArtJamWinsCount</span>
+        </a>
+    </div>
+
+
     <section class="profile-stats" aria-label="Статистика участника">
         <div class="profile-stat-card">
             <p class="profile-stat-label">Участий</p>
@@ -357,44 +419,47 @@
         </div>
     </section>
 
-    <section class="profile-wins-card">
-        <h3 class="profile-section-title">Статистика наград</h3>
+    @if (Model.Tab == "anijam")
+    {
+        <section class="profile-wins-card">
+            <h3 class="profile-section-title">Статистика наград</h3>
 
-        <ul class="profile-wins-list">
-            <li class="profile-win-item">
-                <span aria-hidden="true">@EmojiHelper.Star</span>
-                <span class="profile-win-label">Лучшая идея</span>
-                <span class="profile-win-value">@Model.IdeaWins</span>
-            </li>
+            <ul class="profile-wins-list">
+                <li class="profile-win-item">
+                    <span aria-hidden="true">@EmojiHelper.Star</span>
+                    <span class="profile-win-label">Лучшая идея</span>
+                    <span class="profile-win-value">@Model.IdeaWins</span>
+                </li>
 
-            <li class="profile-win-item">
-                <span aria-hidden="true">@EmojiHelper.Hammer</span>
-                <span class="profile-win-label">Лучшее техническое исполнение</span>
-                <span class="profile-win-value">@Model.TechnicalWins</span>
-            </li>
+                <li class="profile-win-item">
+                    <span aria-hidden="true">@EmojiHelper.Hammer</span>
+                    <span class="profile-win-label">Лучшее техническое исполнение</span>
+                    <span class="profile-win-value">@Model.TechnicalWins</span>
+                </li>
 
-            <li class="profile-win-item"
+                <li class="profile-win-item"
                 title="Победа в обеих номинациях одного аниджема: и лучшая идея, и лучшее техническое исполнение — одной работой">
-                <span aria-hidden="true">@EmojiHelper.Medal</span>
-                <span class="profile-win-label">Абсолютная победа</span>
-                <span class="profile-win-value">@Model.AbsoluteVictoriesCount</span>
-            </li>
+                    <span aria-hidden="true">@EmojiHelper.Medal</span>
+                    <span class="profile-win-label">Абсолютная победа</span>
+                    <span class="profile-win-value">@Model.AbsoluteVictoriesCount</span>
+                </li>
 
-            <li class="profile-win-item"
+                <li class="profile-win-item"
                 title="Победа в старой номинации «Победитель аниджема» (до разделения на идею и технику)">
-                <span aria-hidden="true">@EmojiHelper.Trophy</span>
-                <span class="profile-win-label">Победа старого формата</span>
-                <span class="profile-win-value">@Model.LegacyVictoriesCount</span>
-            </li>
+                    <span aria-hidden="true">@EmojiHelper.Trophy</span>
+                    <span class="profile-win-label">Победа старого формата</span>
+                    <span class="profile-win-value">@Model.LegacyVictoriesCount</span>
+                </li>
 
-            <li class="profile-win-item"
+                <li class="profile-win-item"
                 title="Золотая какаха — забавная номинация, не считается за победу">
-                <span aria-hidden="true">@Html.Raw(EmojiHelper.GoldPoopHtml)</span>
-                <span class="profile-win-label">Почётное упоминание <span class="profile-meta-text">(не победа)</span></span>
-                <span class="profile-win-value">@Model.HonorableWins</span>
-            </li>
-        </ul>
-    </section>
+                    <span aria-hidden="true">@Html.Raw(EmojiHelper.GoldPoopHtml)</span>
+                    <span class="profile-win-label">Почётное упоминание <span class="profile-meta-text">(не победа)</span></span>
+                    <span class="profile-win-value">@Model.HonorableWins</span>
+                </li>
+            </ul>
+        </section>
+    }
 
     <div class="profile-footer">
         <a asp-action="Works"

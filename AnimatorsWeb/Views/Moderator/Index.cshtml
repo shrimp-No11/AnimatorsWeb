@@ -122,6 +122,42 @@
     .mod-settings .settings-body {
         padding: 18px;
     }
+
+    .mod-channels-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+        max-width: 1200px;
+    }
+
+    .mod-channels-col h4 {
+        margin: 0 0 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--surface-border);
+        color: var(--brand-text);
+    }
+
+    .mod-channels-col .form-group {
+        margin-bottom: 12px;
+    }
+
+        .mod-channels-col .form-group label {
+            font-size: 13px;
+            color: color-mix(in srgb, var(--brand-text) 70%, transparent);
+            margin-bottom: 4px;
+        }
+
+    .mod-channels-actions {
+        margin-top: 24px;
+        padding-top: 16px;
+        border-top: 1px solid var(--surface-border);
+    }
+
+    @@media (min-width: 900px) {
+        .mod-channels-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
 </style>
 
 <h1>Модераторская панель</h1>
@@ -145,7 +181,7 @@
             <h3 class="mod-card-title">AniJam</h3>
         </div>
         <a asp-action="ChooseTheme" class="mod-link">Голосование за тему</a>
-        <a asp-action="CreateAnimJam" class="mod-link">Старт аниджема</a>
+        <a asp-action="CreateAnimJam" class="mod-link">Старт ивента</a>
         <a asp-action="CreateWinnerPoll" class="mod-link">Голосование за победителей</a>
         <a asp-action="AnnounceWinners" class="mod-link">Объявить победителей</a>
     </div>
@@ -155,7 +191,10 @@
             <span class="mod-card-icon">🎨</span>
             <h3 class="mod-card-title">ArtJam</h3>
         </div>
-        work in progress
+        <a asp-action="ArtJamChooseTheme" class="mod-link">Голосование за тему</a>
+        <a asp-action="ArtJamCreate" class="mod-link">Старт ивента</a>
+        <a asp-action="ArtJamCreateWinnerPoll" class="mod-link">Голосование за победителей</a>
+        <a asp-action="ArtJamAnnounceWinners" class="mod-link">Объявить победителей</a>
     </div>
 
     <div class="mod-card">
@@ -198,44 +237,82 @@
     </summary>
 
     <div class="settings-body">
-        <p>
-            <i>
-                Один раз настраиваются здесь, используются автоматически на всех страницах действий.
-            </i>
-        </p>
+
 
         <form asp-action="SaveChannels" method="post">
             <input type="hidden" asp-for="Settings.Id" />
 
-            <div class="form-group">
-                <label>Канал для голосования за тему</label>
-                <select asp-for="Settings.ThemePollChannelId" asp-items="Model.ChannelList" class="form-control">
-                    <option value="">-- Не выбрано --</option>
-                </select>
+            <div class="mod-channels-grid">
+
+                <div class="mod-channels-col">
+                    <h4>АниДжем</h4>
+
+                    <div class="form-group">
+                        <label>Канал для голосования за тему</label>
+                        <select asp-for="Settings.ThemePollChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Канал для старта ивента</label>
+                        <select asp-for="Settings.AnimJamStartChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Канал для голосования за победителей</label>
+                        <select asp-for="Settings.WinnerPollChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Канал для объявления победителей</label>
+                        <select asp-for="Settings.WinnersAnnouncementChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mod-channels-col">
+                    <h4>АртДжем</h4>
+
+                    <div class="form-group">
+                        <label>Канал для голосования за тему</label>
+                        <select asp-for="Settings.ArtJamThemePollChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Канал для старта ивента</label>
+                        <select asp-for="Settings.ArtJamStartChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Канал для голосования за победителей</label>
+                        <select asp-for="Settings.ArtJamWinnerPollChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Канал для объявления победителей</label>
+                        <select asp-for="Settings.ArtJamWinnersAnnouncementChannelId" asp-items="Model.ChannelList" class="form-control">
+                            <option value="">-- Не выбрано --</option>
+                        </select>
+                    </div>
+                </div>
+
             </div>
 
-            <div class="form-group">
-                <label>Канал для старта аниджема</label>
-                <select asp-for="Settings.AnimJamStartChannelId" asp-items="Model.ChannelList" class="form-control">
-                    <option value="">-- Не выбрано --</option>
-                </select>
+            <div class="mod-channels-actions">
+                <button type="submit" class="btn btn-primary">Сохранить настройки</button>
             </div>
-
-            <div class="form-group">
-                <label>Канал для голосования за победителя</label>
-                <select asp-for="Settings.WinnerPollChannelId" asp-items="Model.ChannelList" class="form-control">
-                    <option value="">-- Не выбрано --</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Канал для объявления победителей</label>
-                <select asp-for="Settings.WinnersAnnouncementChannelId" asp-items="Model.ChannelList" class="form-control">
-                    <option value="">-- Не выбрано --</option>
-                </select>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Сохранить настройки</button>
         </form>
     </div>
 </details>

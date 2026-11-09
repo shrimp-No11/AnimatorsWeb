@@ -116,5 +116,48 @@ namespace AnimatorsWeb.Controllers
 
             return "application/octet-stream";
         }
+
+        public async Task<IActionResult> StreamAttachment(int id, int index)
+        {
+            var p = await _db.Participants.FindAsync(id);
+            if (p == null) return NotFound();
+
+            var cacheKey = $"attach_{id}_{index}";
+
+            if (_cache.TryGetValue(cacheKey, out byte[]? cached) && cached != null)
+            {
+                var type = GuessContentType(p.WorkUrl);
+                return File(cached, type, enableRangeProcessing: true);
+            }
+
+            var attachments = await _discord.GetFreshAttachmentsAsync(p.MessageUrl);
+            if (index < 0 || index >= attachments.Count) return NotFound();
+
+            var url = attachments[index].Url;
+            if (string.IsNullOrEmpty(url)) return NotFound();
+
+            byte[] bytes;
+            string contentType;
+
+            try
+            {
+                using var http = new HttpClient();
+                http.Timeout = TimeSpan.FromMinutes(5);
+                using var resp = await http.GetAsync(url);
+                if (!resp.IsSuccessStatusCode) return NotFound();
+
+                bytes = await resp.Content.ReadAsByteArrayAsync();
+                contentType = resp.Content.Headers.ContentType?.MediaType ?? GuessContentType(url);
+            }
+            catch { return NotFound(); }
+
+            _cache.Set(cacheKey, bytes, new MemoryCacheEntryOptions
+            {
+                Size = bytes.Length,
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(6)
+            });
+
+            return File(bytes, contentType, enableRangeProcessing: true);
+        }
     }
 }

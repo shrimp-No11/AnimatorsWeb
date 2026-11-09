@@ -1,0 +1,307 @@
+﻿@model AnimatorsWeb.Models.ChannelSelectViewModel
+
+@{
+    ViewData["Title"] = "Голосование за тему";
+    var eventNumber = ViewBag.NextNumber ?? 1;
+}
+
+<style>
+    .theme-form {
+        max-width: 720px;
+        margin-top: 20px;
+    }
+
+        .theme-form > .form-group {
+            margin-bottom: 20px;
+        }
+
+            .theme-form > .form-group label {
+                display: block;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                color: color-mix(in srgb, var(--brand-text) 55%, transparent);
+                margin-bottom: 6px;
+            }
+
+            .theme-form > .form-group select {
+                width: 100%;
+                padding: 10px 14px;
+                border: 1px solid color-mix(in srgb, var(--brand-text) 15%, transparent);
+                border-radius: 8px;
+                background: color-mix(in srgb, var(--brand-card) 70%, transparent);
+                color: var(--brand-text);
+                font-size: 15px;
+            }
+
+    /* Панель-рамка */
+    .theme-panel {
+        border: 1px solid color-mix(in srgb, var(--brand-text) 15%, transparent);
+        border-radius: 12px;
+        padding: 20px 22px;
+        background: color-mix(in srgb, var(--brand-card) 60%, transparent);
+        margin-bottom: 20px;
+    }
+
+    .theme-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--brand-text);
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+    }
+
+        .theme-panel-title input {
+            width: 70px;
+            padding: 4px 8px;
+            border: 1px solid color-mix(in srgb, var(--brand-text) 20%, transparent);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--brand-primary);
+            font-size: 16px;
+            font-weight: 700;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+            .theme-panel-title input:focus {
+                border-color: var(--brand-primary);
+            }
+
+    .theme-panel-subtitle {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: color-mix(in srgb, var(--brand-text) 55%, transparent);
+        margin-bottom: 10px;
+    }
+
+    .theme-options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .theme-option {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 15%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--brand-card) 70%, transparent);
+        transition: border-color 0.15s;
+    }
+
+        .theme-option:focus-within {
+            border-color: var(--brand-primary);
+        }
+
+    .theme-num {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--brand-primary) 20%, transparent);
+        color: var(--brand-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+        margin-left: 4px;
+    }
+
+    .theme-option input {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 6px;
+        border: none;
+        background: transparent;
+        color: var(--brand-text);
+        font-size: 14px;
+        outline: none;
+    }
+
+        .theme-option input::placeholder {
+            color: color-mix(in srgb, var(--brand-text) 40%, transparent);
+        }
+
+    .theme-remove {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        margin-right: 2px;
+        border: none;
+        background: transparent;
+        color: color-mix(in srgb, var(--brand-text) 45%, transparent);
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s, color 0.15s;
+    }
+
+        .theme-remove:hover {
+            background: color-mix(in srgb, #b3261e 15%, transparent);
+            color: #b3261e;
+        }
+
+    .theme-add {
+        padding: 9px 16px;
+        border: 1px dashed color-mix(in srgb, var(--brand-text) 25%, transparent);
+        background: transparent;
+        color: color-mix(in srgb, var(--brand-text) 70%, transparent);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        transition: border-color 0.15s, color 0.15s;
+    }
+
+        .theme-add:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+
+    .theme-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        color: color-mix(in srgb, var(--brand-text) 75%, transparent);
+        padding-top: 12px;
+        border-top: 1px solid color-mix(in srgb, var(--brand-text) 10%, transparent);
+        width: 100%;
+    }
+
+        .theme-check input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--brand-primary);
+            cursor: pointer;
+        }
+
+    .theme-result {
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        font-size: 14px;
+    }
+
+        .theme-result.ok {
+            background: #e7f7ec;
+            color: #1a7f37;
+            border: 1px solid #b9e5c4;
+        }
+
+        .theme-result.err {
+            background: #fdecea;
+            color: #b3261e;
+            border: 1px solid #f5c2be;
+        }
+</style>
+
+
+@if (ViewBag.Error != null)
+{
+    <div class="theme-result err">@ViewBag.Error</div>
+}
+@if (ViewBag.Result != null)
+{
+    <div class="theme-result ok">@ViewBag.Result</div>
+}
+
+<form asp-action="PublishThemePoll" method="post" class="theme-form">
+
+    <div class="form-group">
+        <label asp-for="SelectedChannelId">Канал для публикации</label>
+        <select asp-for="SelectedChannelId" asp-items="Model.ChannelList">
+            <option value="">-- Выберите канал --</option>
+        </select>
+    </div>
+
+    <div class="theme-panel">
+        <div class="theme-panel-title">
+            Голосование за тему ArtJam #
+            <input type="number" name="animJamNumber" value="@eventNumber" required min="1" />
+        </div>
+
+        <div class="theme-panel-subtitle">Варианты</div>
+
+        <div id="themes-container" class="theme-options">
+            @for (int i = 0; i < 4; i++)
+            {
+                <div class="theme-option">
+                    <span class="theme-num">@(i + 1)</span>
+                    <input type="text" name="themes" />
+                    <button type="button" class="theme-remove" onclick="removeTheme(this)" title="Удалить">×</button>
+                </div>
+            }
+        </div>
+
+        <button type="button" class="theme-add" onclick="addTheme()">+ Добавить вариант</button>
+
+        <label class="theme-check">
+            <input type="checkbox" name="allowMulti" value="true" />
+            <span>Разрешить несколько вариантов ответа</span>
+        </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Опубликовать голосование</button>
+</form>
+
+<p style="margin-top: 24px;"><a asp-action="Index">← Назад в модераторскую</a></p>
+
+<script>
+    const container = document.getElementById('themes-container');
+    const MAX = 10;
+    const MIN = 2;
+
+    function addTheme() {
+        const rows = container.querySelectorAll('.theme-option');
+        if (rows.length >= MAX) {
+            alert('Максимум 10 тем');
+            return;
+        }
+
+        const row = document.createElement('div');
+        row.className = 'theme-option';
+        row.innerHTML = `
+            <span class="theme-num"></span>
+            <input type="text" name="themes" />
+            <button type="button" class="theme-remove" onclick="removeTheme(this)" title="Удалить">×</button>
+        `;
+        container.appendChild(row);
+        renumber();
+    }
+
+    function removeTheme(btn) {
+        const rows = container.querySelectorAll('.theme-option');
+        if (rows.length <= MIN) {
+            alert('Должно быть минимум 2 темы');
+            return;
+        }
+        btn.closest('.theme-option').remove();
+        renumber();
+    }
+
+    function renumber() {
+        container.querySelectorAll('.theme-option').forEach((row, i) => {
+            row.querySelector('.theme-num').textContent = i + 1;
+            row.querySelector('input').placeholder = `Тема ${i + 1}`;
+        });
+    }
+</script>

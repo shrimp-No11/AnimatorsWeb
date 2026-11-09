@@ -7,10 +7,14 @@ namespace AnimatorsWeb.Models
         public string DisplayName { get; set; } = "";
         public List<UserWorkItem> Works { get; set; } = new();
         public ulong DiscordUserId { get; set; }
+        public string Tab { get; set; } = "anijam";
+        public int AniJamWorksCount { get; set; }
+        public int ArtJamWorksCount { get; set; }
     }
 
     public class UserWorkItem
     {
+        public EventType EventType { get; set; } = EventType.AniJam;
         public int Id { get; set; }
         public int AnimJamNumber { get; set; }
         public string Theme { get; set; } = "";

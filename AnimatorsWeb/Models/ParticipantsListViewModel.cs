@@ -3,10 +3,16 @@
     public class ParticipantsListViewModel
     {
         public List<ParticipantRow> Rows { get; set; } = new();
+        public string Tab { get; set; } = "anijam";
+        public int AniJamCount { get; set; }
+        public int ArtJamCount { get; set; }
+        public int TotalCount { get; set; }
     }
 
     public class ParticipantRow
     {
+        public EventType FirstEventType { get; set; } = EventType.AniJam;
+        public EventType LastEventType { get; set; } = EventType.AniJam;
         public ulong DiscordUserId { get; set; }
         public string DisplayName { get; set; } = "";
 

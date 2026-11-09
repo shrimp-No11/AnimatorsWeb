@@ -503,7 +503,8 @@
         }
         @if (User.HasClaim("is_moderator", "true"))
         {
-            <a asp-controller="Moderator" asp-action="EditAnimJam" asp-route-number="@Model.Number"
+            <a asp-controller="Moderator" asp-action="EditAnimJam"
+               asp-route-number="@Model.Number" asp-route-eventType="AniJam"
                class="detail-button">🛠 редактировать</a>
         }
     </nav>

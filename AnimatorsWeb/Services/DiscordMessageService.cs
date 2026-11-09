@@ -1,4 +1,5 @@
-﻿using AnimatorsWeb.Services;
+﻿using AnimatorsWeb.Models;
+using AnimatorsWeb.Services;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using System.Net.Http;
@@ -87,15 +88,20 @@ public class DiscordMessageService
 
         Console.WriteLine($"Роль победителей обновлена: снята у {membersWithRole.Count}, выдана {uniqueIds.Count}");
     }
-    public async Task<ulong> SendThemePollAsync(ulong channelId, int animJamNumber, List<string> themes)
+    public async Task<ulong> SendThemePollAsync(
+    ulong channelId, int eventNumber, List<string> themes,
+    AnimatorsWeb.Models.EventType eventType, bool allowMulti = false)
     {
         var channel = await _client.GetChannelAsync(channelId);
         if (channel == null)
             throw new InvalidOperationException($"Канал {channelId} не найден.");
 
+        var label = eventType == AnimatorsWeb.Models.EventType.ArtJam ? "АртДжема" : "аниджема";
+
         var poll = new DiscordPollBuilder()
-            .WithQuestion($"Голосование за тему аниджема #{animJamNumber}")
-            .WithDuration(24);
+            .WithQuestion($"Голосование за тему {label} #{eventNumber}")
+            .WithDuration(24)
+            .AsMultipleChoice(allowMulti);
 
         foreach (var theme in themes.Take(10))
             poll.AddOption(theme);
@@ -103,7 +109,7 @@ public class DiscordMessageService
         var builder = new DiscordMessageBuilder().WithPoll(poll);
         var message = await builder.SendAsync(channel);
 
-        return message.Id; // ← ID сообщения
+        return message.Id;
     }
     public async Task<DiscordPoll?> GetPollResultAsync(ulong channelId, ulong messageId)
     {
@@ -363,7 +369,7 @@ public class DiscordMessageService
         return message.Id;
     }
     public async Task<ulong> SendCustomPollAsync(
-    ulong channelId, string question, List<string> options, int durationHours)
+    ulong channelId, string question, List<string> options, int durationHours, bool allowMulti = false)
     {
         var channel = await _client.GetChannelAsync(channelId);
         if (channel == null)
@@ -371,7 +377,8 @@ public class DiscordMessageService
 
         var poll = new DiscordPollBuilder()
             .WithQuestion(question)
-            .WithDuration(durationHours);
+            .WithDuration(durationHours)
+            .AsMultipleChoice(allowMulti);
 
         foreach (var opt in options.Take(10))
             poll.AddOption(opt);
@@ -1227,6 +1234,112 @@ public class DiscordMessageService
             }
             catch { }
         }
+    }
+
+
+    public async Task<List<(string FileName, string Url)>> GetFreshAttachmentsAsync(string messageUrl)
+    {
+        var (chId, msgId) = DiscordLinkParser.ParseMessageUrl(messageUrl);
+        if (chId == null || msgId == null) return new List<(string, string)>();
+
+        try
+        {
+            var channel = await _client.GetChannelAsync(chId.Value);
+            if (channel == null) return new List<(string, string)>();
+
+            var msg = await channel.GetMessageAsync(msgId.Value);
+            if (msg?.Attachments == null) return new List<(string, string)>();
+
+            return msg.Attachments
+                .Where(a => a.Url != null)
+                .Select(a => (a.FileName ?? "file", a.Url.ToString()))
+                .ToList();
+        }
+        catch { return new List<(string, string)>(); }
+    }
+    public async Task<ulong> SendMessageWithFilesAndMentionsAsync(
+    ulong channelId,
+    string content,
+    List<(string FileName, Stream Stream)> files,
+    IEnumerable<ulong> userIds)
+    {
+        var channel = await _client.GetChannelAsync(channelId);
+        if (channel == null)
+            throw new InvalidOperationException($"Канал {channelId} не найден.");
+
+        var mentions = userIds
+            .Where(id => id != 0)
+            .Select(id => (IMention)new UserMention(id))
+            .ToArray();
+
+        var builder = new DiscordMessageBuilder().WithContent(content ?? "");
+
+        foreach (var f in files)
+            builder.AddFile(f.FileName, f.Stream);
+
+        if (mentions.Length > 0)
+            builder.WithAllowedMentions(mentions);
+
+        var message = await builder.SendAsync(channel);
+        return message.Id;
+    }
+    public async Task<Dictionary<string, HashSet<ulong>>> CollectVotesByWorkAsync(
+    List<(ulong ChannelId, ulong MessageId)> pollMessages,
+    List<PollTeam> savedTeams)
+    {
+        var votes = new Dictionary<string, HashSet<ulong>>();
+
+        foreach (var msg in pollMessages)
+        {
+            var results = await GetPollResultsAsync(msg.ChannelId, msg.MessageId);
+            if (results == null) continue;
+
+            foreach (var ans in results.Answers)
+            {
+                if (ans.Text == "#голосую в другом опросе") continue;
+
+                var voters = await GetVotersAsync(msg.ChannelId, msg.MessageId, ans.AnswerId);
+
+                var team = savedTeams.FirstOrDefault(t =>
+                    FormatTeamNamesStatic(t.Participants.Select(p => p.DisplayName).ToList()) == ans.Text);
+
+                var authorIds = team?.Participants
+                    .Where(p => p.DiscordUserId != 0)
+                    .Select(p => p.DiscordUserId)
+                    .ToHashSet() ?? new HashSet<ulong>();
+
+                if (!votes.TryGetValue(ans.Text, out var set))
+                {
+                    set = new HashSet<ulong>();
+                    votes[ans.Text] = set;
+                }
+
+                foreach (var voter in voters)
+                {
+                    if (authorIds.Contains(voter)) continue;  // самоголосование
+                    set.Add(voter);
+                }
+            }
+        }
+
+        return votes;
+    }
+
+    private static string FormatTeamNamesStatic(List<string> names)
+    {
+        if (names.Count == 0) return "";
+        if (names.Count == 1) return names[0];
+        if (names.Count == 2) return $"{names[0]} и {names[1]}";
+        return string.Join(", ", names.Take(names.Count - 1)) + " и " + names.Last();
+    }
+    public async Task<ulong> SendMessageAsyncReturnId(ulong channelId, string message)
+    {
+        var channel = await _client.GetChannelAsync(channelId);
+        if (channel == null)
+            throw new InvalidOperationException($"Канал {channelId} не найден.");
+
+        var msg = await channel.SendMessageAsync(message);
+        return msg.Id;
     }
 
 }

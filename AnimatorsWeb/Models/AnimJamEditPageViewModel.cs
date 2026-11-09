@@ -9,6 +9,8 @@
         public List<DbMemberOption> DbMembers { get; set; } = new();
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
+        public EventType EventType { get; set; } = EventType.AniJam;
+        public string EventTypeLabel => EventType == EventType.ArtJam ? "ArtJam" : "AniJam";
     }
     public class DbMemberOption
     {
