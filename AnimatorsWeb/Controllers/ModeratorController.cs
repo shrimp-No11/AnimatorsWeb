@@ -3552,7 +3552,7 @@ namespace AnimatorsWeb.Controllers
             await _db.SaveChangesAsync();
 
             TempData["Result"] = $"АртДжем #{nextNumber} создан. Заполните данные в редакторе.";
-            return RedirectToAction("Index");
+            return RedirectToAction("EditAnimJam", new { number = nextNumber, eventType = "ArtJam" });
         }
 
     }

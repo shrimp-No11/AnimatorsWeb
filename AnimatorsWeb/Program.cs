@@ -41,6 +41,7 @@ builder.Services.AddDiscordClient(
         | DiscordIntents.GuildMembers
         | DiscordIntents.GuildMessageReactions
 );
+builder.Services.AddHostedService<ThumbnailCleanupService>();
 
 builder.Services.ConfigureEventHandlers(handling => handling
     .AddEventHandlers<BotStartedHandler>(ServiceLifetime.Singleton)
@@ -101,6 +102,7 @@ builder.Services.AddAuthentication(options =>
             context.Identity.AddClaim(new Claim(ClaimTypes.Name, context.User.GetProperty("username").GetString()));
         };
     });
+
 // настройка политики
 builder.Services.AddAuthorization(options =>
 {
@@ -116,6 +118,8 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<PaletteExtractionService>();
 builder.Services.AddScoped<DesignSettingsService>();
 builder.Services.AddSingleton<FeaturedThumbnailService>();
+
+
 
 var app = builder.Build();
 

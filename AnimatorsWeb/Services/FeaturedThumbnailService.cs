@@ -93,21 +93,45 @@ namespace AnimatorsWeb.Services
             {
                 Directory.CreateDirectory(FolderPath);
 
-                // YouTube — ImageSharp (mqdefault.jpg маленький, 320x180, безопасно)
+                // YouTube — ImageSharp
                 var ytId = YouTubeHelper.ExtractId(workUrl);
                 if (ytId != null)
-                {
                     return await DownloadAndResizeAsync(
                         $"https://img.youtube.com/vi/{ytId}/mqdefault.jpg", participantId);
+
+                // Видео — ffmpeg
+                if (mediaType == "video")
+                {
+                    var freshUrl = await TryGetFreshAttachmentAsync(messageUrl);
+                    if (string.IsNullOrEmpty(freshUrl)) return false;
+                    return await ExtractFrameViaFfmpegAsync(freshUrl, participantId);
                 }
 
-                // Всё остальное (video, gif, png, jpg) — через ffmpeg
-                if (mediaType == "video" || mediaType == "image")
+                // Картинки (png/jpg/webp) — ImageSharp. Только очень большие файлы (>40 МБ) — через ffmpeg
+                if (mediaType == "image")
                 {
                     var freshUrl = await TryGetFreshAttachmentAsync(messageUrl);
                     if (string.IsNullOrEmpty(freshUrl)) return false;
 
-                    return await ExtractFrameViaFfmpegAsync(freshUrl, participantId);
+                    // Проверяем размер через HEAD
+                    long len = 0;
+                    try
+                    {
+                        var http = _httpFactory.CreateClient();
+                        http.Timeout = TimeSpan.FromSeconds(15);
+                        using var headResp = await http.GetAsync(freshUrl, HttpCompletionOption.ResponseHeadersRead);
+                        if (headResp.IsSuccessStatusCode)
+                            len = headResp.Content.Headers.ContentLength ?? 0;
+                    }
+                    catch { }
+
+                    if (len > 40_000_000)
+                    {
+                        _logger.LogWarning("Huge image ({MB} MB), using ffmpeg for {Id}", len / 1_000_000, participantId);
+                        return await ExtractFrameViaFfmpegAsync(freshUrl, participantId);
+                    }
+
+                    return await DownloadAndResizeAsync(freshUrl, participantId);
                 }
 
                 return false;
@@ -176,7 +200,7 @@ namespace AnimatorsWeb.Services
                 if (process == null) return false;
 
                 var stderrTask = process.StandardError.ReadToEndAsync();
-                var timeout = Task.Delay(TimeSpan.FromSeconds(60));
+                var timeout = Task.Delay(TimeSpan.FromSeconds(120));
                 var completed = await Task.WhenAny(process.WaitForExitAsync(), timeout);
 
                 if (completed == timeout)
@@ -190,7 +214,8 @@ namespace AnimatorsWeb.Services
 
                 if (process.ExitCode != 0 || !System.IO.File.Exists(tmpOut))
                 {
-                    _logger.LogWarning("ffmpeg exit {Code} for {Id}", process.ExitCode, participantId);
+                    _logger.LogWarning("ffmpeg failed: exit={Code}, outputExists={Exists}, id={Id}",
+                        process.ExitCode, System.IO.File.Exists(tmpOut), participantId);
                     return false;
                 }
 
