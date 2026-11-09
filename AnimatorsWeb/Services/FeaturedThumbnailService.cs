@@ -19,8 +19,8 @@ namespace AnimatorsWeb.Services
         private static readonly SemaphoreSlim _concurrencyLimit = new(1, 1);
         public string GetFilePath(int participantId) => FilePath(participantId);
 
-        private const int Width = 214;
-        private const int Height = 134;
+        private const int Width = 320;
+        private const int Height = 200;
         private const int JpegQuality = 85;
 
         private static readonly ConcurrentDictionary<int, byte> _inProgress = new();
