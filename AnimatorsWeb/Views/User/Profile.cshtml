@@ -396,13 +396,13 @@
            asp-route-id="@Model.DiscordUserId"
            asp-route-tab="anijam"
            class="profile-tab @(Model.Tab == "anijam" ? "active" : "")">
-            АниДжем <span class="profile-tab-count">@Model.AniJamWinsCount</span>
+            АниДжем <span class="profile-tab-count">@Model.AniJamParticipationsCount</span>
         </a>
         <a asp-action="@(ViewContext.RouteData.Values["action"]?.ToString())"
            asp-route-id="@Model.DiscordUserId"
            asp-route-tab="artjam"
            class="profile-tab @(Model.Tab == "artjam" ? "active" : "")">
-            АртДжем <span class="profile-tab-count">@Model.ArtJamWinsCount</span>
+            АртДжем <span class="profile-tab-count">@Model.ArtJamParticipationsCount</span>
         </a>
     </div>
 
@@ -410,7 +410,7 @@
     <section class="profile-stats" aria-label="Статистика участника">
         <div class="profile-stat-card">
             <p class="profile-stat-label">Участий</p>
-            <p class="profile-stat-value">@Model.ParticipationsCount</p>
+            <p class="profile-stat-value">@Model.AniJamParticipationsCount</p>
         </div>
 
         <div class="profile-stat-card">
