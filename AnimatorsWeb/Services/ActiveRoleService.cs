@@ -258,20 +258,13 @@ namespace AnimatorsWeb.Services
 
             return result;
         }
-        /// <summary>
-        /// Граница очистки UserActivities: max(все окна) + 14 дней назад от «сегодня по МСК».
-        /// Используется и в Preview (для определения «первый/непервый прогон»),
-        /// и в фоновом сервисе (для чистки). Должна быть одинаковой.
-        /// </summary>
         public static DateOnly GetCleanupCutoff(ActiveRoleSettings settings)
         {
             int maxWindow = Math.Max(
-                Math.Max(
-                    settings.MessageEnabled ? settings.MessageWindowDays : 0,
-                    settings.VoiceEnabled ? settings.VoiceWindowDays : 0),
-                settings.EventEnabled ? settings.EventWindowDays : 0);
+                settings.MessageEnabled ? settings.MessageWindowDays : 0,
+                settings.VoiceEnabled ? settings.VoiceWindowDays : 0);
 
-            int keepDays = maxWindow + 14;
+            int keepDays = maxWindow + 7;
             var mskNow = DateTime.UtcNow.AddHours(3);
             return DateOnly.FromDateTime(mskNow.AddDays(-keepDays));
         }

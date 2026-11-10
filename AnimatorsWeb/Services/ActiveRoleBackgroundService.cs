@@ -85,7 +85,6 @@ namespace AnimatorsWeb.Services
             AnimatorsWeb.Models.ActiveRoleSettings? settings,
             CancellationToken ct)
         {
-            // Храним max(все окна) + 14 дней. Если settings нет — по умолчанию 30+14 = 44 дня.
             DateOnly cutoff;
             if (settings != null)
             {
@@ -93,9 +92,9 @@ namespace AnimatorsWeb.Services
             }
             else
             {
-                // Если настроек нет — дефолт: 30 + 14 = 44 дня.
+                // Если настроек нет — дефолт: 7 (окно по умолчанию) + 7 = 14 дней.
                 var mskNow = DateTime.UtcNow.AddHours(3);
-                cutoff = DateOnly.FromDateTime(mskNow.AddDays(-44));
+                cutoff = DateOnly.FromDateTime(mskNow.AddDays(-14));
             }
 
             var deleted = await db.UserActivities
