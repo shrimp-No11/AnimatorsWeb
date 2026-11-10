@@ -43,6 +43,7 @@ namespace AnimatorsWeb.Models
         public string ThumbnailUrl { get; set; } = "";
         public bool IsWinner { get; set; }
         public string BadgeHtml { get; set; } = "";
+        public int AttachmentsCount { get; set; } = 1;
     }
 
     public class ParticipantPerson

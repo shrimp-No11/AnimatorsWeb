@@ -300,7 +300,8 @@ namespace AnimatorsWeb.Controllers
                                 .FirstOrDefault(),
                     NominationDisplay = BuildNominationDisplay(jamWins, p.AnimJamNumber),
                     NominationDisplayHtml = BuildNominationDisplayHtml(jamWins, p.AnimJamNumber),
-                    BadgeHtml = BuildBadgeHtml(jamWins, p.AnimJamNumber)
+                    BadgeHtml = BuildBadgeHtml(jamWins, p.AnimJamNumber),
+                    AttachmentsCount = p.AttachmentCount
                 };
 
                 var ytId = YouTubeHelper.ExtractId(p.WorkUrl);

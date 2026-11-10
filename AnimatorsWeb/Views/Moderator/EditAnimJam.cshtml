@@ -357,14 +357,20 @@ else
         </div>
 
         <div class="form-group">
+            <label>Ссылка на сообщение в Discord</label>
+            <textarea id="workMessageUrl" rows="2" placeholder="https://discord.com/channels/.../..."></textarea>
+            <small style="color: gray; font-size: 12px;">Если заполнить и оставить WorkUrl пустым — система попробует достать файл из сообщения.</small>
+        </div>
+
+        <div class="form-group">
             <label>Ссылка на работу (YouTube или CDN)</label>
             <textarea id="workWorkUrl" rows="2" placeholder="https://youtu.be/... или https://cdn.discordapp.com/..."></textarea>
         </div>
 
-        <div class="form-group">
-            <label>Ссылка на сообщение в Discord</label>
-            <textarea id="workMessageUrl" rows="2" placeholder="https://discord.com/channels/.../..."></textarea>
-            <small style="color: gray; font-size: 12px;">Если заполнить и оставить WorkUrl пустым — система попробует достать файл из сообщения.</small>
+
+        <div class="form-group" id="primaryAttachmentBlock" style="display: none;">
+            <label>Главное вложение (превью и обложка)</label>
+            <div id="primaryAttachmentList" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>
         </div>
 
         <div class="form-group">
@@ -507,19 +513,20 @@ else
 
 
     const worksData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-        Model.Works.Select(w => new
-        {
-            groupKey = w.GroupKey,
-            workUrl = w.WorkUrl,
-            messageUrl = w.MessageUrl,
-            nomination = (int)w.Nomination,
-            people = w.People.Select(p => new
-            {
-                discordUserId = p.DiscordUserId.ToString(),
-                displayName = p.DisplayName
-            })
-        })
-    ));
+                Model.Works.Select(w => new
+                {
+                        groupKey = w.GroupKey,
+                        workUrl = w.WorkUrl,
+                        messageUrl = w.MessageUrl,
+                        nomination = (int)w.Nomination,
+                        primaryAttachmentIndex = w.PrimaryAttachmentIndex,
+                        people = w.People.Select(p => new
+                    {
+                                discordUserId = p.DiscordUserId.ToString(),
+                                displayName = p.DisplayName
+                    })
+                })
+                ));
 
 
     // === Справочники для автозаполнения ===
@@ -585,6 +592,7 @@ else
         document.getElementById('peopleList').innerHTML = '';
         addPersonRow();
         document.getElementById('workError').style.display = 'none';
+        document.getElementById('primaryAttachmentBlock').style.display = 'none';
         document.getElementById('workModal').classList.add('is-open');
     }
 
@@ -605,6 +613,8 @@ else
 
         document.getElementById('workError').style.display = 'none';
         document.getElementById('workModal').classList.add('is-open');
+
+        loadPrimaryAttachments(work.messageUrl || '', work.primaryAttachmentIndex || 0);
     }
 
     function closeWorkModal() {
@@ -639,11 +649,71 @@ else
     }
 
 
+    async function loadPrimaryAttachments(messageUrl, currentIndex) {
+        const block = document.getElementById('primaryAttachmentBlock');
+        const list = document.getElementById('primaryAttachmentList');
+        list.innerHTML = '';
+        block.style.display = 'none';
+
+        if (!messageUrl || !messageUrl.includes('discord.com/channels/')) return;
+
+        try {
+            const r = await fetch(`/Media/AttachmentInfoByUrl?messageUrl=${encodeURIComponent(messageUrl)}`);
+            if (!r.ok) return;
+            const data = await r.json();
+            if (!data || data.count <= 1) return;
+
+            const encodedUrl = encodeURIComponent(messageUrl);
+
+            list.innerHTML = data.items.map(item => {
+                const thumbSrc = `/Media/PreviewAttachmentByUrl?messageUrl=${encodedUrl}&index=${item.index}`;
+                const thumbInner = item.isVideo
+                    ? `<video preload="metadata" muted src="${thumbSrc}"
+                              style="width: 100%; height: 100%; object-fit: cover;"></video>`
+                    : `<img src="${thumbSrc}"
+                            style="width: 100%; height: 100%; object-fit: cover;"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                       <span style="display: none; font-size: 28px;">🖼</span>`;
+
+                return `
+                    <label style="display: flex; flex-direction: column; gap: 4px; cursor: pointer;
+                                  border: 2px solid ${item.index === currentIndex ? 'var(--brand-primary)' : '#ccc'};
+                                  border-radius: 8px; padding: 6px;
+                                  background: white; max-width: 160px;">
+                        <input type="radio" name="primaryAttachment" value="${item.index}"
+                               ${item.index === currentIndex ? 'checked' : ''}
+                               style="align-self: flex-start;" />
+                        <div style="width: 140px; height: 90px; border-radius: 4px; overflow: hidden;
+                                    background: #eee; display: flex; align-items: center; justify-content: center;">
+                            ${thumbInner}
+                        </div>
+                        <span style="font-size: 11px; color: #666; max-width: 140px;
+                                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${escapeHtml(item.fileName || '')}
+                        </span>
+                    </label>
+                `;
+            }).join('');
+
+            block.style.display = 'block';
+        } catch { }
+    }
+
+
     function escapeHtml(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         }[c]));
     }
+
+    let msgUrlDebounceTimer = null;
+    document.getElementById('workMessageUrl').addEventListener('input', () => {
+        clearTimeout(msgUrlDebounceTimer);
+        msgUrlDebounceTimer = setTimeout(() => {
+            const url = document.getElementById('workMessageUrl').value.trim();
+            loadPrimaryAttachments(url, 0);
+        }, 700);
+    });
 
     function saveWork() {
         const groupKey = parseInt(document.getElementById('workGroupKey').value) || 0;
@@ -675,6 +745,8 @@ else
         formData.append('messageUrl', messageUrl);
         formData.append('nomination', nomination);
         formData.append('eventType', '@Model.EventTypeLabel');
+        const selectedPrimary = document.querySelector('input[name="primaryAttachment"]:checked');
+        formData.append('primaryAttachmentIndex', selectedPrimary ? selectedPrimary.value : '0');
 
         people.forEach((p, i) => {
             formData.append(`people[${i}].DiscordUserId`, p.discordUserId);

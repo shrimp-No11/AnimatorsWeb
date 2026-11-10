@@ -2434,7 +2434,8 @@ namespace AnimatorsWeb.Controllers
                             DisplayName = g.First().DisplayName
                         })
                         .OrderBy(p => p.DisplayName)
-                        .ToList()
+                        .ToList(),
+                    PrimaryAttachmentIndex = first.PrimaryAttachmentIndex
                 });
             }
 
@@ -2473,7 +2474,8 @@ namespace AnimatorsWeb.Controllers
             string? messageUrl,
             NominationEditType nomination,
             [FromForm] List<EditPerson> people,
-            string? eventType)
+            string? eventType,
+            int primaryAttachmentIndex = 0)
         {
             var type = string.Equals(eventType, "ArtJam", StringComparison.OrdinalIgnoreCase)
                 ? EventType.ArtJam : EventType.AniJam;
@@ -2598,6 +2600,24 @@ namespace AnimatorsWeb.Controllers
                 _db.Participants.RemoveRange(oldGroup);
             }
 
+            // === Определяем количество вложений и главное ===
+            int attachmentCount = 1;
+            int safePrimaryIndex = 0;
+
+            if (!string.IsNullOrEmpty(finalMessageUrl))
+            {
+                try
+                {
+                    var atts = await _discord.GetFreshAttachmentsAsync(finalMessageUrl);
+                    if (atts.Count > 0)
+                    {
+                        attachmentCount = atts.Count;
+                        safePrimaryIndex = Math.Clamp(primaryAttachmentIndex, 0, attachmentCount - 1);
+                    }
+                }
+                catch { }
+            }
+
             // === Создаём новых Participant ===
             var newParticipants = validPeople.Select(person => new Participant
             {
@@ -2606,7 +2626,9 @@ namespace AnimatorsWeb.Controllers
                 DisplayName = person.DisplayName.Trim(),
                 WorkUrl = finalWorkUrl,
                 MessageUrl = finalMessageUrl,
-                EventType = type
+                EventType = type,
+                AttachmentCount = attachmentCount,
+                PrimaryAttachmentIndex = safePrimaryIndex
             }).ToList();
 
             _db.Participants.AddRange(newParticipants);
@@ -2652,7 +2674,8 @@ namespace AnimatorsWeb.Controllers
                     var wu = finalWorkUrl;
                     var mu = finalMessageUrl;
                     var mt = mediaType;
-                    _ = Task.Run(() => _thumbService.EnsureAsync(pid, wu, mu, mt));
+                    var pi = p.PrimaryAttachmentIndex;
+                    _ = Task.Run(() => _thumbService.EnsureAsync(pid, wu, mu, mt, pi));
                 }
             }
 

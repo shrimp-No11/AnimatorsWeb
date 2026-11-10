@@ -439,6 +439,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<int>("AnimJamNumber")
                         .HasColumnType("integer");
 
+                    b.Property<int>("AttachmentCount")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("DiscordUserId")
                         .HasColumnType("numeric(20,0)");
 
@@ -452,6 +455,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<string>("MessageUrl")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("PrimaryAttachmentIndex")
+                        .HasColumnType("integer");
 
                     b.Property<string>("WorkUrl")
                         .IsRequired()

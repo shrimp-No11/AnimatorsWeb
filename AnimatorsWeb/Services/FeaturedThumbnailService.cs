@@ -73,13 +73,13 @@ namespace AnimatorsWeb.Services
         /// Генерирует обложку, если её ещё нет. Возвращает true, если файл существует в итоге.
         /// Безопасен для параллельных вызовов: для одного participantId генерация идёт один раз.
         /// </summary>
-        public async Task<bool> EnsureAsync(int participantId, string workUrl, string messageUrl, string mediaType)
+        public async Task<bool> EnsureAsync(int participantId, string workUrl, string messageUrl, string mediaType, int primaryIndex = 0)
         {
             if (File.Exists(FilePath(participantId))) return true;
             if (!_inProgress.TryAdd(participantId, 0)) return false;
 
             await _concurrencyLimit.WaitAsync();
-            try { return await GenerateAsync(participantId, workUrl, messageUrl, mediaType); }
+            try { return await GenerateAsync(participantId, workUrl, messageUrl, mediaType, primaryIndex); }
             finally
             {
                 _concurrencyLimit.Release();
@@ -87,7 +87,7 @@ namespace AnimatorsWeb.Services
             }
         }
 
-        private async Task<bool> GenerateAsync(int participantId, string workUrl, string messageUrl, string mediaType)
+        private async Task<bool> GenerateAsync(int participantId, string workUrl, string messageUrl, string mediaType, int primaryIndex)
         {
             try
             {
@@ -102,7 +102,7 @@ namespace AnimatorsWeb.Services
                 // Видео — ffmpeg
                 if (mediaType == "video")
                 {
-                    var freshUrl = await TryGetFreshAttachmentAsync(messageUrl);
+                    var freshUrl = await TryGetFreshAttachmentAsync(messageUrl, primaryIndex);
                     if (string.IsNullOrEmpty(freshUrl)) return false;
                     return await ExtractFrameViaFfmpegAsync(freshUrl, participantId);
                 }
@@ -110,7 +110,7 @@ namespace AnimatorsWeb.Services
                 // Картинки (png/jpg/webp) — ImageSharp. Только очень большие файлы (>40 МБ) — через ffmpeg
                 if (mediaType == "image")
                 {
-                    var freshUrl = await TryGetFreshAttachmentAsync(messageUrl);
+                    var freshUrl = await TryGetFreshAttachmentAsync(messageUrl, primaryIndex);
                     if (string.IsNullOrEmpty(freshUrl)) return false;
 
                     // Проверяем размер через HEAD
@@ -362,7 +362,7 @@ namespace AnimatorsWeb.Services
             catch { return null; }
         }
 
-        private async Task<string?> TryGetFreshAttachmentAsync(string messageUrl)
+        private async Task<string?> TryGetFreshAttachmentAsync(string messageUrl, int index = 0)
         {
             var (chId, msgId) = DiscordLinkParser.ParseMessageUrl(messageUrl);
             if (chId == null || msgId == null) return null;
@@ -375,10 +375,14 @@ namespace AnimatorsWeb.Services
                 if (msg == null) return null;
 
                 // 1. Attachment
-                var att = msg.Attachments?.FirstOrDefault()?.Url;
-                if (att != null)
+                var attachments = msg.Attachments;
+                if (attachments != null && attachments.Count > 0)
                 {
-                    var s = att.ToString();
+                    var att = index >= 0 && index < attachments.Count
+                        ? attachments[index]
+                        : attachments[0];
+
+                    var s = att?.Url?.ToString();
                     if (!string.IsNullOrEmpty(s)) return s;
                 }
 

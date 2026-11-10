@@ -1,359 +1,719 @@
-﻿@model AnimatorsWeb.Models.ArtJamDetailsViewModel
+﻿@model AnimatorsWeb.Models.EventDetailsViewModel
 @using AnimatorsWeb.Models
-@using AnimatorsWeb.Helpers
 
 @{
-    ViewData["Title"] = $"ArtJam #{Model.Number} — {Model.Theme}";
-    ViewData["Description"] = $"АртДжем #{Model.Number}: {Model.Theme}. Работы участников и победители.";
+    var title = $"{Model.TypeLabel} #{Model.Number} — {Model.Theme}";
+    ViewData["Title"] = title;
+    ViewData["Description"] = $"{Model.TypeLabel} #{Model.Number}: {Model.Theme}. Работы участников и победители.";
+
+    var typeClass = Model.EventType == EventType.ArtJam ? "artjam" : "anijam";
+    var hasWinners = Model.WinnerGroups.Any();
 }
 
 <style>
-    .aj-page {
-        --aj-line: color-mix(in srgb, var(--brand-text) 12%, transparent);
-        --aj-muted: color-mix(in srgb, var(--brand-text) 62%, transparent);
+    .event-page {
+        --ev-line: color-mix(in srgb, var(--brand-text) 12%, transparent);
+        --ev-muted: color-mix(in srgb, var(--brand-text) 62%, transparent);
+        --ev-accent: var(--brand-primary);
+        --ev-soft: color-mix(in srgb, var(--ev-accent) 8%, var(--brand-card));
+        width: 100%;
         max-width: 1200px;
         margin: 0 auto;
-        padding: 20px 0 60px;
+        padding: 28px 24px 64px;
         color: var(--brand-text);
     }
 
-    .aj-hero {
-        position: relative;
-        padding: 32px;
-        margin-bottom: 28px;
-        border: 1px solid var(--aj-line);
-        border-radius: 24px;
-        background: radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--brand-accent) 18%, transparent), transparent 45%), radial-gradient(ellipse at 0% 100%, color-mix(in srgb, var(--brand-accent) 14%, transparent), transparent 50%), color-mix(in srgb, var(--brand-card) 86%, var(--brand-accent) 4%);
-        box-shadow: 0 18px 50px color-mix(in srgb, var(--brand-accent) 6%, transparent);
+        .event-page.artjam {
+            --ev-accent: var(--brand-accent);
+        }
+
+    /* Верхний блок */
+
+    .event-overview {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr);
+        gap: 16px;
+        align-items: stretch;
+        margin-bottom: 36px;
     }
 
-    .aj-eyebrow {
+    /* Информация о мероприятии */
+
+    .event-hero {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-width: 0;
+        padding: 25px 27px;
+        border: 1px solid var(--ev-line);
+        border-radius: 16px;
+        background: radial-gradient( ellipse at 100% 0%, color-mix(in srgb, var(--ev-accent) 13%, transparent), transparent 50% ), var(--brand-card);
+    }
+
+    .event-heading {
+        min-width: 0;
+    }
+
+    .event-eyebrow {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 12px;
-        color: var(--brand-accent);
-        font-size: 12px;
+        margin-bottom: 9px;
+        color: var(--ev-accent);
+        font-size: 11px;
         font-weight: 800;
-        letter-spacing: .13em;
+        letter-spacing: .12em;
         text-transform: uppercase;
     }
 
-        .aj-eyebrow::before {
+        .event-eyebrow::before {
             content: "";
-            width: 22px;
+            width: 18px;
             height: 2px;
             border-radius: 2px;
-            background: linear-gradient(90deg, var(--brand-accent), var(--brand-accent));
+            background: var(--ev-accent);
         }
 
-    .aj-title {
-        margin: 0 0 8px;
-        font-size: clamp(28px, 4vw, 44px);
-        font-weight: 800;
-        letter-spacing: -.04em;
+    .event-title {
+        margin: 0;
+        font-size: clamp(28px, 4vw, 38px);
+        font-weight: 850;
         line-height: 1.1;
+        letter-spacing: -.045em;
     }
 
-    .aj-theme {
-        margin: 0 0 16px;
-        color: var(--aj-muted);
-        font-size: 18px;
+    .event-theme {
+        margin: 9px 0 0;
+        color: var(--ev-muted);
+        font-size: 16px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
     }
 
-    .aj-meta {
+    /* Метаданные */
+
+    .event-meta {
         display: flex;
-        gap: 24px;
         flex-wrap: wrap;
-        font-size: 14px;
-        color: var(--aj-muted);
+        gap: 8px;
+        padding-top: 15px;
+        border-top: 1px solid var(--ev-line);
     }
 
-    .aj-meta-item strong {
-        color: var(--brand-text);
-        font-size: 18px;
-        font-weight: 700;
-        display: block;
-        margin-bottom: 2px;
-    }
-
-    .aj-actions {
+    .event-meta-item {
         display: flex;
-        gap: 10px;
-        margin-top: 20px;
-        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        min-height: 35px;
+        padding: 6px 10px;
+        border: 1px solid var(--ev-line);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--brand-card) 75%, var(--brand-bg));
+        font-size: 12px;
     }
 
-    .aj-btn {
+    .event-meta-icon {
+        color: var(--ev-accent);
+        font-size: 15px;
+    }
+
+    .event-meta-item strong {
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .event-meta-item > span:not(.event-meta-icon) {
+        color: var(--ev-muted);
+    }
+
+    /* Кнопки */
+
+    .event-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: auto;
+    }
+
+    .event-btn {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 18px;
-        border-radius: 10px;
-        border: 1px solid var(--aj-line);
+        justify-content: center;
+        gap: 7px;
+        min-height: 37px;
+        padding: 8px 13px;
+        border: 1px solid var(--ev-line);
+        border-radius: 8px;
         background: var(--brand-card);
         color: var(--brand-text);
+        font-size: 12px;
+        font-weight: 650;
         text-decoration: none;
-        font-size: 14px;
-        font-weight: 600;
-        transition: transform .15s, border-color .15s;
+        transition: border-color .2s, transform .2s, background .2s;
     }
 
-        .aj-btn:hover {
+        .event-btn:hover {
             transform: translateY(-1px);
-            border-color: var(--brand-primary);
+            border-color: var(--ev-accent);
             color: var(--brand-text);
         }
 
-        .aj-btn.primary {
-            background: var(--brand-primary);
-            color: #fff;
-            border-color: var(--brand-primary);
+        .event-btn.primary {
+            border-color: var(--ev-accent);
+            background: var(--ev-accent);
+            color: var(--brand-card);
         }
 
-    .aj-section {
-        margin-bottom: 32px;
+            .event-btn.primary:hover {
+                filter: brightness(.95);
+                color: var(--brand-card);
+            }
+
+    /* Победители */
+
+    .event-winners-panel {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 21px;
+        border: 1px solid var(--ev-line);
+        border-radius: 16px;
+        background: var(--brand-card);
     }
 
-    .aj-section-title {
+    .event-winners-heading {
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin: 0 0 16px;
-        font-size: 22px;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+
+        .event-winners-heading h2 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 800;
+        }
+
+    .event-winners-count {
+        color: var(--ev-muted);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .event-winners {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+    }
+
+    .event-winner-block {
+        min-width: 0;
+        padding: 11px 13px;
+        border: 1px solid var(--ev-line);
+        border-left: 3px solid var(--ev-accent);
+        border-radius: 9px;
+        background: var(--ev-soft);
+    }
+
+    .event-winner-title {
+        margin: 0 0 7px;
+        color: var(--ev-accent);
+        font-size: 12px;
         font-weight: 800;
     }
 
-    .aj-winner-block {
-        padding: 24px;
-        border-radius: 16px;
-        border: 1px solid color-mix(in srgb, var(--brand-accent) 25%, transparent);
-        background: linear-gradient(135deg, color-mix(in srgb, var(--brand-accent) 8%, var(--brand-card)), var(--brand-card) 70%);
-    }
-
-    .aj-winner-title {
-        font-size: 18px;
-        font-weight: 800;
-        margin: 0 0 12px;
-        color: var(--brand-accent);
-    }
-
-    .aj-winner-list {
+    .event-winner-list {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: 5px;
     }
 
-    .aj-winner-person {
+    .event-winner-person {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
-        border-radius: 999px;
+        padding: 4px 8px;
+        border: 1px solid var(--ev-line);
+        border-radius: 6px;
         background: var(--brand-card);
-        border: 1px solid var(--aj-line);
-        font-size: 15px;
-        font-weight: 600;
+        font-size: 12px;
+        font-weight: 650;
     }
 
-        .aj-winner-person a {
+        .event-winner-person a {
             color: var(--brand-text);
             text-decoration: none;
         }
 
-            .aj-winner-person a:hover {
-                color: var(--brand-primary);
+            .event-winner-person a:hover {
+                color: var(--ev-accent);
                 text-decoration: underline;
             }
 
-    .aj-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 16px;
+    /* Секция работ */
+
+    .event-section {
+        margin-bottom: 36px;
     }
 
-    .aj-work {
+    .event-section-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 17px;
+    }
+
+    .event-section-title {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 850;
+        letter-spacing: -.025em;
+    }
+
+    .event-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 14px;
+    }
+
+    .event-work {
         position: relative;
-        border: 1px solid var(--aj-line);
-        border-radius: 14px;
+        min-width: 0;
         overflow: hidden;
+        border: 1px solid var(--ev-line);
+        border-radius: 12px;
         background: var(--brand-card);
         cursor: pointer;
-        transition: transform .2s, box-shadow .2s, border-color .2s;
+        transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
     }
 
-        .aj-work:hover {
+        .event-work:hover {
             transform: translateY(-3px);
-            box-shadow: 0 12px 28px rgba(0,0,0,0.1);
-            border-color: color-mix(in srgb, var(--brand-accent) 40%, transparent);
+            border-color: color-mix(in srgb, var(--ev-accent) 45%, transparent);
+            box-shadow: 0 10px 24px color-mix(in srgb, var(--brand-text) 9%, transparent);
         }
 
-    .aj-work-thumb {
-        aspect-ratio: 4/3;
-        background: #111;
-        overflow: hidden;
+    .event-work-thumb {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        background: var(--brand-bg);
     }
 
-        .aj-work-thumb img {
+        .event-work-thumb img {
+            display: block;
             width: 100%;
             height: 100%;
             object-fit: cover;
-            display: block;
+            transition: transform .35s ease;
         }
 
-        .aj-work-thumb .icon {
-            color: #666;
-            font-size: 36px;
-        }
-
-    .aj-work-info {
-        padding: 10px 12px;
-        font-size: 13px;
-        line-height: 1.4;
+    .event-work:hover .event-work-thumb img {
+        transform: scale(1.04);
     }
 
-        .aj-work-info a {
+    .event-work-thumb .icon {
+        color: var(--ev-muted);
+        font-size: 32px;
+    }
+
+    .event-work-info {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 3px;
+        min-height: 48px;
+        padding: 11px 13px;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+        .event-work-info a {
             color: var(--brand-text);
+            font-weight: 650;
             text-decoration: none;
-            font-weight: 600;
         }
 
-            .aj-work-info a:hover {
-                color: var(--brand-primary);
+            .event-work-info a:hover {
+                color: var(--ev-accent);
                 text-decoration: underline;
             }
 
-    .aj-empty {
-        padding: 32px;
-        border: 1px dashed var(--aj-line);
-        border-radius: 14px;
-        text-align: center;
-        color: var(--aj-muted);
+    /* Бейджи */
+
+    .work-badge {
+        position: absolute;
+        top: 9px;
+        right: 9px;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 30px;
+        min-height: 30px;
+        padding: 4px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 10%, transparent);
+        border-radius: 8px;
+        background: var(--brand-card);
+        font-size: 17px;
+        line-height: 1;
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--brand-text) 12%, transparent);
+        pointer-events: none;
     }
 
-    @@media (max-width: 700px) {
-        .aj-hero {
+    .work-attachments-badge {
+        position: absolute;
+        right: 9px;
+        bottom: 9px;
+        z-index: 3;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 27px;
+        height: 27px;
+        border: 1px solid color-mix(in srgb, var(--brand-card) 40%, transparent);
+        border-radius: 7px;
+        background: color-mix(in srgb, var(--brand-text) 75%, transparent);
+        color: var(--brand-card);
+        pointer-events: none;
+    }
+
+        .work-attachments-badge svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.2;
+        }
+
+    /* Пустое состояние */
+
+    .event-empty {
+        padding: 36px 20px;
+        border: 1px dashed var(--ev-line);
+        border-radius: 12px;
+        background: var(--brand-card);
+        color: var(--ev-muted);
+        font-size: 14px;
+        text-align: center;
+    }
+
+    /* Адаптивность */
+
+    @@media (max-width: 800px) {
+        .event-page {
+            padding-inline: 18px;
+        }
+
+        .event-overview {
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .event-hero {
             padding: 22px;
-            border-radius: 18px;
         }
 
-        .aj-title {
-            font-size: 26px;
+        .event-winners-panel {
+            padding: 18px;
         }
 
-        .aj-grid {
+        .event-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 11px;
+        }
+    }
+
+    @@media (max-width: 600px) {
+        .event-page {
+            padding: 18px 14px 44px;
+        }
+
+        .event-hero {
+            gap: 17px;
+            padding: 19px;
+            border-radius: 14px;
+        }
+
+        .event-title {
+            font-size: 27px;
+        }
+
+        .event-theme {
+            font-size: 15px;
+        }
+
+        .event-meta {
+            gap: 7px;
+        }
+
+        .event-meta-item {
+            gap: 6px;
+            padding: 7px 9px;
+            font-size: 12px;
+        }
+
+        .event-actions {
+            gap: 7px;
+        }
+
+        .event-btn {
+            min-height: 36px;
+            padding: 8px 11px;
+            font-size: 12px;
+        }
+
+        .event-winners-panel {
+            padding: 15px;
+        }
+
+        .event-section {
+            margin-bottom: 30px;
+        }
+
+        .event-section-title {
+            font-size: 19px;
+        }
+
+        .event-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
+        }
+
+        .event-work-info {
+            min-height: 42px;
+            padding: 9px 10px;
+            font-size: 12px;
+        }
+
+        .work-badge {
+            top: 6px;
+            right: 6px;
+            min-width: 27px;
+            min-height: 27px;
+            font-size: 15px;
+        }
+    }
+
+    @@media (max-width: 360px) {
+        .event-page {
+            padding-inline: 10px;
+        }
+
+        .event-hero {
+            padding: 16px;
+        }
+
+        .event-title {
+            font-size: 24px;
+        }
+
+        .event-meta-item {
+            padding-inline: 7px;
+        }
+
+        .event-grid {
+            gap: 8px;
         }
     }
 </style>
 
-<main class="aj-page">
+<main class="event-page @typeClass">
 
-    <header class="aj-hero">
-        <div class="aj-eyebrow">ArtJam</div>
-        <h1 class="aj-title">ArtJam #@Model.Number</h1>
-        <p class="aj-theme">@Model.Theme</p>
+    <div class="event-overview">
 
-        <div class="aj-meta">
-            <div class="aj-meta-item">
-                <strong>@Model.ParticipantsCount</strong>
-                <span>участников</span>
+        <!-- Информация о мероприятии -->
+        <header class="event-hero">
+
+            <div class="event-heading">
+
+                <h1 class="event-title">@Model.TypeLabel #@Model.Number</h1>
+
+                <p class="event-theme">@Model.Theme</p>
             </div>
-            <div class="aj-meta-item">
-                <strong>
-                    <span class="local-date" data-utc="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM.yyyy">@Model.StartDate.ToString("dd.MM.yyyy")</span>
-                </strong>
-                <span>начало</span>
-            </div>
-            <div class="aj-meta-item">
-                <strong>
-                    <span class="local-date" data-utc="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")" data-format="dd.MM.yyyy">@Model.EndDate.ToString("dd.MM.yyyy")</span>
-                </strong>
-                <span>окончание</span>
-            </div>
-        </div>
 
-        <div class="aj-actions">
-            <a asp-controller="Events" asp-action="Index" asp-route-tab="artjam" class="aj-btn">← К списку</a>
+            <div class="event-meta">
 
-            @if (!string.IsNullOrEmpty(Model.AnnouncementUrl))
-            {
-                <a href="@Model.AnnouncementUrl" target="_blank" rel="noopener" class="aj-btn">📢 Объявление</a>
-            }
-            @if (!string.IsNullOrEmpty(Model.ResultsUrl))
-            {
-                <a href="@Model.ResultsUrl" target="_blank" rel="noopener" class="aj-btn">🏆 Итоги в Discord</a>
-            }
-            @if (User.HasClaim("is_moderator", "true"))
-            {
-                <a asp-controller="Moderator" asp-action="EditAnimJam"
-                   asp-route-number="@Model.Number" asp-route-eventType="ArtJam"
-                   class="aj-btn primary">🛠 Редактировать</a>
-            }
-        </div>
-    </header>
-
-    @if (Model.WinnerGroups.Any())
-    {
-        <section class="aj-section">
-            @foreach (var group in Model.WinnerGroups)
-            {
-                <div class="aj-winner-block">
-                    <div class="aj-winner-title">@group.Title</div>
-                    <div class="aj-winner-list">
-                        @foreach (var p in group.People)
-                        {
-                            <span class="aj-winner-person">
-                                <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@p.DiscordUserId">
-                                    @p.DisplayName
-                                </a>
-                            </span>
-                        }
-                    </div>
+                <div class="event-meta-item">
+                    <span class="event-meta-icon">♙</span>
+                    <strong>@Model.ParticipantsCount</strong>
+                    <span>участников</span>
                 </div>
-            }
-        </section>
-    }
 
-    <section class="aj-section">
-        <h2 class="aj-section-title">Работы (@Model.Works.Count)</h2>
+                <div class="event-meta-item">
+                    <span class="event-meta-icon">◷</span>
+                    <span>Сроки</span>
+                    <strong>
+                        <span class="local-date"
+                              data-utc="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ")"
+                              data-format="dd.MM.yyyy">@Model.StartDate.ToString("dd.MM.yyyy")</span>
+                               - 
+                        <span class="local-date"
+                              data-utc="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ")"
+                              data-format="dd.MM.yyyy">@Model.EndDate.ToString("dd.MM.yyyy")</span>
+                    </strong>
+                </div>
+                
+
+            </div>
+
+            <div class="event-actions">
+
+                <a asp-controller="Events"
+                   asp-action="Index"
+                   asp-route-tab="@(Model.EventType == EventType.ArtJam ? "artjam" : "anijam")"
+                   class="event-btn">
+                    ← Все ивенты
+                </a>
+
+                @if (User.Identity != null && User.Identity.IsAuthenticated)
+                {
+                    @if (!string.IsNullOrEmpty(Model.AnnouncementUrl))
+                    {
+                        <a href="@Model.AnnouncementUrl" target="_blank" rel="noopener" class="event-btn">#Anijam</a>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.ResultsUrl))
+                    {
+                        <a href="@Model.ResultsUrl" target="_blank" rel="noopener" class="event-btn">#Зал_Славы</a>
+                    }
+                }
+
+                @if (User.HasClaim("is_moderator", "true"))
+                {
+                    <a asp-controller="Moderator"
+                       asp-action="EditAnimJam"
+                       asp-route-number="@Model.Number"
+                       asp-route-eventType="@Model.TypeLabel"
+                       class="event-btn primary">
+                        🛠 Редактировать
+                    </a>
+                }
+
+            </div>
+
+        </header>
+
+        <!-- Победители -->
+        @if (hasWinners)
+        {
+            <aside class="event-winners-panel">
+
+                <div class="event-winners">
+
+                    @foreach (var group in Model.WinnerGroups)
+                    {
+                        <div class="event-winner-block">
+
+                            <div class="event-winner-title">
+                                @Html.Raw(group.NominationDisplayHtml)
+                            </div>
+
+                            <div class="event-winner-list">
+
+                                @foreach (var p in group.Winners)
+                                {
+                                    <span class="event-winner-person">
+                                        <a asp-controller="User"
+                                           asp-action="PublicProfile"
+                                           asp-route-id="@p.DiscordUserId">
+                                            @p.DisplayName
+                                        </a>
+                                    </span>
+                                }
+
+                            </div>
+
+                        </div>
+                    }
+
+                </div>
+
+            </aside>
+        }
+
+    </div>
+
+    <!-- Работы участников -->
+    <section class="event-section">
+
+        <div class="event-section-header">
+            <h2 class="event-section-title">
+                Работы участников (@Model.Works.Count)
+            </h2>
+        </div>
 
         @if (!Model.Works.Any())
         {
-            <div class="aj-empty">Пока нет работ.</div>
+            <div class="event-empty">
+                Пока нет работ.
+            </div>
         }
         else
         {
-            <div class="aj-grid">
+            <div class="event-grid">
+
                 @foreach (var work in Model.Works)
                 {
-                    <div class="aj-work js-open-work"
+                    <div class="event-work js-open-work"
                          data-work-url="@work.WorkUrl"
                          data-message-url="@work.MessageUrl"
-                         data-participant-id="@work.PrimaryParticipantId"
+                         data-participant-id="@work.Id"
                          data-media-type="@work.MediaType">
-                        <div class="aj-work-thumb">
+
+                        @if (!string.IsNullOrEmpty(work.BadgeHtml))
+                        {
+                            <div class="work-badge">
+                                @Html.Raw(work.BadgeHtml)
+                            </div>
+                        }
+
+                        @if (work.AttachmentsCount > 1)
+                        {
+                            <span class="work-attachments-badge"
+                                  aria-label="Несколько вложений">
+                                <svg viewBox="0 0 24 24">
+                                    <rect x="9" y="9" width="11" height="11" rx="2" />
+                                    <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+                                </svg>
+                            </span>
+                        }
+
+                        <div class="event-work-thumb">
+
                             @if (work.MediaType == "link")
                             {
                                 <span class="icon">🔗</span>
                             }
                             else
                             {
-                                <img src="/Featured/Thumbnail/@work.PrimaryParticipantId"
-                                     loading="lazy" decoding="async" alt=""
+                                <img src="@work.ThumbnailUrl"
+                                     loading="lazy"
+                                     decoding="async"
+                                     alt=""
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+
                                 <span class="icon" style="display:none;">🎨</span>
                             }
+
                         </div>
-                        <div class="aj-work-info">
+
+                        <div class="event-work-info">
+
                             @for (int i = 0; i < work.People.Count; i++)
                             {
                                 var p = work.People[i];
-                                <a asp-controller="User" asp-action="PublicProfile" asp-route-id="@p.DiscordUserId">@p.DisplayName</a>
+
+                                <a asp-controller="User"
+                                   asp-action="PublicProfile"
+                                   asp-route-id="@p.DiscordUserId">
+                                    @p.DisplayName
+                                </a>
+
                                 if (i < work.People.Count - 2)
                                 {
                                     <span>, </span>
@@ -363,11 +723,15 @@
                                     <span> и </span>
                                 }
                             }
+
                         </div>
+
                     </div>
                 }
+
             </div>
         }
+
     </section>
 
 </main>
@@ -377,6 +741,7 @@
         document.querySelectorAll('.local-date').forEach(el => {
             const d = new Date(el.dataset.utc);
             if (isNaN(d)) return;
+
             const pad = n => String(n).padStart(2, '0');
             el.textContent = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
         });

@@ -334,6 +334,10 @@
             {
                 <article class="work-card">
                     @{
+                        @if (work.AttachmentsCount > 1)
+                        {
+                            <span class="work-attachments-badge" aria-label="Несколько вложений">📎</span>
+                        }
                         var meta = System.Text.Json.JsonSerializer.Serialize(new
                         {
                             authors = new[] { new
@@ -389,7 +393,7 @@
                             </span>
                         }
 
-                        <span class="work-play-indicator" aria-hidden="true">▶</span>
+                        
                     </button>
 
                     <div class="work-card-body">

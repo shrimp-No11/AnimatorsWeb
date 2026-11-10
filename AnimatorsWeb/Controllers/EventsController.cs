@@ -1,5 +1,6 @@
 ﻿using AnimatorsWeb.Data;
 using AnimatorsWeb.Models;
+using AnimatorsWeb.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -209,89 +210,307 @@ namespace AnimatorsWeb.Controllers
 
         public async Task<IActionResult> Details(string type, int number)
         {
+            EventType eventType;
             if (string.Equals(type, "AniJam", StringComparison.OrdinalIgnoreCase))
-                return RedirectToAction("Details", "AnimJams", new { number });
-
-            if (!string.Equals(type, "ArtJam", StringComparison.OrdinalIgnoreCase))
+                eventType = EventType.AniJam;
+            else if (string.Equals(type, "ArtJam", StringComparison.OrdinalIgnoreCase))
+                eventType = EventType.ArtJam;
+            else
                 return NotFound();
 
             var jam = await _db.AnimJams
-                .FirstOrDefaultAsync(j => j.Number == number && j.EventType == EventType.ArtJam);
+                .FirstOrDefaultAsync(j => j.Number == number && j.EventType == eventType);
             if (jam == null) return NotFound();
 
-            var model = new ArtJamDetailsViewModel
+            var participants = await _db.Participants
+                .Where(p => p.AnimJamNumber == number && p.EventType == eventType)
+                .OrderBy(p => p.DisplayName)
+                .ToListAsync();
+
+            var winners = await _db.Winners
+                .Where(w => w.AnimJamNumber == number && w.EventType == eventType)
+                .ToListAsync();
+
+            var model = new EventDetailsViewModel
             {
                 Number = jam.Number,
+                EventType = eventType,
                 Theme = jam.Theme,
                 StartDate = jam.StartDate,
                 EndDate = jam.EndDate,
                 AnnouncementUrl = jam.AnounceMessage,
-                ResultsUrl = jam.ResultsMessageUrl
+                ResultsUrl = jam.ResultsMessageUrl,
+                ParticipantsCount = participants.Select(p => p.DiscordUserId).Distinct().Count(),
+                WinnersCount = winners
+                    .Where(w => w.Nomination != NominationType.HonorableMention)
+                    .Select(w => w.DiscordUserId)
+                    .Distinct()
+                    .Count()
             };
 
-            var participants = await _db.Participants
-                .Where(p => p.AnimJamNumber == number && p.EventType == EventType.ArtJam)
-                .ToListAsync();
+            if (eventType == EventType.AniJam)
+                BuildAniJamWinners(model, participants, winners);
+            else
+                BuildArtJamWinners(model, participants, winners);
 
-            model.ParticipantsCount = participants.Select(p => p.DiscordUserId).Distinct().Count();
+            BuildWorks(model, participants, winners, eventType);
 
-            var winners = await _db.Winners
-                .Where(w => w.AnimJamNumber == number
-                            && w.EventType == EventType.ArtJam
-                            && w.Nomination == NominationType.Winner)
-                .ToListAsync();
+            return View(model);
+        }
 
-            if (winners.Any())
+        private void BuildAniJamWinners(
+            EventDetailsViewModel model,
+            List<Participant> participants,
+            List<Winner> winners)
+        {
+            var winsByWork = winners.GroupBy(w => NormalizeUrl(w.WorkUrl)).ToList();
+
+            var workNominations = winsByWork.ToDictionary(
+                g => g.Key,
+                g => g.Select(w => w.Nomination).Distinct().ToHashSet());
+
+            var absoluteWorks = workNominations
+                .Where(kv => kv.Value.Contains(NominationType.Idea) &&
+                             kv.Value.Contains(NominationType.Technical))
+                .Select(kv => kv.Key)
+                .ToHashSet();
+
+            // Абсолютные
+            foreach (var workUrl in absoluteWorks)
             {
-                var group = new ArtJamWinnerGroup { Title = "🏆 Победители" };
-                var seen = new HashSet<ulong>();
+                var workWinners = winsByWork.First(g => g.Key == workUrl);
+                var userIds = workWinners.Select(w => w.DiscordUserId).Distinct().ToList();
 
-                var winnerIds = winners.Select(w => w.DiscordUserId).ToHashSet();
-                var winnerParticipants = participants
-                    .Where(p => winnerIds.Contains(p.DiscordUserId))
-                    .OrderBy(p => p.DisplayName)
-                    .ToList();
-
-                foreach (var p in winnerParticipants)
+                var group = new EventWinnerGroup
                 {
-                    if (!seen.Add(p.DiscordUserId)) continue;
-                    group.People.Add(new ArtJamPerson
+                    NominationDisplayHtml = "🏅 Абсолютный победитель"
+                };
+
+                foreach (var userId in userIds)
+                {
+                    var pInfo = participants.FirstOrDefault(p => p.DiscordUserId == userId);
+                    group.Winners.Add(new EventWinnerPerson
                     {
-                        DiscordUserId = p.DiscordUserId,
-                        DisplayName = p.DisplayName
+                        DiscordUserId = userId,
+                        DisplayName = pInfo?.DisplayName ?? $"ID {userId}",
+                        WorkUrl = workUrl,
+                        MessageUrl = pInfo?.MessageUrl ?? ""
                     });
                 }
 
-                if (group.People.Any())
-                    model.WinnerGroups.Add(group);
+                model.WinnerGroups.Add(group);
             }
 
-            var byWorkUrl = participants
-                .Where(p => !string.IsNullOrEmpty(p.WorkUrl))
-                .GroupBy(p => p.WorkUrl)
+            int NominationOrder(NominationType n) => n switch
+            {
+                NominationType.Idea => 0,
+                NominationType.Technical => 1,
+                NominationType.Winner => 2,
+                NominationType.HonorableMention => 3,
+                _ => 4
+            };
+
+            foreach (var workGroup in winsByWork
+                .Where(g => !absoluteWorks.Contains(g.Key))
+                .OrderBy(g => NominationOrder(g.First().Nomination)))
+            {
+                var workUrl = workGroup.Key;
+                var nomination = workGroup.First().Nomination;
+                var userIds = workGroup.Select(w => w.DiscordUserId).Distinct().ToList();
+
+                var group = new EventWinnerGroup
+                {
+                    NominationDisplayHtml = NominationHelper.GetDisplayHtml(nomination, model.Number)
+                };
+
+                foreach (var userId in userIds)
+                {
+                    var pInfo = participants.FirstOrDefault(p => p.DiscordUserId == userId);
+                    group.Winners.Add(new EventWinnerPerson
+                    {
+                        DiscordUserId = userId,
+                        DisplayName = pInfo?.DisplayName ?? $"ID {userId}",
+                        WorkUrl = workUrl,
+                        MessageUrl = pInfo?.MessageUrl ?? ""
+                    });
+                }
+
+                model.WinnerGroups.Add(group);
+            }
+        }
+
+        private void BuildArtJamWinners(
+            EventDetailsViewModel model,
+            List<Participant> participants,
+            List<Winner> winners)
+        {
+            var winnerWorkUrls = winners
+                .Where(w => w.Nomination == NominationType.Winner)
+                .Select(w => w.WorkUrl)
+                .ToHashSet();
+
+            if (winnerWorkUrls.Count == 0) return;
+
+            var group = new EventWinnerGroup
+            {
+                NominationDisplayHtml = "🏆 Победители"
+            };
+
+            var seen = new HashSet<ulong>();
+
+            foreach (var workUrl in winnerWorkUrls)
+            {
+                var workParticipants = participants
+                    .Where(p => p.WorkUrl == workUrl)
+                    .OrderBy(p => p.DisplayName)
+                    .ToList();
+
+                foreach (var p in workParticipants)
+                {
+                    if (!seen.Add(p.DiscordUserId)) continue;
+                    group.Winners.Add(new EventWinnerPerson
+                    {
+                        DiscordUserId = p.DiscordUserId,
+                        DisplayName = p.DisplayName,
+                        WorkUrl = p.WorkUrl,
+                        MessageUrl = p.MessageUrl
+                    });
+                }
+            }
+
+            if (group.Winners.Count > 0)
+                model.WinnerGroups.Add(group);
+        }
+
+        private void BuildWorks(
+            EventDetailsViewModel model,
+            List<Participant> participants,
+            List<Winner> winners,
+            EventType eventType)
+        {
+            var winsByWork = winners.GroupBy(w => NormalizeUrl(w.WorkUrl)).ToList();
+            var workNominations = winsByWork.ToDictionary(
+                g => g.Key,
+                g => g.Select(w => w.Nomination).Distinct().ToHashSet());
+
+            var absoluteWorks = workNominations
+                .Where(kv => kv.Value.Contains(NominationType.Idea) &&
+                             kv.Value.Contains(NominationType.Technical))
+                .Select(kv => kv.Key)
+                .ToHashSet();
+
+            int PriorityForWork(string workUrl)
+            {
+                if (eventType == EventType.ArtJam)
+                {
+                    return workNominations.TryGetValue(workUrl, out var noms) &&
+                           noms.Contains(NominationType.Winner) ? 0 : 100;
+                }
+
+                if (absoluteWorks.Contains(workUrl)) return 0;
+                if (!workNominations.TryGetValue(workUrl, out var n2) || n2.Count == 0) return 100;
+                if (n2.Contains(NominationType.Idea)) return 1;
+                if (n2.Contains(NominationType.Technical)) return 2;
+                if (n2.Contains(NominationType.Winner)) return 3;
+                if (n2.Contains(NominationType.HonorableMention)) return 4;
+                return 5;
+            }
+
+            string BadgeForWork(string workUrl)
+            {
+                if (eventType == EventType.ArtJam)
+                {
+                    return workNominations.TryGetValue(workUrl, out var noms) &&
+                           noms.Contains(NominationType.Winner) ? EmojiHelper.Trophy : "";
+                }
+
+                if (absoluteWorks.Contains(workUrl)) return EmojiHelper.Trophy;
+                if (!workNominations.TryGetValue(workUrl, out var n2) || n2.Count == 0) return "";
+                if (n2.Contains(NominationType.Winner)) return EmojiHelper.Trophy;
+                if (n2.Contains(NominationType.Idea)) return EmojiHelper.Star;
+                if (n2.Contains(NominationType.Technical)) return EmojiHelper.Hammer;
+                if (n2.Contains(NominationType.HonorableMention)) return EmojiHelper.GoldPoopHtml;
+                return "";
+            }
+
+            var groupedWorks = participants
+                .GroupBy(p => NormalizeUrl(p.WorkUrl))
+                .Select(g =>
+                {
+                    var primary = g.First();
+                    var normalizedUrl = NormalizeUrl(primary.WorkUrl);
+
+                    var people = g
+                        .Select(p => new EventPerson
+                        {
+                            DiscordUserId = p.DiscordUserId,
+                            DisplayName = p.DisplayName
+                        })
+                        .GroupBy(x => x.DiscordUserId)
+                        .Select(x => x.First())
+                        .ToList();
+
+                    return new
+                    {
+                        Primary = primary,
+                        People = people,
+                        Priority = PriorityForWork(normalizedUrl),
+                        Badge = BadgeForWork(normalizedUrl),
+                        IsWinner = !string.IsNullOrEmpty(BadgeForWork(normalizedUrl))
+                    };
+                })
+                .OrderBy(x => x.Priority)
+                .ThenBy(x => x.People.FirstOrDefault()?.DisplayName ?? "")
                 .ToList();
 
-            foreach (var g in byWorkUrl)
+            foreach (var group in groupedWorks)
             {
-                var first = g.First();
-                model.Works.Add(new ArtJamWorkCard
-                {
-                    WorkUrl = first.WorkUrl,
-                    MessageUrl = first.MessageUrl,
-                    PrimaryParticipantId = first.Id,
-                    MediaType = DetectMediaType(first.WorkUrl),
-                    People = g.GroupBy(p => p.DiscordUserId)
-                        .Select(x => new ArtJamPerson
-                        {
-                            DiscordUserId = x.Key,
-                            DisplayName = x.First().DisplayName
-                        })
-                        .OrderBy(p => p.DisplayName)
-                        .ToList()
-                });
-            }
+                var p = group.Primary;
 
-            return View(model);
+                var item = new EventWorkCard
+                {
+                    Id = p.Id,
+                    People = group.People,
+                    WorkUrl = p.WorkUrl,
+                    MessageUrl = p.MessageUrl,
+                    IsWinner = group.IsWinner,
+                    BadgeHtml = group.Badge,
+                    AttachmentsCount = p.AttachmentCount
+                };
+
+                var ytId = YouTubeHelper.ExtractId(p.WorkUrl);
+                if (ytId != null)
+                {
+                    item.MediaType = "youtube";
+                    item.ThumbnailUrl = $"https://img.youtube.com/vi/{ytId}/mqdefault.jpg";
+                }
+                else if (p.WorkUrl.Contains(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                         p.WorkUrl.Contains(".webm", StringComparison.OrdinalIgnoreCase) ||
+                         p.WorkUrl.Contains(".mov", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.MediaType = "video";
+                    item.ThumbnailUrl = $"/Featured/Thumbnail/{p.Id}";
+                }
+                else if (System.Text.RegularExpressions.Regex.IsMatch(p.WorkUrl,
+                    @"\.(gif|png|jpg|jpeg|webp|avif)(\?|$)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    item.MediaType = "image";
+                    item.ThumbnailUrl = $"/Featured/Thumbnail/{p.Id}";
+                }
+                else
+                {
+                    item.MediaType = "link";
+                }
+
+                model.Works.Add(item);
+            }
+        }
+
+        private static string NormalizeUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return "";
+            return url.TrimEnd('&', '?', ' ');
         }
 
         private static string DetectMediaType(string workUrl)

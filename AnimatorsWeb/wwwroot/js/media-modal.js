@@ -148,8 +148,11 @@
         return null;
     }
 
-    function addMedia(tagName, src, options = {}) {
-        const element = document.createElement(tagName);
+    function createMediaBlock(tagName, src, options = {}) {
+        const viewport = document.createElement('div');
+        viewport.className = 'media-zoom-viewport';
+
+        const element = document.createElement('video' === tagName ? 'video' : tagName);
         element.className = 'work-modal-media';
         element.src = src;
 
@@ -157,29 +160,125 @@
             element.controls = true;
             element.autoplay = true;
             element.playsInline = true;
-
-            // Применяем ту же сохранённую громкость, что и для YouTube
-            const startVolume = getInitialVolume();
-            element.volume = Math.min(1, Math.max(0, startVolume / 100));
-
-            // Сохраняем при изменении (0 не сохраняем — как и для YouTube)
-            element.addEventListener('volumechange', () => {
-                const v = Math.round(element.volume * 100);
-                if (v > 0) {
-                    localStorage.setItem('yt_volume', v);
-                }
-            });
         }
-
         if (options.alt) element.alt = options.alt;
 
-        content.appendChild(element);
+        viewport.appendChild(element);
+        attachZoom(viewport, element);
+
+        return { viewport, element };
     }
 
-    // ===== Публичные методы =====
+    function attachZoom(viewport, mediaEl) {
+        const MIN = 1;
+        const MAX = 5;
+        let scale = 1;
+        let tx = 0, ty = 0;
+        let dragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        let pinchStartDist = 0;
+        let pinchStartScale = 1;
+
+        const apply = () => {
+            if (scale === 1) {
+                mediaEl.style.transform = '';
+                mediaEl.classList.remove('zoomed');
+                tx = 0; ty = 0;
+            } else {
+                mediaEl.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+                mediaEl.classList.add('zoomed');
+            }
+        };
+
+        const reset = () => { scale = 1; apply(); };
+
+        // Колесо мыши
+        viewport.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) return; // браузерный zoom
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+            const next = Math.min(MAX, Math.max(MIN, scale * factor));
+            if (next === scale) return;
+            scale = next;
+            apply();
+        }, { passive: false });
+
+        // Double-click — сброс
+        viewport.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            reset();
+        });
+
+        // Pointer drag (мышь)
+        mediaEl.addEventListener('pointerdown', (e) => {
+            if (scale <= 1) return;
+            if (e.pointerType === 'touch') return;
+            dragging = true;
+            dragStartX = e.clientX - tx;
+            dragStartY = e.clientY - ty;
+            try { mediaEl.setPointerCapture(e.pointerId); } catch { }
+            e.preventDefault();
+        });
+
+        mediaEl.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            tx = e.clientX - dragStartX;
+            ty = e.clientY - dragStartY;
+            apply();
+        });
+
+        mediaEl.addEventListener('pointerup', (e) => {
+            dragging = false;
+            try { mediaEl.releasePointerCapture(e.pointerId); } catch { }
+        });
+
+        // Touch: pinch + drag
+        viewport.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                const t1 = e.touches[0], t2 = e.touches[1];
+                pinchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                pinchStartScale = scale;
+            } else if (e.touches.length === 1 && scale > 1) {
+                const t = e.touches[0];
+                dragStartX = t.clientX - tx;
+                dragStartY = t.clientY - ty;
+                dragging = true;
+            }
+        }, { passive: true });
+
+        viewport.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && pinchStartDist > 0) {
+                e.preventDefault();
+                const t1 = e.touches[0], t2 = e.touches[1];
+                const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                scale = Math.min(MAX, Math.max(MIN, pinchStartScale * (dist / pinchStartDist)));
+                apply();
+            } else if (e.touches.length === 1 && dragging) {
+                e.preventDefault();
+                const t = e.touches[0];
+                tx = t.clientX - dragStartX;
+                ty = t.clientY - dragStartY;
+                apply();
+            }
+        }, { passive: false });
+
+        viewport.addEventListener('touchend', () => {
+            dragging = false;
+            pinchStartDist = 0;
+        });
+    }
+    function addMedia(tagName, src, options = {}) {
+        const block = createMediaBlock(tagName, src, options);
+        content.appendChild(block.viewport);
+        return block;
+    }
+
+    let galleryGeneration = 0;
+
     function openWork(workUrl, messageUrl, participantId, mediaType, meta) {
         ensureModal();
         content.replaceChildren();
+        galleryGeneration++;   // отменяем все «висящие» loadGallery
 
         const header = renderHeader(meta);
         if (header) content.appendChild(header);
@@ -199,10 +298,15 @@
                 pathname = new URL(workUrl || '', window.location.origin).pathname.toLowerCase();
             } catch { }
 
-            if (/\.(mp4|webm|mov|m4v)$/.test(pathname)) {
+            const isVideo = /\.(mp4|webm|mov|m4v)$/.test(pathname);
+            const isImage = /\.(gif|png|jpe?g|webp|avif)$/.test(pathname);
+
+            if (isVideo) {
                 addMedia('video', proxyUrl);
-            } else if (/\.(gif|png|jpe?g|webp|avif)$/.test(pathname)) {
+                loadGallery(pid, galleryGeneration);
+            } else if (isImage) {
                 addMedia('img', proxyUrl, { alt: 'Работа участника' });
+                loadGallery(pid, galleryGeneration);
             } else if (messageUrl) {
                 window.open(messageUrl, '_blank', 'noopener,noreferrer');
                 return;
@@ -225,6 +329,64 @@
         previousFocus = document.activeElement;
         modal.classList.add('is-open');
         closeButton.focus();
+    }
+
+    async function loadGallery(participantId, generation) {
+        try {
+            const resp = await fetch(`/Media/AttachmentInfo/${participantId}`);
+            if (!resp.ok) return;
+            if (generation !== galleryGeneration) return;
+
+            const info = await resp.json();
+            if (!info || info.count <= 1) return;
+            if (generation !== galleryGeneration) return;
+
+            let current = info.primaryIndex ?? 0;
+            if (current < 0 || current >= info.count) current = 0;
+
+            content.querySelectorAll('.media-modal-gallery').forEach(g => g.remove());
+
+            const gallery = document.createElement('div');
+            gallery.className = 'media-modal-gallery';
+            gallery.innerHTML = `
+            <button type="button" class="media-nav-prev" aria-label="Предыдущее">←</button>
+            <span class="media-counter"></span>
+            <button type="button" class="media-nav-next" aria-label="Следующее">→</button>
+        `;
+
+            const prev = gallery.querySelector('.media-nav-prev');
+            const next = gallery.querySelector('.media-nav-next');
+            const counter = gallery.querySelector('.media-counter');
+
+            const renderAt = (index) => {
+                if (generation !== galleryGeneration) return;
+                current = index;
+                const item = info.items[index];
+                if (!item) return;
+
+                const url = `/Media/StreamAttachment/${participantId}/${index}`;
+
+                const existing = content.querySelector('.media-zoom-viewport');
+                if (existing) existing.remove();
+
+                const block = createMediaBlock(
+                    item.isVideo ? 'video' : 'img',
+                    url,
+                    item.isVideo ? {} : { alt: 'Работа участника' }
+                );
+                content.insertBefore(block.viewport, gallery);
+
+                counter.textContent = `${index + 1} / ${info.count}`;
+                prev.disabled = index <= 0;
+                next.disabled = index >= info.count - 1;
+            };
+
+            prev.addEventListener('click', () => { if (current > 0) renderAt(current - 1); });
+            next.addEventListener('click', () => { if (current < info.count - 1) renderAt(current + 1); });
+
+            content.appendChild(gallery);
+            renderAt(current);
+        } catch { }
     }
 
 
@@ -332,7 +494,7 @@
             const jamText = theme
                 ? `#${jamNumber} ${escapeHtml(theme)}`
                 : `#${jamNumber}`;
-            parts.push(`<a href="/AnimJams/Details?number=${encodeURIComponent(jamNumber)}" target="_blank" rel="noopener">${jamText}</a>`);
+            parts.push(`<a href="/Events/Details/AniJam/${encodeURIComponent(jamNumber)}" target="_blank" rel="noopener">${jamText}</a>`);
         }
 
         if (parts.length === 0) return null;

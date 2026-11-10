@@ -25,6 +25,7 @@
         public string MessageUrl { get; set; } = "";
         public NominationEditType Nomination { get; set; } = NominationEditType.Participant;
         public List<EditPerson> People { get; set; } = new();
+        public int PrimaryAttachmentIndex { get; set; } = 0;
     }
 
     public class EditPerson

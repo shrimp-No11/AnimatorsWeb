@@ -11,6 +11,7 @@
         public int ParticipantsCount { get; set; }
         public List<ArtJamWinnerGroup> WinnerGroups { get; set; } = new();
         public List<ArtJamWorkCard> Works { get; set; } = new();
+        
     }
 
     public class ArtJamWinnerGroup
@@ -26,5 +27,8 @@
         public int PrimaryParticipantId { get; set; }
         public string MediaType { get; set; } = "link";
         public List<ArtJamPerson> People { get; set; } = new();
+        public int AttachmentsCount { get; set; } = 1;
+        public bool IsWinner { get; set; }
+        public string BadgeHtml { get; set; } = "";
     }
 }

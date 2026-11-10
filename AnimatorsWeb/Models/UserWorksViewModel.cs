@@ -26,5 +26,6 @@ namespace AnimatorsWeb.Models
         public string BadgeHtml { get; set; } = "";             
         public string ThumbnailUrl { get; set; } = "";
         public string MediaType { get; set; } = "";
+        public int AttachmentsCount { get; set; } = 1;
     }
 }

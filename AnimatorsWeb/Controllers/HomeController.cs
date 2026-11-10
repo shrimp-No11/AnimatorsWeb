@@ -66,28 +66,28 @@ namespace AnimatorsWeb.Controllers
                 .Select(f => f.ParticipantId)
                 .ToListAsync();
 
-            List<(int Id, int AnimJamNumber, string WorkUrl, string MessageUrl, string DisplayName)> chosen;
+            List<(int Id, int AnimJamNumber, string WorkUrl, string MessageUrl, string DisplayName, int AttachmentCount)> chosen;
 
             if (featuredOrder.Count > 0)
             {
                 var parts = await _db.Participants
                     .Where(p => featuredOrder.Contains(p.Id))
-                    .Select(p => new { p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName })
+                    .Select(p => new { p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName, p.AttachmentCount })
                     .ToListAsync();
 
                 var byId = parts.ToDictionary(p => p.Id);
-                chosen = new List<(int, int, string, string, string)>();
+                chosen = new List<(int, int, string, string, string,int)>();
                 foreach (var id in featuredOrder)
                 {
                     if (!byId.TryGetValue(id, out var p)) continue;
-                    chosen.Add((p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName));
+                    chosen.Add((p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName, p.AttachmentCount));
                 }
             }
             else
             {
                 var recent = await _db.Participants
                     .OrderByDescending(p => p.AnimJamNumber)
-                    .Select(p => new { p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName })
+                    .Select(p => new { p.Id, p.AnimJamNumber, p.WorkUrl, p.MessageUrl, p.DisplayName, p.AttachmentCount })
                     .ToListAsync();
 
                 chosen = recent
@@ -96,7 +96,7 @@ namespace AnimatorsWeb.Controllers
                     .Select(g => g.First())
                     .OrderByDescending(x => x.AnimJamNumber)
                     .Take(9)
-                    .Select(x => (x.Id, x.AnimJamNumber, x.WorkUrl, x.MessageUrl, x.DisplayName))
+                    .Select(x => (x.Id, x.AnimJamNumber, x.WorkUrl, x.MessageUrl, x.DisplayName, x.AttachmentCount))
                     .ToList();
             }
 
@@ -138,7 +138,8 @@ namespace AnimatorsWeb.Controllers
                     AnimJamNumber = w.AnimJamNumber,
                     WorkUrl = w.WorkUrl,
                     MessageUrl = w.MessageUrl,
-                    DisplayName = w.DisplayName
+                    DisplayName = w.DisplayName,
+                    AttachmentsCount = w.AttachmentCount
                 };
 
                 // Авторы: все с этим WorkUrl, либо один текущий

@@ -20,6 +20,7 @@
         public string ThumbnailUrl { get; set; } = "";
         public string MediaType { get; set; } = "";
         public string DisplayName { get; set; } = "";
+        public int AttachmentsCount { get; set; } = 1;
     }
     public class LandingAuthor
     {

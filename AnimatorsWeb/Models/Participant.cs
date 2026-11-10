@@ -9,4 +9,6 @@ public class Participant
     public string DisplayName { get; set; } = "";
     public string WorkUrl { get; set; } = "";
     public string MessageUrl { get; set; } = "";
+    public int PrimaryAttachmentIndex { get; set; } = 0;
+    public int AttachmentCount { get; set; } = 1;
 }
