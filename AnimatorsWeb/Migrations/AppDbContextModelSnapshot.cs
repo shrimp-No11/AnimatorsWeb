@@ -310,25 +310,16 @@ namespace AnimatorsWeb.Migrations
 
             modelBuilder.Entity("AnimatorsWeb.Models.UserActivity", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<decimal>("DiscordUserId")
+                        .HasColumnType("numeric(20,0)");
 
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
-                    b.Property<decimal>("DiscordUserId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
-                    b.HasKey("Id");
-
-                    b.HasIndex("DiscordUserId", "Date", "Type")
-                        .IsUnique();
+                    b.HasKey("DiscordUserId", "Date", "Type");
 
                     b.ToTable("UserActivities");
                 });

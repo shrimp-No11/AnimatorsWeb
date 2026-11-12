@@ -35,8 +35,7 @@ namespace AnimatorsWeb.Data
                 .HasIndex(x => x.ParticipantId)
                 .IsUnique();
             modelBuilder.Entity<UserActivity>()
-                .HasIndex(a => new { a.DiscordUserId, a.Date, a.Type })
-                .IsUnique();
+                .HasKey(a => new { a.DiscordUserId, a.Date, a.Type });
             base.OnModelCreating(modelBuilder);
         }
     }
