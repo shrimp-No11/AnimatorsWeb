@@ -21,7 +21,7 @@ namespace AnimatorsWeb.Services
             while (!ct.IsCancellationRequested)
             {
                 var now = DateTime.UtcNow;
-                var next = NextWednesday1AmUtc(now);
+                var next = Next1AmUtc(now);
                 var delay = next - now;
 
                 _logger.LogInformation(
@@ -40,12 +40,10 @@ namespace AnimatorsWeb.Services
             }
         }
 
-        // 01:00 UTC = 04:00 МСК (UTC+3). Среда.
-        private static DateTime NextWednesday1AmUtc(DateTime now)
+        private static DateTime Next1AmUtc(DateTime now)
         {
-            int daysAhead = ((int)DayOfWeek.Wednesday - (int)now.DayOfWeek + 7) % 7;
-            var target = now.Date.AddDays(daysAhead).AddHours(1);
-            if (target <= now) target = target.AddDays(7);
+            var target = now.Date.AddHours(1);
+            if (target <= now) target = target.AddDays(1);
             return target;
         }
 
@@ -67,7 +65,7 @@ namespace AnimatorsWeb.Services
                 if (result.Success)
                 {
                     _logger.LogInformation(
-                        "Active role weekly check: granted {Granted}, revoked {Revoked}, nochange {NoChange}",
+                        "Active role daily check: granted {Granted}, revoked {Revoked}, nochange {NoChange}",
                         result.WillGrant, result.WillRevoke, result.NoChange);
                 }
                 else
