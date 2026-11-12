@@ -2941,8 +2941,8 @@ namespace AnimatorsWeb.Controllers
 
             await _discord.SendRoleMentionsAsync(
                 selectedChannelId,
-                new[] { role2dId, role3dId },
-                $"<@&{role2dId}>, <@&{role3dId}>, голосование за тему {animJamNumber}-го АртДжема началось!");
+                new[] { roleArtist },
+                $"<@&{roleArtist}>, голосование за тему {animJamNumber}-го АртДжема началось!");
 
             ViewBag.Result = "Голосование за тему АртДжема опубликовано!";
             return await ReturnArtJamChooseThemeWithSettings();
@@ -3010,7 +3010,7 @@ namespace AnimatorsWeb.Controllers
 
             string text = BuildArtJamAnnouncementText(jam);
             ulong messageId = await _discord.SendAnnouncementAsync(
-                model.ChannelId, text, new[] { role2dId, role3dId });
+                model.ChannelId, text, new[] { roleArtist });
 
             ulong guildId = _discordClient.Guilds.Values.First().Id;
             jam.AnounceMessage = $"https://discord.com/channels/{guildId}/{model.ChannelId}/{messageId}";
