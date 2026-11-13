@@ -1,4 +1,5 @@
 ﻿using AnimatorsWeb.Data;
+using AnimatorsWeb.Helpers;
 using AnimatorsWeb.Models;
 using AnimatorsWeb.Services;
 using DSharpPlus;
@@ -27,10 +28,7 @@ namespace AnimatorsWeb.Controllers
         private readonly IWebHostEnvironment _env;
 
 
-        const ulong role2dId = 1126390388006072380UL; 
-        const ulong role3dId = 1536428705105051808UL;
-        const ulong roleArtist = 1126390419769528330UL;
-        const ulong ActiveRoleId = 1507425845558509718UL; 
+
 
         private const string AnotherPollOption = "#голосую в другом опросе";
 
@@ -155,8 +153,8 @@ namespace AnimatorsWeb.Controllers
 
             await _discord.SendRoleMentionsAsync(
                 selectedChannelId,
-                new[] { role2dId, role3dId },
-                $"<@&{role2dId}>, <@&{role3dId}>, голосование за тему {animJamNumber}го аниджема началось!");
+                new[] { Roles.role2dId, Roles.role3dId },
+                $"<@&{Roles.role2dId}>, <@&{Roles.role3dId}>, голосование за тему {animJamNumber}го аниджема началось!");
 
             ViewBag.Result = "Голосование опубликовано!";
 
@@ -314,7 +312,7 @@ namespace AnimatorsWeb.Controllers
             ulong messageId = await _discord.SendAnnouncementAsync(
                     model.ChannelId,
                     text,
-                    new[] { ModeratorController.role2dId, ModeratorController.role3dId });
+                    new[] { Roles.role2dId, Roles.role3dId });
 
             // 3. Формируем ссылку на сообщение и сохраняем
             ulong guildId = _discordClient.Guilds.Values.First().Id;
@@ -368,7 +366,7 @@ namespace AnimatorsWeb.Controllers
             }
 
             // === Тай-брейк 2: голоса пользователей с ролью "Актив" ===
-            var activeFiltered = await FilterLeadersByRoleAsync(poll, leaders, ActiveRoleId);
+            var activeFiltered = await FilterLeadersByRoleAsync(poll, leaders, Roles.ActiveRoleId);
             if (activeFiltered.Count < leaders.Count)
                 leaders = activeFiltered;
 
@@ -430,7 +428,7 @@ namespace AnimatorsWeb.Controllers
             string endLine = $"<t:{endUnix}:F> (<t:{endUnix}:R>)";
 
             return
-                $"<@&{role2dId}>  <@&{role3dId}>\n" +
+                $"<@&{Roles.role2dId}>  <@&{Roles.role3dId}>\n" +
                 $"{jam.Number} AniJam начинается!\n\n" +
                 $"Дедлайн - {endLine}\n" +
                 $"Тема - **{jam.Theme}**\n\n" +
@@ -2941,8 +2939,8 @@ namespace AnimatorsWeb.Controllers
 
             await _discord.SendRoleMentionsAsync(
                 selectedChannelId,
-                new[] { roleArtist },
-                $"<@&{roleArtist}>, голосование за тему {animJamNumber}-го АртДжема началось!");
+                new[] { Roles.roleArtistId },
+                $"<@&{Roles.roleArtistId}>, голосование за тему {animJamNumber}-го АртДжема началось!");
 
             ViewBag.Result = "Голосование за тему АртДжема опубликовано!";
             return await ReturnArtJamChooseThemeWithSettings();
@@ -3010,7 +3008,7 @@ namespace AnimatorsWeb.Controllers
 
             string text = BuildArtJamAnnouncementText(jam);
             ulong messageId = await _discord.SendAnnouncementAsync(
-                model.ChannelId, text, new[] { roleArtist });
+                model.ChannelId, text, new[] { Roles.roleArtistId });
 
             ulong guildId = _discordClient.Guilds.Values.First().Id;
             jam.AnounceMessage = $"https://discord.com/channels/{guildId}/{model.ChannelId}/{messageId}";
@@ -3052,7 +3050,7 @@ namespace AnimatorsWeb.Controllers
             string endLine = $"<t:{endUnix}:F> (<t:{endUnix}:R>)";
 
             return
-                $"<@&{roleArtist}>\n" +
+                $"<@&{Roles.roleArtistId}>\n" +
                 $"{jam.Number} ArtJam начинается!\n\n" +
                 $"Дедлайн - {endLine}\n" +
                 $"Тема - **{jam.Theme}**\n\n" +

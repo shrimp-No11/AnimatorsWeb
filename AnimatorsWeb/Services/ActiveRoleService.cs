@@ -1,4 +1,5 @@
 ﻿using AnimatorsWeb.Data;
+using AnimatorsWeb.Helpers;
 using AnimatorsWeb.Models;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -152,7 +153,7 @@ namespace AnimatorsWeb.Services
                 var eventOk = settings.EventEnabled
                     && eventParticipants.Contains(member.Id);
 
-                var shouldHaveRole = messageOk || voiceOk || eventOk;
+                var shouldHaveRole = (messageOk || voiceOk || eventOk) && !member.Roles.Any(r => r.Id == Roles.PassiveRoleId); 
 
                 ActiveRoleAction action;
                 if (shouldHaveRole && !hasRole) action = ActiveRoleAction.Grant;
