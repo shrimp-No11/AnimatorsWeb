@@ -347,6 +347,7 @@
                     @foreach (var row in Model.Rows)
                     {
                         <tr data-name="@row.DisplayName.ToLowerInvariant()"
+                            data-all-names="@string.Join("|", row.AllNames.Select(n => n.ToLowerInvariant()))"
                             data-participations="@row.ParticipationsCount"
                             data-works="@row.WorksCount"
                             data-wins="@row.WinsCount"
@@ -458,7 +459,8 @@
 
             rows.forEach(row => {
                 const name = row.dataset.name ?? '';
-                const visible = !query || name.includes(query);
+                const allNames = row.dataset.allNames ?? '';
+                const visible = !query || name.includes(query) || allNames.includes(query);
 
                 row.hidden = !visible;
 

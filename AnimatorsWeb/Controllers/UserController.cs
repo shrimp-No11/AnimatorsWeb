@@ -27,8 +27,8 @@ namespace AnimatorsWeb.Controllers
             if (string.IsNullOrEmpty(discordIdStr) || !ulong.TryParse(discordIdStr, out ulong discordId))
                 return RedirectToAction("Login", "Account");
 
-            tab = (tab ?? "anijam").ToLowerInvariant();
-            if (tab != "artjam") tab = "anijam";
+            if (tab != "artjam" && tab != "anijam")
+                tab = await GetDefaultTabAsync(discordId);
 
             var model = await BuildProfileModel(discordId, User.Identity?.Name, tab);
             return View(model);
@@ -61,11 +61,10 @@ namespace AnimatorsWeb.Controllers
         }
 
         [AllowAnonymous]
-
         public async Task<IActionResult> PublicProfile(ulong id, string? tab)
         {
-            tab = (tab ?? "anijam").ToLowerInvariant();
-            if (tab != "artjam") tab = "anijam";
+            if (tab != "artjam" && tab != "anijam")
+                tab = await GetDefaultTabAsync(id);
 
             var model = await BuildProfileModel(id, null, tab);
             return View("Profile", model);
@@ -330,6 +329,9 @@ namespace AnimatorsWeb.Controllers
                 model.Works.Add(item);
             }
 
+
+
+
             return model;
         }
 
@@ -576,6 +578,26 @@ namespace AnimatorsWeb.Controllers
                 return dbName;
 
             return $"██████████";
+        }
+        private async Task<string> GetDefaultTabAsync(ulong discordId)
+        {
+            var connectedIds = await GetConnectedIdsAsync(discordId);
+            var allIds = new HashSet<ulong>(connectedIds) { discordId };
+
+            var counts = await _db.Participants
+                .Where(p => allIds.Contains(p.DiscordUserId))
+                .GroupBy(p => p.EventType)
+                .Select(g => new
+                {
+                    Type = g.Key,
+                    Count = g.Select(x => x.AnimJamNumber).Distinct().Count()
+                })
+                .ToListAsync();
+
+            var anijam = counts.FirstOrDefault(c => c.Type == EventType.AniJam)?.Count ?? 0;
+            var artjam = counts.FirstOrDefault(c => c.Type == EventType.ArtJam)?.Count ?? 0;
+
+            return artjam > anijam ? "artjam" : "anijam";
         }
     }
 }

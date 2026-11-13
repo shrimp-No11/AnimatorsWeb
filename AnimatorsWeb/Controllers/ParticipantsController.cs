@@ -100,6 +100,13 @@ namespace AnimatorsWeb.Controllers
                 var firstPair = allEvents.FirstOrDefault();
                 var lastPair = allEvents.LastOrDefault();
 
+                var allNames = allParticipants
+                    .Where(p => p.DiscordUserId == userId)
+                    .Select(p => p.DisplayName)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .ToList();
+
                 rows.Add(new ParticipantRow
                 {
                     DiscordUserId = userId,
@@ -118,7 +125,8 @@ namespace AnimatorsWeb.Controllers
                     FirstEventType = firstPair.Item1,
                     LastEventType = lastPair.Item1,
                     FirstDate = firstPair.Item2 > 0 ? jams[firstPair] : DateTime.MinValue,
-                    LastDate = lastPair.Item2 > 0 ? jams[lastPair] : DateTime.MinValue
+                    LastDate = lastPair.Item2 > 0 ? jams[lastPair] : DateTime.MinValue,
+                    AllNames = allNames
                 });
             }
 

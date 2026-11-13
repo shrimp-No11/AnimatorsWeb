@@ -462,12 +462,7 @@
     }
 
     <div class="profile-footer">
-        <a asp-action="Works"
-           asp-route-id="@Model.DiscordUserId"
-           class="profile-works-button">
-            Смотреть работы
-            <span aria-hidden="true">→</span>
-        </a>
+        <a asp-action="Works" asp-route-id="@Model.DiscordUserId" asp-route-tab="@Model.Tab" class="btn btn-primary">Работы →</a>
     </div>
 
     @if (TempData["Info"] != null)

@@ -48,6 +48,7 @@
     .work-card {
         min-width: 0;
         overflow: hidden;
+        position: relative;        
         background: var(--brand-card);
         border: 1px solid color-mix(in srgb, var(--brand-text) 11%, transparent);
         border-radius: 16px;
@@ -302,6 +303,30 @@
         background: color-mix(in srgb, var(--brand-primary, #e8743b) 15%, transparent);
         color: var(--brand-primary, #e8743b);
     }
+    .work-attachments-badge {
+        position: absolute;
+        right: 9px;
+        bottom: 9px;
+        z-index: 3;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 27px;
+        height: 27px;
+        border: 1px solid color-mix(in srgb, var(--brand-card) 40%, transparent);
+        border-radius: 7px;
+        background: color-mix(in srgb, var(--brand-text) 75%, transparent);
+        color: var(--brand-card);
+        pointer-events: none;
+    }
+
+    .work-attachments-badge svg {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.2;
+    }
 </style>
 
 <div class="works-page">
@@ -330,94 +355,84 @@
     else
     {
         <div class="works-grid">
-            @foreach (var work in Model.Works)
-            {
-                <article class="work-card">
-                    @{
-                        @if (work.AttachmentsCount > 1)
-                        {
-                            <span class="work-attachments-badge" aria-label="Несколько вложений">📎</span>
-                        }
-                        var meta = System.Text.Json.JsonSerializer.Serialize(new
-                        {
-                            authors = new[] { new
+    @foreach (var work in Model.Works)
+    {
+        <article class="work-card">
+            <button type="button"
+                    class="work-preview js-open-work"
+                    @Html.Raw(WorkButtonHelper.GetAttributes(
+                        work.Id,
+                        work.WorkUrl,
+                        work.MessageUrl,
+                        work.MediaType,
+                        new[] { new WorkButtonHelper.Author
                             {
-                                name = Model.DisplayName,
-                                discordId = Model.DiscordUserId.ToString()
+                                DisplayName = Model.DisplayName,
+                                DiscordUserId = Model.DiscordUserId
                             } },
-                            jamNumber = work.AnimJamNumber,
-                            theme = work.Theme
-                        });
+                        work.AnimJamNumber,
+                        work.Theme))
+                    aria-label="Открыть работу">
+
+                @if (!string.IsNullOrEmpty(work.BadgeHtml))
+                {
+                    <span class="work-badge">
+                        @Html.Raw(work.BadgeHtml)
+                    </span>
+                }
+
+                @if (work.AttachmentsCount > 1)
+                {
+                    <span class="work-attachments-badge" aria-label="Несколько вложений">
+                        <svg viewBox="0 0 24 24">
+                            <rect x="9" y="9" width="11" height="11" rx="2"/>
+                            <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/>
+                        </svg>
+                    </span>
+                }
+
+                @if (work.MediaType == "link")
+                {
+                    <span class="work-preview-placeholder work-link-icon" aria-hidden="true">🔗</span>
+                }
+                else
+                {
+                    <img src="/Featured/Thumbnail/@work.Id"
+                         loading="lazy" decoding="async"
+                         alt="Превью работы для AniJam #@work.AnimJamNumber"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                    <span class="work-preview-placeholder" style="display: none;" aria-hidden="true">🎬</span>
+                }
+            </button>
+
+            <div class="work-card-body">
+                <div>
+                    @if (work.EventType == AnimatorsWeb.Models.EventType.ArtJam)
+                    {
+                        <a asp-controller="Events" asp-action="Details" asp-route-type="ArtJam" asp-route-number="@work.AnimJamNumber" class="work-jam-link">
+                            ArtJam #@work.AnimJamNumber
+                        </a>
                     }
-                    <button type="button"
-                            class="work-preview js-open-work"
-                        @Html.Raw(WorkButtonHelper.GetAttributes(
-                            work.Id,
-                            work.WorkUrl,
-                            work.MessageUrl,
-                            work.MediaType,
-                            new[] { new WorkButtonHelper.Author
-                                {
-                                    DisplayName = Model.DisplayName,
-                                    DiscordUserId = Model.DiscordUserId
-                                } },
-                            work.AnimJamNumber,
-                            work.Theme))
-                            aria-label="Открыть работу">
+                    else
+                    {
+                        <a asp-controller="Events" asp-action="Details" asp-route-type="AniJam" asp-route-number="@work.AnimJamNumber" class="work-jam-link">
+                            AniJam #@work.AnimJamNumber
+                        </a>
+                    }
 
-                        @if (!string.IsNullOrEmpty(work.BadgeHtml))
-                        {
-                            <span class="work-badge">
-                                @Html.Raw(work.BadgeHtml)
-                            </span>
-                        }
+                    <span class="work-theme">— @work.Theme</span>
+                </div>
 
-                        @if (work.MediaType == "link")
-                        {
-                            <span class="work-preview-placeholder work-link-icon" aria-hidden="true">
-                                🔗
-                            </span>
-                        }
-                        else
-                        {
-                            <img src="/Featured/Thumbnail/@work.Id"
-                                 loading="lazy"
-                                 decoding="async"
-                                 alt="Превью работы для AniJam #@work.AnimJamNumber"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-
-                            <span class="work-preview-placeholder"
-                                  style="display: none;"
-                                  aria-hidden="true">
-                                🎬
-                            </span>
-                        }
-
-                        
-                    </button>
-
-                    <div class="work-card-body">
-                        <div>
-                            <a asp-controller="AnimJams"
-                               asp-action="Details"
-                               asp-route-number="@work.AnimJamNumber"
-                               class="work-jam-link">
-                                AniJam #@work.AnimJamNumber
-                            </a>
-
-                            <span class="work-theme">— @work.Theme</span>
-                        </div>
-
-                        @if (!string.IsNullOrEmpty(work.NominationDisplayHtml))
-                        {
-                            <div class="work-nomination">
-                                @Html.Raw(work.NominationDisplayHtml)
-                            </div>
-                        }
+                @if (!string.IsNullOrEmpty(work.NominationDisplayHtml))
+                {
+                    <div class="work-nomination">
+                        @Html.Raw(work.NominationDisplayHtml)
                     </div>
-                </article>
-            }
-        </div>
+                }
+            </div>
+        </article>
+    }
+</div>
     }
 
     <a asp-action="Profile" class="works-back-link">

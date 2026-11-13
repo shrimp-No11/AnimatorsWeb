@@ -29,5 +29,7 @@
         public int LastAnimJam { get; set; }
         public DateTime FirstDate { get; set; }
         public DateTime LastDate { get; set; }
+
+        public List<string> AllNames { get; set; } = new();
     }
 }
