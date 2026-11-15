@@ -56,7 +56,6 @@ namespace AnimatorsWeb.Services
                 return result;
             }
 
-            // Проверим, что роль существует
             DiscordRole? role = null;
             try { role = await guild.GetRoleAsync(settings.RoleId); }
             catch { }
@@ -66,13 +65,18 @@ namespace AnimatorsWeb.Services
                 return result;
             }
 
-            var cleanupCutoff = GetCleanupCutoff(settings);
-            var hasOldActivities = await _db.UserActivities.AnyAsync(a => a.Date < cleanupCutoff);
-            result.IsFirstRun = !hasOldActivities;
-
-            // === Данные из БД ===
             var mskNow = DateTime.UtcNow.AddHours(3);
 
+            // Готовность к отбиранию: система собрала данные на полное окно оценки
+            int maxWindow = Math.Max(
+                settings.MessageEnabled ? settings.MessageWindowDays : 0,
+                settings.VoiceEnabled ? settings.VoiceWindowDays : 0);
+
+            var readinessCutoff = DateOnly.FromDateTime(mskNow.AddDays(-maxWindow));
+            var hasOldEnoughData = await _db.UserActivities.AnyAsync(a => a.Date < readinessCutoff);
+            result.IsFirstRun = !hasOldEnoughData;
+
+            // === Данные из БД ===
             var messageCutoff = DateOnly.FromDateTime(mskNow.AddDays(-settings.MessageWindowDays));
             var voiceCutoff = DateOnly.FromDateTime(mskNow.AddDays(-settings.VoiceWindowDays));
             var eventCutoffUtc = DateTime.SpecifyKind(DateTime.UtcNow.AddDays(-settings.EventWindowDays), DateTimeKind.Utc);
@@ -153,7 +157,7 @@ namespace AnimatorsWeb.Services
                 var eventOk = settings.EventEnabled
                     && eventParticipants.Contains(member.Id);
 
-                var shouldHaveRole = (messageOk || voiceOk || eventOk) && !member.Roles.Any(r => r.Id == Roles.PassiveRoleId); 
+                var shouldHaveRole = (messageOk || voiceOk || eventOk) && !member.Roles.Any(r => r.Id == Roles.PassiveRoleId);
 
                 ActiveRoleAction action;
                 if (shouldHaveRole && !hasRole) action = ActiveRoleAction.Grant;
@@ -259,13 +263,14 @@ namespace AnimatorsWeb.Services
 
             return result;
         }
+
         public static DateOnly GetCleanupCutoff(ActiveRoleSettings settings)
         {
             int maxWindow = Math.Max(
                 settings.MessageEnabled ? settings.MessageWindowDays : 0,
                 settings.VoiceEnabled ? settings.VoiceWindowDays : 0);
 
-            int keepDays = maxWindow + 7;
+            int keepDays = maxWindow + 30;
             var mskNow = DateTime.UtcNow.AddHours(3);
             return DateOnly.FromDateTime(mskNow.AddDays(-keepDays));
         }
