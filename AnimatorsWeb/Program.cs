@@ -47,6 +47,7 @@ builder.Services.ConfigureEventHandlers(handling => handling
     .AddEventHandlers<BotStartedHandler>(ServiceLifetime.Singleton)
     .AddEventHandlers<RulesReactionHandler>(ServiceLifetime.Transient)
     .AddEventHandlers<ActivityTrackingHandler>(ServiceLifetime.Transient)
+    .AddEventHandlers<ScheduledEventSyncHandler>(ServiceLifetime.Transient)
 );
 
 builder.Services.AddAuthentication(options =>
@@ -122,6 +123,13 @@ builder.Services.AddSingleton<FeaturedThumbnailService>();
 
 builder.Services.AddScoped<ActiveRoleService>();
 builder.Services.AddHostedService<ActiveRoleBackgroundService>();
+
+builder.Services.AddScoped<PatternMaterializationService>();
+builder.Services.AddHostedService<PatternExtendBackgroundService>();
+builder.Services.AddScoped<DiscordCalendarSyncService>();
+builder.Services.AddScoped<DiscordCalendarApplyService>();
+builder.Services.AddHttpClient("DiscordApi");
+builder.Services.AddScoped<DiscordRecurringEventClient>();
 
 
 var app = builder.Build();

@@ -106,6 +106,76 @@ namespace AnimatorsWeb.Migrations
                     b.ToTable("AnimJams");
                 });
 
+            modelBuilder.Entity("AnimatorsWeb.Models.CalendarEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("DiscordEventId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("DiscordSnapshot")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("EndUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EventPresetId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsRecurring")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastSyncedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("PatternInstanceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RecurrenceExceptionsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecurrenceRuleJson")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("SkipDiscordSync")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("StartUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscordEventId")
+                        .IsUnique()
+                        .HasFilter("\"DiscordEventId\" IS NOT NULL");
+
+                    b.HasIndex("EventPresetId");
+
+                    b.HasIndex("PatternInstanceId");
+
+                    b.HasIndex("StartUtc");
+
+                    b.ToTable("CalendarEvents");
+                });
+
             modelBuilder.Entity("AnimatorsWeb.Models.ChannelSettings", b =>
                 {
                     b.Property<int>("Id")
@@ -192,6 +262,80 @@ namespace AnimatorsWeb.Migrations
                     b.ToTable("DesignSettings");
                 });
 
+            modelBuilder.Entity("AnimatorsWeb.Models.EventPattern", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoRecurring")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CycleWeeksCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EventPatterns");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.EventPreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("CreateInDiscord")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DefaultDescription")
+                        .HasColumnType("text");
+
+                    b.Property<TimeSpan?>("DefaultStartTimeUtc")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("DefaultTitle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("DurationHours")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsRecurring")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecurrenceByWeekdays")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("RecurrenceFrequency")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RecurrenceInterval")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EventPresets");
+                });
+
             modelBuilder.Entity("AnimatorsWeb.Models.LandingFeaturedWork", b =>
                 {
                     b.Property<int>("Id")
@@ -241,6 +385,65 @@ namespace AnimatorsWeb.Migrations
                         .HasFilter("\"LinkedDiscordId\" IS NOT NULL");
 
                     b.ToTable("LinkedAccounts");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.PatternEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EventPatternId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EventPresetId")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("StartTimeUtc")
+                        .HasColumnType("interval");
+
+                    b.Property<int>("WeekOffset")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventPatternId");
+
+                    b.HasIndex("EventPresetId");
+
+                    b.ToTable("PatternEvents");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.PatternInstance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EventPatternId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("MaterializedUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("StartWeekUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventPatternId");
+
+                    b.ToTable("PatternInstances");
                 });
 
             modelBuilder.Entity("AnimatorsWeb.Models.RulesSettings", b =>
@@ -457,6 +660,58 @@ namespace AnimatorsWeb.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Participants");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.CalendarEvent", b =>
+                {
+                    b.HasOne("AnimatorsWeb.Models.EventPreset", "EventPreset")
+                        .WithMany()
+                        .HasForeignKey("EventPresetId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("AnimatorsWeb.Models.PatternInstance", "PatternInstance")
+                        .WithMany()
+                        .HasForeignKey("PatternInstanceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("EventPreset");
+
+                    b.Navigation("PatternInstance");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.PatternEvent", b =>
+                {
+                    b.HasOne("AnimatorsWeb.Models.EventPattern", "EventPattern")
+                        .WithMany("Events")
+                        .HasForeignKey("EventPatternId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AnimatorsWeb.Models.EventPreset", "EventPreset")
+                        .WithMany()
+                        .HasForeignKey("EventPresetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EventPattern");
+
+                    b.Navigation("EventPreset");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.PatternInstance", b =>
+                {
+                    b.HasOne("AnimatorsWeb.Models.EventPattern", "EventPattern")
+                        .WithMany()
+                        .HasForeignKey("EventPatternId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EventPattern");
+                });
+
+            modelBuilder.Entity("AnimatorsWeb.Models.EventPattern", b =>
+                {
+                    b.Navigation("Events");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,0 +1,784 @@
+﻿@model AnimatorsWeb.Models.PatternEditorPageViewModel
+@using AnimatorsWeb.Models
+@{
+    ViewData["Title"] = Model.IsNew ? "Новый паттерн" : $"Паттерн: {Model.Pattern.Name}";
+    var dayNames = new[] { "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс" };
+    var weeksCount = Model.IsNew ? 1 : Model.Pattern.CycleWeeksCount;
+}
+
+<style>
+    .pat-page {
+        --pat-line: color-mix(in srgb, var(--brand-text) 12%, transparent);
+        --pat-muted: color-mix(in srgb, var(--brand-text) 60%, transparent);
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 24px 0 60px;
+        color: var(--brand-text);
+    }
+
+    .pat-layout {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        gap: 20px;
+        align-items: start;
+    }
+
+    .pat-page a { transition: opacity .15s ease; }
+    .pat-page a:hover { opacity: .78; }
+
+    .pat-meta-form input,
+    .pat-meta-form select,
+    .pat-modal-content input,
+    .pat-modal-content select {
+        background: var(--brand-bg);
+        color: var(--brand-text);
+        accent-color: var(--brand-primary);
+        outline: none;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .pat-meta-form input:focus,
+    .pat-meta-form select:focus,
+    .pat-modal-content input:focus,
+    .pat-modal-content select:focus {
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 16%, transparent);
+    }
+
+    .pat-meta-form input[type=checkbox] { accent-color: var(--brand-primary); }
+    .pat-header .btn { min-height: 38px; border-radius: 8px; }
+
+    .pat-header {
+        display: flex;
+        align-items: flex-end;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .pat-meta-form {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .pat-meta-form .form-group { margin: 0; }
+
+    .pat-meta-form label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--pat-muted);
+        margin-bottom: 4px;
+    }
+
+    .pat-meta-form input[type=text] { width: 280px; }
+    .pat-meta-form input[type=number] { width: 90px; }
+
+    .pat-meta-form input,
+    .pat-meta-form select {
+        padding: 8px 10px;
+        border: 1px solid var(--pat-line);
+        border-radius: 6px;
+        font-size: 14px;
+    }
+
+    .pat-grid-wrap {
+        border: 1px solid var(--pat-line);
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--brand-card);
+        box-shadow: 0 8px 28px color-mix(in srgb, var(--brand-text) 7%, transparent);
+    }
+
+    .pat-grid-head {
+        display: grid;
+        grid-template-columns: 50px repeat(7, minmax(0, 1fr));
+        background: color-mix(in srgb, var(--brand-primary) 8%, var(--brand-card));
+        border-bottom: 1px solid var(--pat-line);
+    }
+
+    .pat-grid-head > div {
+        padding: 8px;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--pat-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .pat-week-row {
+        display: grid;
+        grid-template-columns: 50px repeat(7, minmax(0, 1fr));
+        grid-template-rows: repeat(1, minmax(92px, 1fr));
+        min-height: 92px;
+        border-bottom: 1px solid var(--pat-line);
+        position: relative;
+        isolation: isolate;
+    }
+    .pat-week-row:last-child { border-bottom: none; }
+
+    .pat-week-label {
+        grid-column: 1;
+        grid-row: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: color-mix(in srgb, var(--brand-bg) 60%, var(--brand-card));
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--pat-muted);
+        border-right: 1px solid var(--pat-line);
+    }
+
+    .pat-cell {
+        grid-row: 1 / -1;
+        border-right: 1px solid var(--pat-line);
+        padding: 0;
+        transition: background .15s;
+        cursor: pointer;
+        z-index: 1;
+        min-width: 0;
+        min-height: 0;
+    }
+    .pat-cell[data-day="6"] { border-right: none; }
+
+    .pat-cell.drag-over {
+        background: color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card));
+        outline: 2px dashed var(--brand-primary);
+        outline-offset: -2px;
+    }
+
+    .pat-cell:hover {
+        background: color-mix(in srgb, var(--brand-primary) 4%, var(--brand-card));
+    }
+
+    .pat-event-bar {
+        position: relative;
+        z-index: 2;
+        background: color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card));
+        border-left: 3px solid var(--brand-primary);
+        border-radius: 7px;
+        padding: 4px 8px;
+        margin: 4px;
+        font-size: 11px;
+        line-height: 1.3;
+        color: var(--brand-text);
+        cursor: pointer;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        box-sizing: border-box;
+        align-self: start;
+    }
+    .pat-event-bar:hover {
+        background: color-mix(in srgb, var(--brand-primary) 20%, var(--brand-card));
+    }
+    .pat-event-bar .time {
+        color: var(--brand-primary);
+        font-weight: 700;
+        margin-right: 3px;
+    }
+
+    .pat-sidebar {
+        position: sticky;
+        top: 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .pat-sidebar-section {
+        border: 1px solid var(--pat-line);
+        border-radius: 14px;
+        padding: 16px;
+        background: var(--brand-card);
+        box-shadow: 0 8px 28px color-mix(in srgb, var(--brand-text) 6%, transparent);
+    }
+
+    .pat-sidebar-section h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+    }
+
+    .pat-preset-drag {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 10px;
+        border-radius: 9px;
+        background: color-mix(in srgb, var(--brand-bg) 60%, var(--brand-card));
+        border: 1px solid var(--pat-line);
+        margin-bottom: 6px;
+        font-size: 13px;
+        cursor: grab;
+        user-select: none;
+    }
+
+    .pat-preset-drag:active { cursor: grabbing; }
+
+    .pat-preset-drag:hover {
+        border-color: var(--brand-primary);
+    }
+
+    .pat-preset-drag .name { font-weight: 700; }
+
+    .pat-preset-drag .meta {
+        font-size: 11px;
+        color: var(--pat-muted);
+    }
+
+    .pat-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        background: color-mix(in srgb, var(--brand-text) 68%, transparent);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .pat-modal.is-open { display: flex; }
+
+    .pat-modal-content {
+        background: var(--brand-card);
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 460px;
+        width: 100%;
+    }
+
+    .pat-modal-content h3 { margin-top: 0; }
+
+    .pat-modal-content label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .pat-modal-content input,
+    .pat-modal-content select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border: 1px solid var(--pat-line);
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+
+    .pat-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    .pat-modal-actions button {
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .pat-modal-actions .cancel {
+        background: var(--brand-bg);
+        border: 1px solid var(--pat-line);
+    }
+
+    .pat-modal-actions .save {
+        background: var(--brand-primary);
+        color: var(--brand-bg);
+        border: 1px solid var(--brand-primary);
+    }
+
+    .pat-modal-actions .del {
+        background: var(--brand-bg);
+        color: var(--brand-primary);
+        border: 1px solid var(--brand-primary);
+        margin-right: auto;
+    }
+
+    .pat-error {
+        color: var(--brand-primary);
+        font-size: 13px;
+        padding: 8px 12px;
+        background: color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card));
+        border-radius: 6px;
+        margin-bottom: 12px;
+        display: none;
+    }
+
+    @@media (max-width: 1050px) {
+        .pat-layout { grid-template-columns: 1fr; }
+        .pat-sidebar { position: static; }
+    }
+
+    @@media (max-width: 700px) {
+        .pat-page { padding: 16px 0 40px; }
+        .pat-meta-form { align-items: stretch; flex-direction: column; }
+        .pat-meta-form input[type=text], .pat-meta-form input[type=number] { width: 100%; box-sizing: border-box; }
+        .pat-grid-wrap { overflow-x: auto; }
+        .pat-grid-head, .pat-week-row { min-width: 680px; }
+        .pat-week-label { font-size: 10px; }
+    }
+</style>
+
+<div class="pat-page">
+    <div style="margin-bottom: 16px;">
+        <a asp-action="Index" style="color: var(--brand-primary); text-decoration: none;">← Назад к календарю</a>
+    </div>
+
+    <div class="pat-header">
+        <div class="pat-meta-form">
+            <div class="form-group">
+                <label>Название паттерна</label>
+                <input type="text" id="patName" value="@Model.Pattern.Name" placeholder="Reg-Reg-Giga AniJam" />
+            </div>
+            <div class="form-group">
+                <label>Недель в цикле</label>
+                <input type="number" id="patWeeks" value="@weeksCount" min="1" max="12" />
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px; padding-top: 22px;">
+                    <input type="checkbox" id="patAutoRecurring" @(Model.Pattern.AutoRecurring ? "checked" : "") />
+                    Повторять бесконечно
+                </label>
+            </div>
+            @if (Model.IsNew)
+            {
+                <button type="button" class="btn btn-primary" onclick="createPattern()" id="patCreateBtn">Создать</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-primary" onclick="saveMeta()" id="patSaveMetaBtn">Сохранить</button>
+            }
+        </div>
+    </div>
+
+    <div class="pat-error" id="patError"></div>
+
+    @if (!Model.IsNew)
+    {
+        <div class="pat-layout">
+            <div class="pat-grid-wrap">
+                <div class="pat-grid-head">
+                    <div></div>
+                    @foreach (var d in dayNames)
+                    {
+                        <div>@d</div>
+                    }
+                </div>
+
+                @for (int w = 0; w < weeksCount; w++)
+                {
+                    <div class="pat-week-row" data-week="@w">
+                        <div class="pat-week-label">Неделя @(w + 1)</div>
+                        @for (int d = 0; d < 7; d++)
+                        {
+                            <div class="pat-cell" data-week="@w" data-day="@d" style="grid-column: @(d + 2);"></div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <aside class="pat-sidebar">
+                <div class="pat-sidebar-section">
+                    <h3>Пресеты</h3>
+                    <p style="color: var(--pat-muted); font-size: 12px; margin: 0 0 10px;">
+                        Перетащи пресет в ячейку, чтобы добавить событие.
+                    </p>
+                    @foreach (var p in Model.Presets)
+                    {
+                        <div class="pat-preset-drag" draggable="true" data-preset-id="@p.Id">
+                            <span class="name">@p.Name</span>
+                            <span class="meta">@p.DurationHours ч.</span>
+                        </div>
+                    }
+                </div>
+            </aside>
+        </div>
+    }
+
+    @if (Model.IsNew)
+    {
+        <p style="color: var(--pat-muted);">
+            Введи название и число недель, нажми «Создать» — после этого появится сетка, в которую можно перетаскивать пресеты.
+        </p>
+    }
+</div>
+
+<!-- Модалка добавления/редактирования события в паттерне -->
+<div id="patEventModal" class="pat-modal">
+    <div class="pat-modal-content">
+        <h3 id="patEventModalTitle">Событие</h3>
+        <div id="patEventError" class="pat-error"></div>
+
+        <input type="hidden" id="patEventId" value="0" />
+        <input type="hidden" id="patEventWeek" value="0" />
+        <input type="hidden" id="patEventDay" value="0" />
+
+        <div id="patEventPresetBlock">
+            <label>Пресет</label>
+            <select id="patEventPreset">
+                @foreach (var p in Model.Presets)
+                {
+                    <option value="@p.Id">@p.Name (@p.DurationHours ч.)</option>
+                }
+            </select>
+        </div>
+
+        <label>Время начала</label>
+        <input type="time" id="patEventTime" value="20:00" />
+
+        <div class="pat-modal-actions">
+            <button type="button" class="cancel" onclick="closePatEventModal()">Отмена</button>
+            <button type="button" class="del" onclick="deletePatEvent()" id="patEventDeleteBtn"
+                    style="display: none;">🗑 Удалить</button>
+            <button type="button" class="save" onclick="savePatEvent()" id="patEventSaveBtn">Добавить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const patternId = @(Model.IsNew ? 0 : Model.Pattern.Id);
+    const isNew = @(Model.IsNew ? "true" : "false");
+    const weeksCountJs = @weeksCount;
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('patError');
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 3000);
+    }
+
+    async function createPattern() {
+        const name = document.getElementById('patName').value.trim();
+        const weeks = parseInt(document.getElementById('patWeeks').value) || 0;
+        const btn = document.getElementById('patCreateBtn');
+        const autoRecurring = document.getElementById('patAutoRecurring').checked;
+
+        if (!name) return showError('Название обязательно');
+        if (weeks < 1 || weeks > 12) return showError('Недель от 1 до 12');
+
+        btn.disabled = true;
+        try {
+            const r = await fetch('/Calendar/CreatePattern', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ name, cycleWeeksCount: weeks, autoRecurring })
+            });
+            const data = await r.json();
+            if (data.success) {
+                window.location.href = '/Calendar/PatternEditor/' + data.id;
+            } else {
+                showError(data.error || 'Ошибка');
+            }
+        } catch { showError('Сетевая ошибка'); }
+        finally { btn.disabled = false; }
+    }
+
+    async function saveMeta() {
+        const name = document.getElementById('patName').value.trim();
+        const weeks = parseInt(document.getElementById('patWeeks').value) || 0;
+        const btn = document.getElementById('patSaveMetaBtn');
+        const autoRecurring = document.getElementById('patAutoRecurring').checked;
+
+        if (!name) return showError('Название обязательно');
+        if (weeks < 1 || weeks > 12) return showError('Недель от 1 до 12');
+
+        btn.disabled = true;
+        try {
+            const r = await fetch('/Calendar/UpdatePatternMeta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ id: patternId, name, cycleWeeksCount: weeks, autoRecurring })
+            });
+            const data = await r.json();
+            if (data.success) location.reload();
+            else showError(data.error || 'Ошибка');
+        } catch { showError('Сетевая ошибка'); }
+        finally { btn.disabled = false; }
+    }
+
+    // Drag пресета
+    if (!isNew) {
+        document.querySelectorAll('.pat-preset-drag').forEach(el => {
+            el.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', el.dataset.presetId);
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+
+        document.querySelectorAll('.pat-cell').forEach(cell => {
+            cell.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                cell.classList.add('drag-over');
+            });
+
+            cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+
+            cell.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                cell.classList.remove('drag-over');
+                const presetId = parseInt(e.dataTransfer.getData('text/plain'));
+                if (!presetId) return;
+
+                openAddFromDrop(cell.dataset.week, cell.dataset.day, presetId);
+            });
+
+            cell.addEventListener('click', (e) => {
+                if (e.target.closest('.pat-event-bar')) return;
+                openAddFromDrop(cell.dataset.week, cell.dataset.day, null);
+            });
+        });
+    }
+
+    function openAddFromDrop(week, day, presetId) {
+        const modal = document.getElementById('patEventModal');
+        document.getElementById('patEventModalTitle').textContent = 'Добавить событие в паттерн';
+        document.getElementById('patEventId').value = '0';
+        document.getElementById('patEventWeek').value = week;
+        document.getElementById('patEventDay').value = day;
+        document.getElementById('patEventPresetBlock').style.display = 'block';
+        document.getElementById('patEventDeleteBtn').style.display = 'none';
+        document.getElementById('patEventSaveBtn').textContent = 'Добавить';
+        document.getElementById('patEventTime').value = '20:00';
+        if (presetId) document.getElementById('patEventPreset').value = presetId;
+        document.getElementById('patEventError').style.display = 'none';
+        modal.classList.add('is-open');
+    }
+
+    function openEditEvent(peId, utcTime, presetName) {
+        const modal = document.getElementById('patEventModal');
+        document.getElementById('patEventModalTitle').textContent = 'Событие: ' + presetName;
+        document.getElementById('patEventId').value = peId;
+        document.getElementById('patEventPresetBlock').style.display = 'none';
+        document.getElementById('patEventDeleteBtn').style.display = 'block';
+        document.getElementById('patEventSaveBtn').textContent = 'Сохранить';
+        document.getElementById('patEventTime').value = utcTimeToLocal(utcTime);
+        document.getElementById('patEventError').style.display = 'none';
+        modal.classList.add('is-open');
+    }
+
+    function closePatEventModal() {
+        document.getElementById('patEventModal').classList.remove('is-open');
+    }
+
+    async function savePatEvent() {
+        const id = parseInt(document.getElementById('patEventId').value) || 0;
+        const localTime = document.getElementById('patEventTime').value || '20:00';
+        const utcTime = localTimeToUtc(localTime);
+        const err = document.getElementById('patEventError');
+        err.style.display = 'none';
+
+        try {
+            let r, data;
+
+            if (id > 0) {
+                r = await fetch('/Calendar/UpdatePatternEventTime', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ id, startTimeUtc: utcTime })
+                });
+            } else {
+                const presetId = parseInt(document.getElementById('patEventPreset').value) || 0;
+                const week = parseInt(document.getElementById('patEventWeek').value) || 0;
+                const day = parseInt(document.getElementById('patEventDay').value) || 0;
+
+                if (!presetId) {
+                    err.textContent = 'Выберите пресет';
+                    err.style.display = 'block';
+                    return;
+                }
+
+                r = await fetch('/Calendar/AddPatternEvent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        patternId,
+                        presetId,
+                        weekOffset: week,
+                        dayOfWeek: day,
+                        startTimeUtc: utcTime
+                    })
+                });
+            }
+
+            data = await r.json();
+            if (data.success) location.reload();
+            else {
+                err.textContent = data.error || 'Ошибка';
+                err.style.display = 'block';
+            }
+        } catch {
+            err.textContent = 'Сетевая ошибка';
+            err.style.display = 'block';
+        }
+    }
+
+    async function deletePatEvent() {
+        const id = parseInt(document.getElementById('patEventId').value) || 0;
+        if (!id) return;
+        if (!confirm('Удалить событие из паттерна?')) return;
+
+        try {
+            const r = await fetch('/Calendar/DeletePatternEvent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ id })
+            });
+
+            const data = await r.json();
+            if (data.success) location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch {
+            alert('Сетевая ошибка');
+        }
+    }
+
+    document.getElementById('patEventModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closePatEventModal();
+    });
+
+    function localTimeToUtc(localTime) {
+        const [h, m] = localTime.split(':').map(Number);
+        const d = new Date(2000, 0, 1, h, m);
+        return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    }
+
+    function utcTimeToLocal(utcTime) {
+        const [h, m] = utcTime.split(':').map(Number);
+        const d = new Date(Date.UTC(2000, 0, 1, h, m));
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    // ===== Рендер событий паттерна как полос =====
+    (function renderPatternBars() {
+        const events = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Pattern.Events.Select(e => {
+                var preset = Model.Presets.FirstOrDefault(p => p.Id == e.EventPresetId);
+                return new {
+                    peId = e.Id,
+                    weekOffset = e.WeekOffset,
+                    dayOfWeek = e.DayOfWeek,
+                    startTimeUtc = e.StartTimeUtc.ToString(@"hh\:mm"),
+                    durationHours = preset?.DurationHours ?? 2,
+                    presetName = preset?.Name ?? "?"
+                };
+            })
+        ));
+        if (!events.length) return;
+
+        const weekRows = document.querySelectorAll('.pat-week-row');
+        if (!weekRows.length) return;
+
+        function utcToLocalHours(utcTime) {
+            const [h, m] = utcTime.split(':').map(Number);
+            const d = new Date(Date.UTC(2000, 0, 1, h, m));
+            return d.getHours() + d.getMinutes() / 60;
+        }
+        function fmtLocal(utcTime) {
+            const [h, m] = utcTime.split(':').map(Number);
+            const d = new Date(Date.UTC(2000, 0, 1, h, m));
+            return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
+
+        const totalDays = weeksCountJs * 7;
+
+        const calc = events.map(e => {
+            const startDayIdx = e.weekOffset * 7 + e.dayOfWeek;
+            const localHours = utcToLocalHours(e.startTimeUtc);
+            const startAbsHours = startDayIdx * 24 + localHours;
+            const endAbsHours = startAbsHours + e.durationHours;
+            const startDayFloor = Math.floor(startAbsHours / 24);
+            const endDayFloor = Math.min(Math.floor((endAbsHours - 0.001) / 24), totalDays - 1);
+            return { ...e, startDayFloor, endDayFloor, startTimeLocal: fmtLocal(e.startTimeUtc) };
+        });
+
+        const weekSegments = {};
+        calc.forEach(ev => {
+            let curDay = ev.startDayFloor;
+            while (curDay <= ev.endDayFloor) {
+                const week = Math.floor(curDay / 7);
+                const weekStart = week * 7;
+                const weekEnd = weekStart + 6;
+                const segEnd = Math.min(ev.endDayFloor, weekEnd);
+                if (!weekSegments[week]) weekSegments[week] = [];
+                weekSegments[week].push({
+                    ev,
+                    colStart: curDay - weekStart,
+                    colEnd: segEnd - weekStart,
+                    isStart: curDay === ev.startDayFloor,
+                    isEnd: segEnd === ev.endDayFloor
+                });
+                curDay = weekEnd + 1;
+            }
+        });
+
+        Object.keys(weekSegments).forEach(weekIdxStr => {
+            const weekIdx = parseInt(weekIdxStr);
+            const segments = weekSegments[weekIdx];
+            const weekRow = weekRows[weekIdx];
+            if (!weekRow || !segments.length) return;
+
+            segments.sort((a, b) => {
+                const la = a.colEnd - a.colStart, lb = b.colEnd - b.colStart;
+                if (la !== lb) return lb - la;
+                return a.colStart - b.colStart;
+            });
+
+            const lanes = [];
+            segments.forEach(seg => {
+                let lane = 0;
+                while (true) {
+                    if (!lanes[lane]) lanes[lane] = [];
+                    const conflict = lanes[lane].some(x =>
+                        !(seg.colEnd < x.colStart || seg.colStart > x.colEnd)
+                    );
+                    if (!conflict) {
+                        lanes[lane].push({ colStart: seg.colStart, colEnd: seg.colEnd });
+                        seg.lane = lane;
+                        break;
+                    }
+                    lane++;
+                }
+            });
+
+            const maxLane = Math.max(...segments.map(s => s.lane));
+            weekRow.style.gridTemplateRows = `repeat(${maxLane + 1}, minmax(28px, 1fr))`;
+
+            segments.forEach(seg => {
+                const ev = seg.ev;
+                const bar = document.createElement('div');
+                bar.className = 'pat-event-bar';
+                bar.style.gridColumn = `${seg.colStart + 2} / span ${seg.colEnd - seg.colStart + 1}`;
+                bar.style.gridRow = String(seg.lane + 1);
+
+                const prefix = seg.isStart
+                    ? `<span class="time">${ev.startTimeLocal}</span>`
+                    : '← ';
+                const suffix = seg.isEnd ? '' : ' →';
+                bar.innerHTML = prefix + escapeHtml(ev.presetName) + suffix;
+                bar.title = ev.presetName;
+
+                bar.addEventListener('click', e => {
+                    e.stopPropagation();
+                    openEditEvent(ev.peId, ev.startTimeUtc, ev.presetName);
+                });
+
+                weekRow.appendChild(bar);
+            });
+        });
+    })();
+</script>

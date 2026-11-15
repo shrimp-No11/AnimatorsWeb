@@ -20,6 +20,11 @@ namespace AnimatorsWeb.Data
         public DbSet<WinnerPollMessage> WinnerPollMessages { get; set; }
         public DbSet<UserActivity> UserActivities { get; set; }
         public DbSet<ActiveRoleSettings> ActiveRoleSettings { get; set; }
+        public DbSet<EventPreset> EventPresets { get; set; }
+        public DbSet<EventPattern> EventPatterns { get; set; }
+        public DbSet<PatternEvent> PatternEvents { get; set; }
+        public DbSet<PatternInstance> PatternInstances { get; set; }
+        public DbSet<CalendarEvent> CalendarEvents { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Winner>()
@@ -36,6 +41,38 @@ namespace AnimatorsWeb.Data
                 .IsUnique();
             modelBuilder.Entity<UserActivity>()
                 .HasKey(a => new { a.DiscordUserId, a.Date, a.Type });
+
+            modelBuilder.Entity<PatternEvent>()
+                .HasOne(pe => pe.EventPattern)
+                .WithMany(p => p.Events)
+                .HasForeignKey(pe => pe.EventPatternId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PatternEvent>()
+                .HasOne(pe => pe.EventPreset)
+                .WithMany()
+                .HasForeignKey(pe => pe.EventPresetId)
+                .OnDelete(DeleteBehavior.Cascade); 
+
+            modelBuilder.Entity<CalendarEvent>()
+                .HasOne(ce => ce.EventPreset)
+                .WithMany()
+                .HasForeignKey(ce => ce.EventPresetId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<CalendarEvent>()
+                .HasOne(ce => ce.PatternInstance)
+                .WithMany()
+                .HasForeignKey(ce => ce.PatternInstanceId)
+                .OnDelete(DeleteBehavior.SetNull);   
+
+            modelBuilder.Entity<CalendarEvent>()
+                .HasIndex(ce => ce.StartUtc);
+
+            modelBuilder.Entity<CalendarEvent>()
+                .HasIndex(ce => ce.DiscordEventId)
+                .IsUnique()
+                .HasFilter("\"DiscordEventId\" IS NOT NULL");
             base.OnModelCreating(modelBuilder);
         }
     }

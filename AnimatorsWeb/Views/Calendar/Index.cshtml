@@ -1,0 +1,1389 @@
+﻿@model AnimatorsWeb.Models.CalendarPageViewModel
+@using AnimatorsWeb.Models
+
+@{
+    var monthNames = new[]
+    {
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    };
+    var dayNames = new[] { "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс" };
+
+    var prevMonth = Model.Month == 1 ? (Model.Year - 1, 12) : (Model.Year, Model.Month - 1);
+    var nextMonth = Model.Month == 12 ? (Model.Year + 1, 1) : (Model.Year, Model.Month + 1);
+    ViewData["Title"] = $"Календарь — {monthNames[Model.Month - 1]} {Model.Year}";
+}
+
+<style>
+    .cal-page {
+        --cal-line: color-mix(in srgb, var(--brand-text) 12%, transparent);
+        --cal-muted: color-mix(in srgb, var(--brand-text) 60%, transparent);
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px 0 60px;
+    }
+
+        .cal-page.is-moderator {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+            align-items: start;
+        }
+
+    .cal-main {
+        min-width: 0;
+    }
+
+    .cal-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .cal-title {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 800;
+    }
+
+    .cal-nav {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+    }
+
+        .cal-nav a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 12px;
+            border-radius: 8px;
+            border: 1px solid var(--cal-line);
+            background: var(--brand-card);
+            color: var(--brand-text);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+            .cal-nav a:hover {
+                border-color: var(--brand-primary);
+                color: var(--brand-primary);
+            }
+
+    .cal-grid-wrap {
+        border: 1px solid var(--cal-line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--brand-card);
+    }
+
+    .cal-grid-head {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        background: color-mix(in srgb, var(--brand-primary) 8%, var(--brand-card));
+        border-bottom: 1px solid var(--cal-line);
+    }
+
+        .cal-grid-head > div {
+            padding: 10px 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--cal-muted);
+        }
+
+    .cal-grid {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cal-week {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        grid-template-rows: 24px repeat(1, minmax(0, 1fr));
+        min-height: 100px;
+        border-bottom: 1px solid var(--cal-line);
+        position: relative;
+        isolation: isolate;
+    }
+
+        .cal-week:last-child {
+            border-bottom: none;
+        }
+
+    .cal-cell {
+        grid-row: 1 / -1;
+        min-width: 0;
+        padding: 4px 6px;
+        border-right: 1px solid var(--cal-line);
+        position: relative;
+        z-index: 1;
+        background: var(--brand-card);
+        cursor: pointer;
+    }
+
+        .cal-cell:nth-child(7n) {
+            border-right: none;
+        }
+
+        .cal-cell.other-month {
+            background: color-mix(in srgb, var(--brand-bg) 60%, var(--brand-card));
+        }
+
+        .cal-cell.today {
+            background: color-mix(in srgb, var(--brand-primary) 4%, var(--brand-card));
+        }
+
+    .cal-day-num {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--cal-muted);
+        margin-bottom: 2px;
+    }
+
+    .cal-cell.today .cal-day-num {
+        color: var(--brand-primary);
+    }
+
+    .cal-event-bar {
+        cursor: grab;
+        background: color-mix(in srgb, var(--ev-accent, var(--brand-primary)) 15%, var(--brand-card));
+        border-left: 3px solid var(--ev-accent, var(--brand-primary));
+        border-radius: 4px;
+        margin: 2px 4px;
+        padding: 3px 8px;
+        font-size: 12px;
+        line-height: 1.25;
+        color: var(--brand-text);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        z-index: 2;
+        position: relative;
+        box-sizing: border-box;
+    }
+
+        .cal-event-bar:active {
+            cursor: grabbing;
+        }
+
+        .cal-event-bar:hover {
+            background: color-mix(in srgb, var(--ev-accent, var(--brand-primary)) 24%, var(--brand-card));
+        }
+
+    .cal-event-time {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--ev-accent, var(--brand-primary));
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .cal-event-title {
+        font-size: 12px;
+        line-height: 1.25;
+        color: var(--brand-text);
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        min-width: 0;
+    }
+
+    .cal-event-bar.color-primary {
+        --ev-accent: var(--brand-primary);
+    }
+
+    .cal-event-bar.color-accent {
+        --ev-accent: var(--brand-accent);
+    }
+
+    .cal-event-bar.color-hover {
+        --ev-accent: var(--brand-primary-hover);
+    }
+
+    .cal-event-bar.color-text {
+        --ev-accent: var(--brand-text);
+    }
+
+    .cal-event-bar.color-bg {
+        --ev-accent: var(--brand-bg);
+    }
+
+    .cal-event-bar.local {
+        border-left-style: dashed;
+    }
+
+    .preset-color-swatch {
+        transition: border-color 0.15s, transform 0.15s;
+    }
+
+    input[name="presetColor"]:checked + .preset-color-swatch {
+        border-color: var(--brand-text);
+        transform: scale(1.1);
+    }
+    /*сомнительно */
+        .cal-event-bar .ev-time {
+            color: var(--brand-primary);
+            font-weight: 700;
+            margin-right: 4px;
+        }
+
+    .cal-sidebar {
+        position: sticky;
+        top: 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .cal-sidebar-section {
+        border: 1px solid var(--cal-line);
+        border-radius: 12px;
+        padding: 14px;
+        background: var(--brand-card);
+    }
+
+        .cal-sidebar-section h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .cal-sidebar-section h3 button {
+                padding: 3px 10px;
+                border-radius: 6px;
+                border: 1px solid var(--brand-primary);
+                background: var(--brand-primary);
+                color: var(--brand-bg);
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+    .cal-preset-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--brand-bg) 60%, var(--brand-card));
+        border: 1px solid var(--cal-line);
+        margin-bottom: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: border-color .15s, transform .15s;
+    }
+
+        .cal-preset-item:hover {
+            border-color: var(--brand-primary);
+            transform: translateX(2px);
+        }
+
+        .cal-preset-item .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .cal-preset-item .name {
+            font-weight: 700;
+        }
+
+        .cal-preset-item .meta {
+            font-size: 11px;
+            color: var(--cal-muted);
+        }
+
+        .cal-preset-item .del {
+            flex-shrink: 0;
+            width: 22px;
+            height: 22px;
+            border: none;
+            background: transparent;
+            color: var(--cal-muted);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+            .cal-preset-item .del:hover {
+                background: color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card));
+                color: var(--brand-primary);
+            }
+
+    .cal-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        background: color-mix(in srgb, var(--brand-text) 68%, transparent);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+        .cal-modal.is-open {
+            display: flex;
+        }
+
+    .cal-modal-content {
+        background: var(--brand-card);
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 560px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+        .cal-modal-content h3 {
+            margin-top: 0;
+        }
+
+        .cal-modal-content label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .cal-modal-content input[type=text],
+        .cal-modal-content input[type=number],
+        .cal-modal-content input[type=time],
+        .cal-modal-content input[type=date],
+        .cal-modal-content input[type=datetime-local],
+        .cal-modal-content textarea,
+        .cal-modal-content select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid var(--cal-line);
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            background: var(--brand-bg);
+            color: var(--brand-text);
+        }
+
+    .cal-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+        .cal-modal-actions button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .cal-modal-actions .cancel {
+            background: var(--brand-bg);
+            border: 1px solid var(--cal-line);
+        }
+
+        .cal-modal-actions .save {
+            background: var(--brand-primary);
+            color: var(--brand-bg);
+            border: 1px solid var(--brand-primary);
+        }
+
+        .cal-modal-actions .del {
+            background: var(--brand-bg);
+            color: var(--brand-primary);
+            border: 1px solid var(--brand-primary);
+        }
+
+    .cal-error {
+        color: var(--brand-primary);
+        font-size: 13px;
+        padding: 8px 12px;
+        background: color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card));
+        border-radius: 6px;
+        margin-bottom: 12px;
+        display: none;
+    }
+
+    @@media (max-width: 1000px) {
+        .cal-page.is-moderator {
+            grid-template-columns: 1fr;
+        }
+
+        .cal-sidebar {
+            position: static;
+        }
+    }
+</style>
+
+<div class="cal-page @(Model.IsModerator ? "is-moderator" : "")">
+    <div class="cal-main">
+        <div class="cal-header">
+            <h1 class="cal-title">@monthNames[Model.Month - 1] @Model.Year</h1>
+            <div class="cal-nav">
+                <a asp-action="Index" asp-route-year="@prevMonth.Item1" asp-route-month="@prevMonth.Item2">←</a>
+                <a asp-action="Index">Сегодня</a>
+                <a asp-action="Index" asp-route-year="@nextMonth.Item1" asp-route-month="@nextMonth.Item2">→</a>
+            </div>
+        </div>
+
+        <div class="cal-grid-wrap">
+            <div class="cal-grid-head">
+                @foreach (var d in dayNames)
+                {
+                    <div>@d</div>
+                }
+            </div>
+            <div class="cal-grid" id="calGrid">
+                @for (int w = 0; w < 6; w++)
+                {
+                    <div class="cal-week" data-week="@w">
+                        @for (int d = 0; d < 7; d++)
+                        {
+                            var dayIdx = w * 7 + d;
+                            if (dayIdx >= Model.Days.Count) { continue; }
+                            var day = Model.Days[dayIdx];
+                            var classes = "cal-cell";
+                            if (!day.IsCurrentMonth) classes += " other-month";
+                            if (day.IsToday) classes += " today";
+                            <div class="@classes" data-date="@day.DateMsk.ToString("yyyy-MM-dd")" style="grid-column: @(d + 1);">
+                                <div class="cal-day-num">@day.DateMsk.Day</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (Model.IsModerator)
+    {
+        <aside class="cal-sidebar">
+            <div class="cal-sidebar-section" style="border-color: var(--brand-primary);">
+                <h3>Discord</h3>
+                <p style="color: var(--cal-muted); font-size: 13px; margin: 0 0 10px;">
+                    Сохранить и отправить в Discord
+                </p>
+                <button type="button" onclick="previewApply()" class="btn btn-primary" style="width: 100%;">
+                    🔄 Применить
+                </button>
+            </div>
+            <div class="cal-sidebar-section">
+                <h3>
+                    Пресеты
+                    <button type="button" onclick="openPresetModal(0)">+ Новый</button>
+                </h3>
+                <div id="presetList">
+                    @if (!Model.Presets.Any())
+                    {
+                        <p style="color: var(--cal-muted); font-size: 13px; margin: 0;">Пресетов пока нет.</p>
+                    }
+                    else
+                    {
+                        @foreach (var p in Model.Presets)
+                        {
+                            <div class="cal-preset-item" data-preset-id="@p.Id" draggable="true"
+                                 data-name="@p.Name"
+                                 data-title="@p.DefaultTitle"
+                                 data-description="@(p.DefaultDescription ?? "")"
+                                 data-duration="@p.DurationHours"
+                                 data-location="@(p.Location ?? "")"
+                                 data-create-in-discord="@p.CreateInDiscord.ToString().ToLower()"
+                                 data-is-recurring="@p.IsRecurring.ToString().ToLower()"
+                                 data-recurrence-frequency="@(p.RecurrenceFrequency?.ToString() ?? "")"
+                                 data-start-time-utc="@(p.DefaultStartTimeUtc.HasValue ? p.DefaultStartTimeUtc.Value.ToString(@"hh\:mm") : "")"
+                                 data-color="@(p.Color ?? "primary")">
+                                
+
+                                <div class="info" onclick="openPresetModal(@p.Id)">
+                                    <div class="name">@p.Name</div>
+                                    <div class="meta">@p.DurationHours ч. · @p.DefaultTitle</div>
+                                </div>
+                                <button type="button" class="del" onclick="deletePreset(@p.Id, '@p.Name')" title="Удалить">×</button>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="cal-sidebar-section">
+                <h3>
+                    Паттерны
+                    <button type="button" onclick="window.location.href='/Calendar/PatternEditor'">+ Новый</button>
+                </h3>
+                @if (!Model.Patterns.Any())
+                {
+                    <p style="color: var(--cal-muted); font-size: 13px; margin: 0;">Паттернов пока нет.</p>
+                }
+                else
+                {
+                    @foreach (var pat in Model.Patterns)
+                    {
+                        <div class="cal-preset-item" data-pattern-id="@pat.Id" draggable="true">
+                            <div class="info" onclick="window.location.href='/Calendar/PatternEditor/@pat.Id'">
+                                <div class="name">@pat.Name</div>
+                                <div class="meta">@pat.CycleWeeksCount нед.</div>
+                            </div>
+                            <button type="button" class="del" onclick="deletePattern(@pat.Id, '@pat.Name')" title="Удалить">×</button>
+                        </div>
+                    }
+                }
+            </div>
+        </aside>
+    }
+
+    @if (Model.IsModerator)
+    {
+        <div id="applyModal" class="cal-modal">
+            <div class="cal-modal-content" style="max-width: 700px;">
+                <h3>Синхронизация с Discord</h3>
+                <div id="applyLoading" style="color: var(--cal-muted);">Загрузка...</div>
+                <div id="applyResult" style="display: none;">
+                    <div style="display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap;">
+                        <div>Создать: <b id="applyCreateCount" style="color: var(--brand-primary);">0</b></div>
+                        <div>Обновить: <b id="applyUpdateCount" style="color: var(--brand-accent);">0</b></div>
+                        <div>Удалить: <b id="applyDeleteCount" style="color: var(--brand-primary);">0</b></div>
+                    </div>
+                    <div id="applyItemsList" style="max-height: 400px; overflow-y: auto; font-size: 13px;"></div>
+                    <div class="cal-modal-actions" style="margin-top: 16px;">
+                        <button type="button" class="cancel" onclick="closeApplyModal()">Отмена</button>
+                        <button type="button" class="save" onclick="doApply()" id="applyConfirmBtn">Применить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Модалка пресета -->
+<div id="presetModal" class="cal-modal">
+    <div class="cal-modal-content">
+        <h3 id="presetModalTitle">Новый пресет</h3>
+        <div id="presetError" class="cal-error"></div>
+        <input type="hidden" id="presetId" value="0" />
+
+        <label>Заголовок события</label>
+        <input type="text" id="presetDefaultTitle" placeholder="Название" />
+
+        <label>Описание</label>
+        <textarea id="presetDefaultDescription" rows="2"></textarea>
+
+        <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+            <input type="checkbox" id="presetCreateInDiscord" checked />
+            Создавать событие в Discord
+        </label>
+
+        <label>Время начала по умолчанию</label>
+        <input type="time" id="presetDefaultStartTime" />
+
+        <label>Цвет события</label>
+        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+            <label style="cursor: pointer; display: inline-flex;">
+                <input type="radio" name="presetColor" value="primary" checked style="display: none;" />
+                <span class="preset-color-swatch" data-color="primary" style="width: 32px; height: 32px; border-radius: 6px; background: var(--brand-primary); border: 2px solid transparent;"></span>
+            </label>
+            <label style="cursor: pointer; display: inline-flex;">
+                <input type="radio" name="presetColor" value="accent" style="display: none;" />
+                <span class="preset-color-swatch" data-color="accent" style="width: 32px; height: 32px; border-radius: 6px; background: var(--brand-accent); border: 2px solid transparent;"></span>
+            </label>
+            <label style="cursor: pointer; display: inline-flex;">
+                <input type="radio" name="presetColor" value="hover" style="display: none;" />
+                <span class="preset-color-swatch" data-color="hover" style="width: 32px; height: 32px; border-radius: 6px; background: var(--brand-primary-hover); border: 2px solid transparent;"></span>
+            </label>
+            <label style="cursor: pointer; display: inline-flex;">
+                <input type="radio" name="presetColor" value="text" style="display: none;" />
+                <span class="preset-color-swatch" data-color="text" style="width: 32px; height: 32px; border-radius: 6px; background: var(--brand-text); border: 2px solid transparent;"></span>
+            </label>
+
+        </div>
+
+        <label>Длительность (часов)</label>
+        <input type="number" id="presetDuration" value="2" min="1" max="720" />
+
+        <label>Голосовой канал</label>
+        <select id="presetLocation">
+            <option value="">— Не указано —</option>
+            @foreach (var ch in Model.VoiceChannels)
+            {
+                <option value="@ch.Id">@ch.Name</option>
+            }
+        </select>
+        <input type="text" id="presetLocationText" placeholder="Или произвольный текст" style="display: none;" />
+
+        <div class="cal-modal-actions">
+            <button type="button" class="cancel" onclick="closePresetModal()">Отмена</button>
+            <button type="button" class="save" onclick="savePreset()" id="presetSaveBtn">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+@if (Model.IsModerator)
+{
+    <div id="createEventModal" class="cal-modal">
+        <div class="cal-modal-content">
+            <h3>Создать событие</h3>
+            <div id="createEventError" class="cal-error"></div>
+            <input type="hidden" id="createEventDate" />
+
+            <label>Пресет</label>
+            <select id="createEventPreset">
+                @foreach (var p in Model.Presets)
+                {
+                    <option value="@p.Id" data-start-time-utc="@(p.DefaultStartTimeUtc.HasValue ? p.DefaultStartTimeUtc.Value.ToString(@"hh\:mm") : "")">@p.Name</option>
+                }
+            </select>
+
+            <label>Время начала</label>
+            <input type="time" id="createEventTime" value="20:00" />
+
+            <div class="cal-modal-actions">
+                <button type="button" class="cancel" onclick="closeCreateEventModal()">Отмена</button>
+                <button type="button" class="save" onclick="createEvent()" id="createEventBtn">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editEventModal" class="cal-modal">
+        <div class="cal-modal-content">
+            <h3>Редактировать событие</h3>
+            <div id="editEventError" class="cal-error"></div>
+            <input type="hidden" id="editEventId" />
+
+            <label>Название</label>
+            <input type="text" id="editEventTitle" />
+
+            <label>Описание</label>
+            <textarea id="editEventDescription" rows="3"></textarea>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                <input type="checkbox" id="editEventIsRecurring" onchange="onEditEventRecurringChange()" />
+                Повторяющееся событие
+            </label>
+
+            <div id="editEventRecurringFields" style="display: none;">
+                <label>Как часто</label>
+                <select id="editEventRecurrenceFrequency">
+                    <option value="2">Каждую неделю</option>
+                    <option value="3">Каждый день</option>
+                    <option value="1">Каждый месяц</option>
+                </select>
+            </div>
+
+            <label>Начало</label>
+            <input type="datetime-local" id="editEventStart" />
+
+            <label>Окончание</label>
+            <input type="datetime-local" id="editEventEnd" />
+
+            <label>Голосовой канал</label>
+            <select id="editEventLocationSelect">
+                <option value="">— Произвольное значение —</option>
+                @foreach (var ch in Model.VoiceChannels)
+                {
+                    <option value="@ch.Id">@ch.Name</option>
+                }
+            </select>
+            <input type="text" id="editEventLocationText" placeholder="Произвольное значение" style="display: none;" />
+
+            <div class="cal-modal-actions">
+                <button type="button" class="del" onclick="deleteSeriesEvents()" id="editEventDeleteSeriesBtn" style="display:none;">Удалить все этой серии</button>
+                <button type="button" class="cancel" onclick="closeEditEventModal()">Отмена</button>
+                <button type="button" class="save" onclick="updateEvent()" id="editEventSaveBtn">Сохранить</button>
+                <button type="button" class="del" onclick="deleteEvent()" id="editEventDeleteBtn">Удалить</button>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+    const isModerator = @(Model.IsModerator ? "true" : "false");
+    const voiceChannels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.VoiceChannels.Select(c => new { id = c.Id.ToString(), name = c.Name })
+        ));
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        })[ch]);
+    }
+
+    function utcTimeToLocal(utcTime) {
+        if (!utcTime) return '';
+        const [h, m] = utcTime.split(':').map(Number);
+        const d = new Date(Date.UTC(2000, 0, 1, h, m));
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function localTimeToUtc(localTime) {
+        if (!localTime) return '';
+        const [h, m] = localTime.split(':').map(Number);
+        const d = new Date(2000, 0, 1, h, m);
+        return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    }
+
+    function utcToLocalInput(utcStr) {
+        const d = new Date(utcStr);
+        if (isNaN(d)) return '';
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    // ===== Пресеты =====
+    const presetLocationSelect = document.getElementById('presetLocation');
+    const presetLocationText = document.getElementById('presetLocationText');
+    if (presetLocationSelect && presetLocationText) {
+        presetLocationSelect.addEventListener('change', () => {
+            if (presetLocationSelect.value) {
+                presetLocationText.style.display = 'none';
+                presetLocationText.value = '';
+            } else {
+                presetLocationText.style.display = 'block';
+            }
+        });
+    }
+
+    function openPresetModal(id) {
+        const modal = document.getElementById('presetModal');
+        if (!modal) return;
+        const item = id ? document.querySelector(`.cal-preset-item[data-preset-id="${id}"]`) : null;
+
+        document.getElementById('presetId').value = id || 0;
+        document.getElementById('presetModalTitle').textContent = id ? 'Редактировать пресет' : 'Новый пресет';
+        document.getElementById('presetDefaultTitle').value = item?.dataset.title || '';
+        document.getElementById('presetDefaultDescription').value = item?.dataset.description || '';
+        document.getElementById('presetDuration').value = item?.dataset.duration || 2;
+        document.getElementById('presetCreateInDiscord').checked = item ? item.dataset.createInDiscord === 'true' : true;
+        document.getElementById('presetDefaultStartTime').value = item?.dataset.startTimeUtc ? utcTimeToLocal(item.dataset.startTimeUtc) : '';
+        const colorVal = item?.dataset.color || 'primary';
+        document.querySelectorAll('input[name="presetColor"]').forEach(el => {
+            el.checked = el.value === colorVal;
+        });
+
+        const loc = item?.dataset.location || '';
+        const isCh = voiceChannels.some(c => c.id === loc);
+        if (isCh) {
+            presetLocationSelect.value = loc;
+            presetLocationText.style.display = 'none';
+            presetLocationText.value = '';
+        } else if (loc) {
+            presetLocationSelect.value = '';
+            presetLocationText.value = loc;
+            presetLocationText.style.display = 'block';
+        } else {
+            presetLocationSelect.value = '';
+            presetLocationText.value = '';
+            presetLocationText.style.display = 'none';
+        }
+        document.getElementById('presetError').style.display = 'none';
+        modal.classList.add('is-open');
+    }
+
+    function closePresetModal() {
+        document.getElementById('presetModal')?.classList.remove('is-open');
+    }
+
+    async function savePreset() {
+        const id = parseInt(document.getElementById('presetId').value) || 0;
+        const defaultTitle = document.getElementById('presetDefaultTitle').value.trim();
+        const defaultDescription = document.getElementById('presetDefaultDescription').value;
+        const durationHours = parseInt(document.getElementById('presetDuration').value) || 0;
+        let presetLocation = presetLocationSelect.value;
+        if (!presetLocation && presetLocationText.value.trim()) presetLocation = presetLocationText.value.trim();
+        const createInDiscord = document.getElementById('presetCreateInDiscord').checked;
+        const defaultStartTimeUtc = localTimeToUtc(document.getElementById('presetDefaultStartTime').value || '');
+        const color = document.querySelector('input[name="presetColor"]:checked')?.value || 'primary';
+
+        const err = document.getElementById('presetError');
+        err.style.display = 'none';
+        if (!defaultTitle) { err.textContent = 'Название обязательно'; err.style.display = 'block'; return; }
+        if (!durationHours || durationHours < 1 || durationHours > 720) {
+            err.textContent = 'Длительность от 1 до 720 часов'; err.style.display = 'block'; return;
+        }
+
+        const btn = document.getElementById('presetSaveBtn');
+        btn.disabled = true; btn.textContent = 'Сохраняю...';
+        try {
+            const r = await fetch('/Calendar/SavePreset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    id, name: defaultTitle, defaultTitle, defaultDescription,
+                    durationHours, location: presetLocation,
+                    createInDiscord,
+                    defaultStartTimeUtc,
+                    color
+                })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else { err.textContent = data.error || 'Ошибка'; err.style.display = 'block'; }
+        } catch { err.textContent = 'Сетевая ошибка'; err.style.display = 'block'; }
+        finally { btn.disabled = false; btn.textContent = 'Сохранить'; }
+    }
+
+    async function deletePreset(id, name) {
+        if (!confirm(`Удалить пресет «${name}»? Все его события на календаре тоже будут удалены.`)) return;
+        try {
+            const r = await fetch('/Calendar/DeletePreset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ id })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+    // ===== Создание события =====
+    function openCreateEventModal(dateMsk, presetId) {
+        const modal = document.getElementById('createEventModal');
+        if (!modal) return;
+        const presetSelect = document.getElementById('createEventPreset');
+        if (!presetSelect || presetSelect.options.length === 0) {
+            alert('Сначала создайте хотя бы один пресет.');
+            return;
+        }
+        document.getElementById('createEventDate').value = dateMsk;
+        if (presetId) presetSelect.value = String(presetId);
+        const opt = presetSelect.options[presetSelect.selectedIndex];
+        const presetStartUtc = opt?.dataset.startTimeUtc;
+        document.getElementById('createEventTime').value = presetStartUtc ? utcTimeToLocal(presetStartUtc) : '20:00';
+        document.getElementById('createEventError').style.display = 'none';
+        modal.classList.add('is-open');
+    }
+
+    function closeCreateEventModal() {
+        document.getElementById('createEventModal')?.classList.remove('is-open');
+    }
+
+    async function createEvent() {
+        const presetId = parseInt(document.getElementById('createEventPreset').value) || 0;
+        const dateLocal = document.getElementById('createEventDate').value;
+        const timeLocal = document.getElementById('createEventTime').value || '20:00';
+        const err = document.getElementById('createEventError');
+        const btn = document.getElementById('createEventBtn');
+        err.style.display = 'none';
+        if (!presetId) { err.textContent = 'Выберите пресет'; err.style.display = 'block'; return; }
+        if (!dateLocal) { err.textContent = 'Укажите дату'; err.style.display = 'block'; return; }
+
+        const [y, m, d] = dateLocal.split('-').map(Number);
+        const [hh, mm] = timeLocal.split(':').map(Number);
+        const startLocal = new Date(y, m - 1, d, hh, mm);
+        const startUtc = startLocal.toISOString();
+
+        btn.disabled = true; btn.textContent = 'Создаю...';
+        try {
+            const r = await fetch('/Calendar/CreateEvent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ presetId, startUtc, dateMsk: dateLocal })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else { err.textContent = data.error || 'Ошибка'; err.style.display = 'block'; }
+        } catch { err.textContent = 'Сетевая ошибка'; err.style.display = 'block'; }
+        finally { btn.disabled = false; btn.textContent = 'Создать'; }
+    }
+
+    async function createEventFromPresetDirect(presetId, dateMsk) {
+        const opt = document.querySelector(`#createEventPreset option[value="${presetId}"]`);
+        const startTimeUtc = opt?.dataset.startTimeUtc || '17:00';
+        const localTimeStr = utcTimeToLocal(startTimeUtc);
+        const [lh, lm] = localTimeStr.split(':').map(Number);
+        const [y, m, d] = dateMsk.split('-').map(Number);
+        const startLocal = new Date(y, m - 1, d, lh, lm);
+        const startUtcIso = startLocal.toISOString();
+
+        try {
+            const r = await fetch('/Calendar/CreateEvent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ presetId, startUtc: startUtcIso, dateMsk })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+    // ===== Редактирование события =====
+
+    function openEditEventModal(ev) {
+        const modal = document.getElementById('editEventModal');
+        if (!modal) return;
+
+        document.getElementById('editEventId').value = String(ev.id);
+        document.getElementById('editEventTitle').value = ev.title;
+        document.getElementById('editEventDescription').value = ev.description;
+        document.getElementById('editEventStart').value = utcToLocalInput(ev.startUtc);
+        document.getElementById('editEventEnd').value = utcToLocalInput(ev.endUtc);
+
+        const sel = document.getElementById('editEventLocationSelect');
+        const txt = document.getElementById('editEventLocationText');
+        const loc = ev.location || '';
+        const isCh = voiceChannels.some(c => c.id === loc);
+        if (isCh) { sel.value = loc; txt.value = ''; txt.style.display = 'none'; }
+        else if (loc) { sel.value = ''; txt.value = loc; txt.style.display = 'block'; }
+        else { sel.value = ''; txt.value = ''; txt.style.display = 'none'; }
+
+        const recCb = document.getElementById('editEventIsRecurring');
+        if (recCb) recCb.checked = !!ev.isRecurring;
+        let freq = 2;
+        if (ev.isRecurring && ev.recurrenceRuleJson) {
+            try {
+                const r = JSON.parse(ev.recurrenceRuleJson);
+                if (r.frequency) freq = r.frequency;
+            } catch { }
+        }
+        const recSel = document.getElementById('editEventRecurrenceFrequency');
+        if (recSel) recSel.value = String(freq);
+        const recDiv = document.getElementById('editEventRecurringFields');
+        if (recDiv) recDiv.style.display = ev.isRecurring ? 'block' : 'none';
+
+        const delSeriesBtn = document.getElementById('editEventDeleteSeriesBtn');
+        if (delSeriesBtn) delSeriesBtn.style.display = ev.hasPreset ? 'block' : 'none';
+
+        document.getElementById('editEventError').style.display = 'none';
+        modal.classList.add('is-open');
+    }
+
+    function closeEditEventModal() {
+        document.getElementById('editEventModal')?.classList.remove('is-open');
+    }
+
+    async function updateEvent() {
+        const id = parseInt(document.getElementById('editEventId').value) || 0;
+        const title = document.getElementById('editEventTitle').value.trim();
+        const description = document.getElementById('editEventDescription').value;
+        const startLocal = document.getElementById('editEventStart').value;
+        const endLocal = document.getElementById('editEventEnd').value;
+        let evLocation = document.getElementById('editEventLocationSelect').value;
+        if (!evLocation && document.getElementById('editEventLocationText').value.trim())
+            evLocation = document.getElementById('editEventLocationText').value.trim();
+
+        const isRecurring = document.getElementById('editEventIsRecurring')?.checked ?? false;
+        const recFreq = isRecurring
+            ? (parseInt(document.getElementById('editEventRecurrenceFrequency')?.value) || 2)
+            : '';
+
+        const err = document.getElementById('editEventError');
+        const btn = document.getElementById('editEventSaveBtn');
+        err.style.display = 'none';
+        if (!title) { err.textContent = 'Название обязательно'; err.style.display = 'block'; return; }
+        if (!startLocal || !endLocal) { err.textContent = 'Укажите начало и окончание'; err.style.display = 'block'; return; }
+        if (new Date(endLocal) <= new Date(startLocal)) {
+            err.textContent = 'Окончание должно быть позже начала'; err.style.display = 'block'; return;
+        }
+
+        btn.disabled = true; btn.textContent = 'Сохраняю...';
+        try {
+            const r = await fetch('/Calendar/UpdateEvent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    id, title, description,
+                    location: evLocation,
+                    startUtc: new Date(startLocal).toISOString(),
+                    endUtc: new Date(endLocal).toISOString(),
+                    isRecurring: isRecurring,
+                    recurrenceFrequency: recFreq,
+                    recurrenceByWeekdays: ''
+                })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else { err.textContent = data.error || 'Ошибка'; err.style.display = 'block'; }
+        } catch { err.textContent = 'Сетевая ошибка'; err.style.display = 'block'; }
+        finally { btn.disabled = false; btn.textContent = 'Сохранить'; }
+    }
+
+    async function deleteEvent() {
+        const id = parseInt(document.getElementById('editEventId').value) || 0;
+        if (!id) return;
+        if (!confirm('Удалить событие?')) return;
+        try {
+            const r = await fetch('/Calendar/DeleteEvent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ id })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+    async function deleteSeriesEvents() {
+        const id = parseInt(document.getElementById('editEventId').value) || 0;
+        if (!id) return;
+        if (!confirm('Удалить все события этого пресета с календаря? Пресет останется. События исчезнут из Discord при «Применить».')) return;
+        try {
+            const r = await fetch('/Calendar/DeleteSeriesEvents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ eventId: id })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+    document.getElementById('createEventModal')?.addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeCreateEventModal();
+    });
+    document.getElementById('editEventModal')?.addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeEditEventModal();
+    });
+
+    const editEventLocationSelect = document.getElementById('editEventLocationSelect');
+    const editEventLocationText = document.getElementById('editEventLocationText');
+    if (editEventLocationSelect && editEventLocationText) {
+        editEventLocationSelect.addEventListener('change', () => {
+            if (editEventLocationSelect.value) {
+                editEventLocationText.style.display = 'none';
+                editEventLocationText.value = '';
+            } else {
+                editEventLocationText.style.display = 'block';
+            }
+        });
+    }
+
+    async function deletePattern(id, name) {
+        if (!confirm(`Удалить паттерн «${name}»? Все его размещения на календаре и связанные будущие события тоже будут удалены.`)) return;
+        try {
+            const r = await fetch('/Calendar/DeletePattern', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ id })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+    // ===== Клик по ячейке =====
+    document.querySelectorAll('.cal-cell').forEach(cell => {
+        cell.addEventListener('click', e => {
+            if (e.target.closest('.cal-event-bar')) return;
+            if (!isModerator) return;
+            openCreateEventModal(cell.dataset.date, null);
+        });
+    });
+
+    // ===== Drag&drop =====
+    if (isModerator) {
+        document.querySelectorAll('.cal-preset-item[data-preset-id]').forEach(el => {
+            el.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('application/x-preset-id', el.dataset.presetId);
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+        document.querySelectorAll('.cal-preset-item[data-pattern-id]').forEach(el => {
+            el.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('application/x-pattern-id', el.dataset.patternId);
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+
+        document.querySelectorAll('.cal-cell').forEach(cell => {
+            cell.addEventListener('dragover', e => {
+                const hasP = e.dataTransfer.types.includes('application/x-preset-id');
+                const hasPat = e.dataTransfer.types.includes('application/x-pattern-id');
+                const hasEv = e.dataTransfer.types.includes('application/x-event-id');
+                if (!hasP && !hasPat && !hasEv) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = hasEv ? 'move' : 'copy';
+                cell.style.background = 'color-mix(in srgb, var(--brand-primary) 12%, var(--brand-card))';
+            });
+            cell.addEventListener('dragleave', () => { cell.style.background = ''; });
+            cell.addEventListener('drop', async e => {
+                e.preventDefault();
+                cell.style.background = '';
+                const dateMsk = cell.dataset.date;
+                if (!dateMsk) return;
+
+                const eventIdStr = e.dataTransfer.getData('application/x-event-id');
+                if (eventIdStr) {
+                    const eventId = parseInt(eventIdStr);
+                    const evStartUtc = e.dataTransfer.getData('application/x-event-start');
+                    if (!eventId || !evStartUtc) return;
+
+                    const d = new Date(evStartUtc);
+                    const oldLocalDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                    if (oldLocalDate === dateMsk) return;
+
+                    const oldD = new Date(oldLocalDate + 'T00:00:00');
+                    const newD = new Date(dateMsk + 'T00:00:00');
+                    const daysDelta = Math.round((newD - oldD) / (1000 * 60 * 60 * 24));
+                    if (daysDelta === 0) return;
+
+                    const sign = daysDelta > 0 ? '+' : '';
+
+                    try {
+                        const r = await fetch('/Calendar/MoveEvent', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams({ eventId, daysDelta })
+                        });
+                        const data = await r.json();
+                        if (data.success) window.location.reload();
+                        else alert(data.error || 'Ошибка');
+                    } catch { alert('Сетевая ошибка'); }
+                    return;
+                }
+
+                const presetIdStr = e.dataTransfer.getData('application/x-preset-id');
+                if (presetIdStr) {
+                    const presetId = parseInt(presetIdStr);
+                    if (presetId) await createEventFromPresetDirect(presetId, dateMsk);
+                    return;
+                }
+                const patternIdStr = e.dataTransfer.getData('application/x-pattern-id');
+                if (patternIdStr) {
+                    const patternId = parseInt(patternIdStr);
+                    if (!patternId) return;
+                    if (!confirm('Разместить паттерн начиная с этой даты?')) return;
+                    try {
+                        const r = await fetch('/Calendar/PlacePattern', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams({ patternId, dateMsk })
+                        });
+                        const data = await r.json();
+                        if (data.success) window.location.reload();
+                        else alert(data.error || 'Ошибка');
+                    } catch { alert('Сетевая ошибка'); }
+                }
+            });
+        });
+    }
+    function onEditEventRecurringChange() {
+        const cb = document.getElementById('editEventIsRecurring');
+        const f = document.getElementById('editEventRecurringFields');
+        if (cb && f) f.style.display = cb.checked ? 'block' : 'none';
+    }
+    // ===== Apply =====
+    async function previewApply() {
+        const modal = document.getElementById('applyModal');
+        if (!modal) return;
+        document.getElementById('applyLoading').style.display = 'block';
+        document.getElementById('applyResult').style.display = 'none';
+        modal.classList.add('is-open');
+        try {
+            const r = await fetch('/Calendar/ApplyToDiscordPreview');
+            const data = await r.json();
+            document.getElementById('applyLoading').style.display = 'none';
+            document.getElementById('applyResult').style.display = 'block';
+            document.getElementById('applyCreateCount').textContent = data.toCreate;
+            document.getElementById('applyUpdateCount').textContent = data.toUpdate;
+            document.getElementById('applyDeleteCount').textContent = data.toDelete;
+            const list = document.getElementById('applyItemsList');
+            if (data.items.length === 0) {
+                list.innerHTML = '<p style="color: var(--cal-muted);">Изменений нет.</p>';
+            } else {
+                list.innerHTML = data.items.map(i => {
+                    const d = new Date(i.startUtc);
+                    const dateStr = d.toLocaleString('ru-RU');
+                    const color = i.action === 'update' ? 'var(--brand-accent)' : 'var(--brand-primary)';
+                    const label = i.action === 'create' ? '+ создать' : i.action === 'update' ? '~ обновить' : '− удалить';
+                    return `<div style="padding: 4px 0; border-bottom: 1px solid var(--cal-line);">
+                        <span style="color: ${color}; font-weight: 700;">${label}</span>
+                        ${escapeHtml(i.title)} <span style="color: var(--cal-muted);">— ${dateStr}</span>
+                    </div>`;
+                }).join('');
+            }
+            document.getElementById('applyConfirmBtn').disabled =
+                data.toCreate === 0 && data.toUpdate === 0 && data.toDelete === 0;
+        } catch { document.getElementById('applyLoading').textContent = 'Ошибка загрузки'; }
+    }
+    function closeApplyModal() { document.getElementById('applyModal')?.classList.remove('is-open'); }
+    async function doApply() {
+        const btn = document.getElementById('applyConfirmBtn');
+        btn.disabled = true; btn.textContent = 'Применяю...';
+        try {
+            const r = await fetch('/Calendar/ApplyToDiscord', { method: 'POST' });
+            const data = await r.json();
+            if (data.success) { closeApplyModal(); window.location.reload(); }
+            else { alert('Ошибка применения'); btn.disabled = false; btn.textContent = 'Применить'; }
+        } catch { alert('Сетевая ошибка'); btn.disabled = false; btn.textContent = 'Применить'; }
+    }
+
+    const presetColors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Presets.ToDictionary(p => p.Id, p => p.Color ?? "primary")
+    ));
+
+    // ===== Рендер событий горизонтальными полосами =====
+    (function renderCalendarEvents() {
+        const events = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.AllGridEvents.Select(e => new
+                {
+                        id = e.Id,
+                        title = e.Title ?? "",
+                        description = e.Description ?? "",
+                        location = e.Location ?? "",
+                        startUtc = e.StartUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                        endUtc = e.EndUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                        isRecurring = e.IsRecurring,
+                        recurrenceRuleJson = e.RecurrenceRuleJson ?? "",
+                        hasPreset = e.EventPresetId.HasValue,
+                        presetId = e.EventPresetId ?? 0,
+                        syncToDiscord = !e.SkipDiscordSync
+                })
+        ));
+        if (!events.length) return;
+        const weeks = document.querySelectorAll('.cal-week');
+        if (!weeks.length) return;
+
+        const dateToIdx = {};
+        weeks.forEach((week, weekIndex) => {
+            week.querySelectorAll('.cal-cell').forEach(cell => {
+                dateToIdx[cell.dataset.date] = weekIndex * 7 + parseInt(cell.style.gridColumn) - 1;
+            });
+        });
+
+        function localDateStr(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+        function fmtTime(utcStr) {
+            const d = new Date(utcStr);
+            if (isNaN(d)) return '';
+            return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        const weekEvents = Array.from({ length: weeks.length }, () => []);
+
+        events.forEach(ev => {
+            const startLocal = new Date(ev.startUtc);
+            const endLocal = new Date(ev.endUtc);
+            if (isNaN(startLocal) || isNaN(endLocal) || endLocal <= startLocal) return;
+
+            const startDate = localDateStr(startLocal);
+            const endDate = localDateStr(new Date(endLocal.getTime() - 1000));
+
+            let startIdx = dateToIdx[startDate];
+            let endIdx = dateToIdx[endDate];
+            if (startIdx === undefined && endIdx === undefined) return;
+            if (startIdx === undefined) startIdx = 0;
+            if (endIdx === undefined) endIdx = weeks.length * 7 - 1;
+            if (startIdx > endIdx) return;
+
+            let cur = startIdx;
+            while (cur <= endIdx) {
+                const weekStart = Math.floor(cur / 7) * 7;
+                const weekEnd = weekStart + 6;
+                const segEnd = Math.min(endIdx, weekEnd);
+                const weekIndex = Math.floor(cur / 7);
+                weekEvents[weekIndex].push({
+                    event: ev,
+                    colStart: cur - weekStart,
+                    colEnd: segEnd - weekStart,
+                    isStart: cur === startIdx,
+                    isEnd: segEnd === endIdx
+                });
+                cur = weekEnd + 1;
+            }
+        });
+
+        weekEvents.forEach((items, weekIndex) => {
+            if (!items.length) return;
+            items.sort((a, b) => {
+                const la = a.colEnd - a.colStart, lb = b.colEnd - b.colStart;
+                if (la !== lb) return lb - la;
+                return a.colStart - b.colStart;
+            });
+            const lanes = [];
+            items.forEach(item => {
+                let lane = 0;
+                while (true) {
+                    if (!lanes[lane]) lanes[lane] = [];
+                    const conflict = lanes[lane].some(x =>
+                        !(item.colEnd < x.colStart || item.colStart > x.colEnd)
+                    );
+                    if (!conflict) {
+                        lanes[lane].push({ colStart: item.colStart, colEnd: item.colEnd });
+                        item.lane = lane;
+                        break;
+                    }
+                    lane++;
+                }
+            });
+            const maxLane = Math.max(...items.map(i => i.lane));
+            const weekEl = weeks[weekIndex];
+            // Считаем, сколько событий занимает каждый день недели
+            const dayEventCounts = new Array(7).fill(0);
+            items.forEach(it => {
+                for (let c = it.colStart; c <= it.colEnd; c++) dayEventCounts[c]++;
+            });
+            weekEl.style.gridTemplateRows = `24px repeat(${maxLane + 1}, minmax(0, 1fr))`;
+
+            items.forEach(item => {
+                const ev = item.event;
+                const bar = document.createElement('div');
+                bar.className = 'cal-event-bar';
+                bar.draggable = true;
+                bar.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('application/x-event-id', String(ev.id));
+                    e.dataTransfer.setData('application/x-event-start', ev.startUtc);
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                const color = presetColors[ev.presetId] || 'primary';
+                bar.classList.add(`color-${color}`);
+                if (!ev.syncToDiscord) bar.classList.add('local');
+                bar.style.gridColumn = `${item.colStart + 1} / span ${item.colEnd - item.colStart + 1}`;
+                let allSingle = true;
+                for (let c = item.colStart; c <= item.colEnd; c++) {
+                    if (dayEventCounts[c] > 1) { allSingle = false; break; }
+                }
+                if (allSingle) {
+                    bar.style.gridRow = '2 / -1';
+                } else {
+                    bar.style.gridRow = String(item.lane + 2);
+                }
+
+                const time = fmtTime(ev.startUtc);
+                const timeText = item.isStart ? time : '←';
+                const titleText = escapeHtml(ev.title || '') + (!item.isEnd ? ' →' : '');
+                bar.innerHTML = `<div class="cal-event-time">${timeText}</div><div class="cal-event-title">${titleText}</div>`;
+                bar.title = ev.title || '';
+
+                bar.addEventListener('click', e => {
+                    e.stopPropagation();
+                    if (!isModerator) return;
+                    openEditEventModal({
+                        id: ev.id,
+                        title: ev.title || '',
+                        description: ev.description || '',
+                        location: ev.location || '',
+                        startUtc: ev.startUtc,
+                        endUtc: ev.endUtc,
+                        isRecurring: ev.isRecurring,
+                        recurrenceRuleJson: ev.recurrenceRuleJson,
+                        hasPreset: ev.hasPreset,
+                        syncToDiscord: ev.syncToDiscord
+                    });
+                });
+
+                weekEl.appendChild(bar);
+            });
+        });
+    })();
+</script>

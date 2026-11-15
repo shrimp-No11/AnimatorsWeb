@@ -230,7 +230,75 @@
             text-underline-offset: 3px;
         }
         .site-footer a:hover { color: var(--brand-primary-hover); text-decoration: underline; }
+        /* Виджет «Сегодня» в шапке */
+        .today-events-nav {
+            display: flex;
+            align-items: center;
+            margin-left: 4px;
+        }
+        .today-events-widget {
+            --te-accent: var(--brand-primary);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 13px;
+            border-radius: 11px;
+            background: color-mix(in srgb, var(--brand-primary) 7%, transparent);
+            color: var(--brand-text);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color .18s ease, color .18s ease;
+            max-width: 340px;
+            overflow: hidden;
+            user-select: none;
+            border: none;
+            box-shadow: none;
+        }
+        .today-events-widget:hover {
+            background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+        }
+        .today-events-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--te-accent);
+            flex-shrink: 0;
+            opacity: .85;
+        }
+        .today-events-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+            line-height: 1.3;
+        }
+        .today-events-counter {
+            flex-shrink: 0;
+            font-size: 11px;
+            font-weight: 700;
+            color: color-mix(in srgb, var(--brand-text) 55%, transparent);
+            letter-spacing: .2px;
+            line-height: 1.2;
+        }
+        .today-events-widget.color-primary { --te-accent: var(--brand-primary); }
+        .today-events-widget.color-accent  { --te-accent: var(--brand-accent); }
+        .today-events-widget.color-hover   { --te-accent: var(--brand-primary-hover); }
+        .today-events-widget.color-text    { --te-accent: color-mix(in srgb, var(--brand-text) 65%, transparent); }
+        .today-events-widget.color-bg      { --te-accent: color-mix(in srgb, var(--brand-text) 40%, var(--brand-bg)); }
 
+        @@media (max-width: 767.98px) {
+            .today-events-nav {
+                margin: 4px 0 0;
+                width: 100%;
+            }
+            .today-events-widget {
+                width: 100%;
+                max-width: none;
+                box-sizing: border-box;
+                justify-content: center;
+            }
+        }
         @@media (max-width: 991.98px) {
             .site-header .navbar > .container { gap: 10px; }
             .site-header .navbar-brand { margin-right: 0; }
@@ -293,12 +361,22 @@
                         <li class="nav-item">
                             <a class="@ActiveClass("Participants")" asp-controller="Participants" asp-action="Index">Участники</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="@ActiveClass("Calendar")" asp-controller="Calendar" asp-action="Index">Календарь</a>
+                        </li>
                         @if (User.HasClaim("is_moderator", "true"))
                         {
                             <li class="nav-item">
                                 <a class="@ActiveClass("Moderator")" asp-controller="Moderator" asp-action="Index">Модераторская</a>
                             </li>
                         }
+                        <li class="nav-item today-events-nav" id="todayEventsWidget" style="display:none;">
+                            <div class="today-events-widget color-primary" title="">
+                                <span class="today-events-dot"></span>
+                                <span class="today-events-title" id="todayEventsContent"></span>
+                                <span class="today-events-counter" id="todayEventsCounter" style="display:none;"></span>
+                            </div>
+                        </li>
                     </ul>
 
                     <ul class="navbar-nav">
@@ -390,6 +468,74 @@
                 lastScroll = current;
             }, { passive: true });
         })();
+    </script>
+    <script>
+    (function () {
+        fetch('/Home/TodayEventsJson')
+            .then(r => r.json())
+            .then(events => {
+                if (!events || !events.length) return;
+
+                const now = new Date();
+                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+                const todays = events
+                    .map(e => ({
+                        id: e.id,
+                        title: e.title,
+                        color: e.color,
+                        start: new Date(e.startUtc),
+                        end: new Date(e.endUtc)
+                    }))
+                    .filter(e => e.end > todayStart && e.start < todayEnd)
+                    .sort((a, b) => a.start - b.start);
+
+                if (!todays.length) return;
+
+                const widgetLi = document.getElementById('todayEventsWidget');
+                const content = document.getElementById('todayEventsContent');
+                const counter = document.getElementById('todayEventsCounter');
+                if (!widgetLi || !content) return;
+
+                const widget = widgetLi.querySelector('.today-events-widget');
+                let idx = 0;
+
+                function render() {
+                    const e = todays[idx];
+                    const time = e.start.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                    content.textContent = `${time} · ${e.title}`;
+
+                    if (widget) {
+                        widget.className = 'today-events-widget color-' + (e.color || 'primary');
+                        widget.title = todays.length > 1
+                            ? `${time} · ${e.title} (клик — следующее, ${idx + 1}/${todays.length})`
+                            : `${time} · ${e.title}`;
+                    }
+
+                    if (counter) {
+                        if (todays.length > 1) {
+                            counter.style.display = 'inline-block';
+                            counter.textContent = `${idx + 1}/${todays.length}`;
+                        } else {
+                            counter.style.display = 'none';
+                        }
+                    }
+                }
+
+                render();
+
+                if (todays.length > 1 && widget) {
+                    widget.addEventListener('click', () => {
+                        idx = (idx + 1) % todays.length;
+                        render();
+                    });
+                }
+
+                widgetLi.style.display = 'flex';
+            })
+            .catch(() => {});
+    })();
     </script>
     <script src="~/js/media-modal.js" asp-append-version="true"></script>
 

@@ -4,6 +4,7 @@ using AnimatorsWeb.Models;
 using AnimatorsWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -194,6 +195,143 @@ namespace AnimatorsWeb.Controllers
             {
                 item.MediaType = "link";
             }
+        }
+        [HttpGet]
+        public async Task<IActionResult> TodayEventsJson(
+    [FromServices] AppDbContext db,
+    [FromServices] IMemoryCache cache)
+        {
+            const string cacheKey = "today_events_widget";
+            if (cache.TryGetValue(cacheKey, out List<object>? cached) && cached != null)
+                return Json(cached);
+
+            var now = DateTime.UtcNow;
+            var rangeStart = now.Date.AddDays(-2);
+            var rangeEnd = now.Date.AddDays(3);
+
+            var events = await db.CalendarEvents
+                .Where(e => e.StartUtc < rangeEnd && e.EndUtc > rangeStart)
+                .ToListAsync();
+
+            var presetIds = events.Where(e => e.EventPresetId.HasValue)
+                .Select(e => e.EventPresetId!.Value).Distinct().ToList();
+            var presetColors = await db.EventPresets
+                .Where(p => presetIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Color ?? "primary");
+
+            var result = new List<object>();
+            foreach (var ev in events)
+            {
+                string color = ev.EventPresetId.HasValue
+                    ? presetColors.GetValueOrDefault(ev.EventPresetId.Value, "primary")
+                    : "primary";
+
+                if (ev.IsRecurring && !string.IsNullOrEmpty(ev.RecurrenceRuleJson))
+                {
+                    var occs = GetOccurrencesHelper(ev, rangeStart, rangeEnd);
+                    foreach (var occ in occs)
+                    {
+                        var occEnd = occ + (ev.EndUtc - ev.StartUtc);
+                        result.Add(new
+                        {
+                            id = ev.Id,
+                            title = ev.Title,
+                            startUtc = occ.ToString("o"),
+                            endUtc = occEnd.ToString("o"),
+                            color
+                        });
+                    }
+                }
+                else
+                {
+                    result.Add(new
+                    {
+                        id = ev.Id,
+                        title = ev.Title,
+                        startUtc = ev.StartUtc.ToString("o"),
+                        endUtc = ev.EndUtc.ToString("o"),
+                        color
+                    });
+                }
+            }
+
+            cache.Set(cacheKey, result, TimeSpan.FromMinutes(2));
+            return Json(result);
+        }
+
+        private static List<DateTime> GetOccurrencesHelper(CalendarEvent ev, DateTime rangeStart, DateTime rangeEnd)
+        {
+            var result = new List<DateTime>();
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(ev.RecurrenceRuleJson!);
+                var root = doc.RootElement;
+                int frequency = root.TryGetProperty("frequency", out var f) ? f.GetInt32() : 2;
+                int interval = root.TryGetProperty("interval", out var i) && i.GetInt32() > 0 ? i.GetInt32() : 1;
+                int[]? byWeekday = null;
+                if (root.TryGetProperty("by_weekday", out var w) && w.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    byWeekday = w.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+
+                var exceptions = new HashSet<DateTime>();
+                if (!string.IsNullOrEmpty(ev.RecurrenceExceptionsJson))
+                {
+                    try
+                    {
+                        var list = System.Text.Json.JsonSerializer.Deserialize<List<string>>(ev.RecurrenceExceptionsJson);
+                        if (list != null)
+                            foreach (var s in list)
+                                if (DateTime.TryParse(s, null,
+                                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                                    out var dt))
+                                    exceptions.Add(dt);
+                    }
+                    catch { }
+                }
+
+                var start = ev.StartUtc;
+
+                if (frequency == 2)
+                {
+                    var byWeekdayList = byWeekday ?? new[] { ((int)start.DayOfWeek + 6) % 7 };
+                    var startMonday = start.Date.AddDays(-(((int)start.DayOfWeek + 6) % 7));
+                    var rangeMonday = rangeStart.Date.AddDays(-(((int)rangeStart.DayOfWeek + 6) % 7));
+
+                    var iter = startMonday;
+                    while (iter < rangeMonday) iter = iter.AddDays(7 * interval);
+                    if (iter > rangeMonday) iter = iter.AddDays(-7 * interval);
+
+                    while (iter < rangeEnd)
+                    {
+                        foreach (var wd in byWeekdayList)
+                        {
+                            var date = iter.AddDays(wd);
+                            var occ = new DateTime(date.Year, date.Month, date.Day,
+                                start.Hour, start.Minute, start.Second, DateTimeKind.Utc);
+                            if (occ < start) continue;
+                            if (occ < rangeStart || occ >= rangeEnd) continue;
+                            if (exceptions.Contains(occ)) continue;
+                            result.Add(occ);
+                        }
+                        iter = iter.AddDays(7 * interval);
+                    }
+                }
+                else if (frequency == 3)
+                {
+                    var iter = start;
+                    while (iter < rangeStart) iter = iter.AddDays(interval);
+                    while (iter < rangeEnd)
+                    {
+                        if (!exceptions.Contains(iter)) result.Add(iter);
+                        iter = iter.AddDays(interval);
+                    }
+                }
+                else
+                {
+                    if (start >= rangeStart && start < rangeEnd) result.Add(start);
+                }
+            }
+            catch { }
+            return result;
         }
 
     }
