@@ -1103,7 +1103,7 @@ namespace AnimatorsWeb.Controllers
             var mondayMsk = dropDate.AddDays(-dow);
             // 00:00 МСК = 21:00 UTC предыдущего дня (в Index сетка считается так же).
             var mondayUtc = DateTime.SpecifyKind(
-                mondayMsk.ToDateTime(TimeOnly.MinValue).AddHours(-3),
+                mondayMsk.ToDateTime(TimeOnly.MinValue),
                 DateTimeKind.Utc);
 
             var existingInstance = await _db.PatternInstances
