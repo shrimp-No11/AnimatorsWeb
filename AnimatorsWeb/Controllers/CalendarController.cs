@@ -17,6 +17,7 @@ namespace AnimatorsWeb.Controllers
         DiscordCalendarApplyService _applyService;
         private readonly DiscordCalendarSyncService _sync;
         private readonly IWebHostEnvironment _env;
+        private readonly ILogger<CalendarController> _logger;
 
 
         public CalendarController(
@@ -24,13 +25,15 @@ namespace AnimatorsWeb.Controllers
             DiscordClient client,
             DiscordCalendarSyncService discordSync,
             DiscordCalendarApplyService applyService,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            ILogger<CalendarController> logger)
         {
             _db = db;
             _client = client;
             _sync = discordSync;
             _applyService = applyService;
             _env = env;
+            _logger = logger;
         }
 
         [AllowAnonymous]
@@ -1321,28 +1324,47 @@ namespace AnimatorsWeb.Controllers
             // Ручное обновление = «покажи фактическое состояние Discord»:
             // даже неприменённые локальные правки уступают Discord.
             CalendarTrace.Write("UI", "Pull from Discord requested (force)");
-            await _sync.PullAsync(force: true, ct: HttpContext.RequestAborted);
-            return Json(new { success = true });
+            try
+            {
+                await _sync.PullAsync(force: true, ct: HttpContext.RequestAborted);
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Pull from Discord failed");
+                CalendarTrace.Write("PULL", $"fatal: {ex.GetType().Name}: {ex.Message}");
+                return Json(new { success = false, error = "Ошибка получения из Discord: " + ex.Message });
+            }
         }
 
         [HttpGet]
         [Authorize(Policy = "ModeratorOnly")]
         public async Task<IActionResult> ApplyToDiscordPreview()
         {
-            var plan = await _applyService.PreviewAsync();
-
-            return Json(new
+            try
             {
-                toCreate = plan.ToCreate,
-                toUpdate = plan.ToUpdate,
-                toDelete = plan.ToDelete,
-                items = plan.Items.Select(i => new
+                var plan = await _applyService.PreviewAsync();
+
+                return Json(new
                 {
-                    action = i.Action,
-                    title = i.Title,
-                    startUtc = i.StartUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
-                })
-            });
+                    success = true,
+                    toCreate = plan.ToCreate,
+                    toUpdate = plan.ToUpdate,
+                    toDelete = plan.ToDelete,
+                    items = plan.Items.Select(i => new
+                    {
+                        action = i.Action,
+                        title = i.Title,
+                        startUtc = i.StartUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Apply preview failed");
+                CalendarTrace.Write("APPLY", $"preview fatal: {ex.GetType().Name}: {ex.Message}");
+                return Json(new { success = false, error = "Ошибка подготовки: " + ex.Message });
+            }
         }
 
         [HttpPost]
@@ -1350,14 +1372,26 @@ namespace AnimatorsWeb.Controllers
         [Authorize(Policy = "ModeratorOnly")]
         public async Task<IActionResult> ApplyToDiscord()
         {
-            var plan = await _applyService.ApplyAsync();
-            return Json(new
+            try
             {
-                success = true,
-                toCreate = plan.ToCreate,
-                toUpdate = plan.ToUpdate,
-                toDelete = plan.ToDelete
-            });
+                // Не привязываем к RequestAborted: если прокси оборвёт соединение,
+                // синхронизация должна завершиться, а не остановиться на полпути.
+                var plan = await _applyService.ApplyAsync();
+                return Json(new
+                {
+                    success = true,
+                    toCreate = plan.ToCreate,
+                    toUpdate = plan.ToUpdate,
+                    toDelete = plan.ToDelete,
+                    errors = plan.Errors
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Apply to Discord failed");
+                CalendarTrace.Write("APPLY", $"fatal: {ex.GetType().Name}: {ex.Message}");
+                return Json(new { success = false, error = "Ошибка отправки в Discord: " + ex.Message });
+            }
         }
     }
 }

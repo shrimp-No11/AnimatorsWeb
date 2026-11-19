@@ -104,16 +104,20 @@ namespace AnimatorsWeb.Services
             DiscordRecurrenceRule? rule,
             CancellationToken ct = default,
             bool includeRule = true,
-            string? imageDataUri = null)
+            string? imageDataUri = null,
+            bool keepExistingImageWhenNull = false)
         {
             var body = new Dictionary<string, object?>
             {
                 ["name"] = name,
                 ["description"] = description,
                 ["scheduled_start_time"] = ToIso(startUtc),
-                ["scheduled_end_time"] = ToIso(endUtc),
-                ["image"] = imageDataUri
+                ["scheduled_end_time"] = ToIso(endUtc)
             };
+            // Для обычного обновления image=null очищает обложку. При усыновлении
+            // существующего события обложку не трогаем, если у пресета её нет.
+            if (!(keepExistingImageWhenNull && imageDataUri == null))
+                body["image"] = imageDataUri;
             if (rule != null && includeRule)
             {
                 body["recurrence_rule"] = new Dictionary<string, object?>
@@ -210,7 +214,11 @@ namespace AnimatorsWeb.Services
             return ParseExceptions(resp.Body);
         }
 
-        public async Task<List<DiscordExceptionInfo>> GetExceptionsFromEventAsync(
+        /// <summary>
+        /// Возвращает null при сетевой ошибке/неуспешном ответе, чтобы вызывающий
+        /// код не принял «не удалось прочитать» за «исключений нет» и не создал дубли.
+        /// </summary>
+        public async Task<List<DiscordExceptionInfo>?> GetExceptionsFromEventAsync(
             ulong guildId,
             ulong eventId,
             CancellationToken ct = default)
@@ -219,7 +227,12 @@ namespace AnimatorsWeb.Services
                 HttpMethod.Get,
                 $"guilds/{guildId}/scheduled-events/{eventId}",
                 null, ct);
-            if (!ok || resp == null) return new();
+            if (!ok || resp == null)
+            {
+                _logger.LogWarning("GetExceptionsFromEventAsync failed for {EventId}: {Status} {Body}",
+                    eventId, resp?.Status.ToString() ?? "(no response)", resp?.Body ?? "(null)");
+                return null;
+            }
             using var doc = JsonDocument.Parse(resp.Body);
             if (!doc.RootElement.TryGetProperty("guild_scheduled_event_exceptions", out var arrEl))
                 return new();
@@ -291,6 +304,12 @@ namespace AnimatorsWeb.Services
         {
             const int maxRetries = 3;
 
+            // POST создания события нельзя повторять после сетевой ошибки: первый
+            // запрос мог дойти, и повтор создаст дубликат. POST исключений безопасен —
+            // Discord отвечает 409 на уже существующее исключение.
+            bool retryable = method != HttpMethod.Post
+                             || path.EndsWith("/exceptions", StringComparison.OrdinalIgnoreCase);
+
             for (int attempt = 0; attempt <= maxRetries; attempt++)
             {
                 var http = CreateClient();
@@ -319,11 +338,34 @@ namespace AnimatorsWeb.Services
                         continue;
                     }
 
+                    // Кратковременные 5xx от Discord/прокси имеет смысл повторить.
+                    if (retryable && attempt < maxRetries && (int)resp.StatusCode is 500 or 502 or 503 or 504)
+                    {
+                        _logger.LogWarning(
+                            "Transient {Status} on {Method} {Path}, retry #{Attempt}",
+                            (int)resp.StatusCode, method, path, attempt + 1);
+                        await Task.Delay(TimeSpan.FromMilliseconds(500 * (attempt + 1)), ct);
+                        continue;
+                    }
+
                     var result = new HttpResult(resp.IsSuccessStatusCode, resp.StatusCode, body);
                     return (resp.IsSuccessStatusCode, result);
                 }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
+                    if (retryable && attempt < maxRetries)
+                    {
+                        _logger.LogWarning(ex,
+                            "HTTP request failed: {Method} {Path}, retry #{Attempt}",
+                            method, path, attempt + 1);
+                        await Task.Delay(TimeSpan.FromMilliseconds(500 * (attempt + 1)), ct);
+                        continue;
+                    }
+
                     _logger.LogError(ex, "HTTP request failed: {Method} {Path}", method, path);
                     return (false, null);
                 }

@@ -40,6 +40,8 @@ namespace AnimatorsWeb.Services
             public int ToUpdate { get; set; }
             public int ToDelete { get; set; }
             public List<ApplyPlanItem> Items { get; set; } = new();
+            /// <summary>Ошибки, при которых часть изменений не доехала до Discord.</summary>
+            public List<string> Errors { get; set; } = new();
         }
 
         public class ApplyPlanItem
@@ -219,12 +221,28 @@ namespace AnimatorsWeb.Services
                 var calc = await BuildSeriesRuleAsync(preset, now, ct);
                 if (calc == null) continue;
 
-                plan.ToCreate++;
+                // Если у пресета уже есть событие в Discord, Apply не создаст
+                // дубликат, а превратит это событие в серию через PATCH.
+                var standalone = await _db.CalendarEvents
+                    .Where(e => e.EventPresetId == preset.Id
+                             && e.DiscordEventId != null
+                             && !e.IsHidden)
+                    .Select(e => new { e.DiscordEventId, e.StartUtc, e.Source })
+                    .ToListAsync(ct);
+
+                var adopted = SeriesAdoption.Pick(
+                    standalone.Select(e => new SeriesAdoption.Candidate(
+                        e.DiscordEventId!.Value, e.StartUtc, e.Source)).ToList(),
+                    calc.RuleStartUtc);
+
+                if (adopted != null) plan.ToUpdate++;
+                else plan.ToCreate++;
+
                 plan.Items.Add(new ApplyPlanItem
                 {
-                    Action = "create",
+                    Action = adopted != null ? "update" : "create",
                     Title = preset.DefaultTitle,
-                    StartUtc = calc.RuleStartUtc,
+                    StartUtc = adopted?.StartUtc ?? calc.RuleStartUtc,
                     IsRecurring = true
                 });
             }
@@ -346,6 +364,7 @@ namespace AnimatorsWeb.Services
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Deleted preset cleanup failed for preset {Id}", preset.Id);
+                    plan.Errors.Add($"Удалённый пресет «{preset.DefaultTitle}»: {ex.Message}");
                 }
             }
 
@@ -384,11 +403,18 @@ namespace AnimatorsWeb.Services
                         await _sync.ReconcileOwnedSeriesAsync(preset, ct);
                         await _db.SaveChangesAsync(ct);
                     }
+                    else
+                    {
+                        plan.Errors.Add(
+                            $"Серия «{preset.DefaultTitle}»: не все изменения доехали до Discord. " +
+                            "Повторите отправку — уже созданная серия будет обновлена, а не создана заново.");
+                    }
                     await Task.Delay(200, ct);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Series sync failed for preset {Id}", preset.Id);
+                    plan.Errors.Add($"Серия «{preset.DefaultTitle}»: {ex.Message}");
                 }
             }
 
@@ -429,14 +455,23 @@ namespace AnimatorsWeb.Services
                             var exceptions = EventExceptionJson.Parse(ev.RecurrenceExceptionsJson);
                             foreach (var ex in exceptions)
                             {
-                                await _recurringClient.AddExceptionAsync(
-                                    guildId, parsed, ex.OriginalStartUtc, ex.IsCanceled, ex.NewStartUtc, ct,
-                                    ex.NewStartUtc.HasValue ? ex.NewStartUtc.Value + (ev.EndUtc - ev.StartUtc) : null);
+                                if (await _recurringClient.AddExceptionAsync(
+                                        guildId, parsed, ex.OriginalStartUtc, ex.IsCanceled, ex.NewStartUtc, ct,
+                                        ex.NewStartUtc.HasValue ? ex.NewStartUtc.Value + (ev.EndUtc - ev.StartUtc) : null)
+                                    == null)
+                                {
+                                    plan.Errors.Add(
+                                        $"«{ev.Title}»: не удалось применить исключение {ex.OriginalStartUtc:yyyy-MM-dd HH:mm} UTC.");
+                                }
                                 await Task.Delay(150, ct);
                             }
 
                             ev.DiscordSnapshot = BuildSnapshot(ev);
                             ev.LastSyncedUtc = DateTime.UtcNow;
+                        }
+                        else
+                        {
+                            plan.Errors.Add($"«{ev.Title}»: не удалось создать повторяющееся событие в Discord.");
                         }
                     }
                     else
@@ -444,7 +479,11 @@ namespace AnimatorsWeb.Services
                         var ok = await _recurringClient.ModifyRecurringAsync(
                             guildId, ev.DiscordEventId.Value, ev.Title, ev.Description,
                             ev.StartUtc, ev.EndUtc, rule, ct, imageDataUri: cover);
-                        if (ok)
+                        if (!ok)
+                        {
+                            plan.Errors.Add($"«{ev.Title}»: не удалось обновить повторяющееся событие в Discord.");
+                        }
+                        else
                         {
                             // PATCH с recurrence_rule мог сбросить исключения — восстанавливаем их.
                             // Отменённые вхождения хранятся как список дат в RecurrenceExceptionsJson.
@@ -453,30 +492,39 @@ namespace AnimatorsWeb.Services
                                 .Select(x => x.OriginalStartUtc).ToHashSet();
                             var discordExceptions = await _recurringClient.GetExceptionsFromEventAsync(
                                 guildId, ev.DiscordEventId.Value, ct);
-                            var discordByDate = discordExceptions
-                                .GroupBy(x => x.OriginalStartUtc)
-                                .ToDictionary(g => g.Key, g => g.First());
+                            // null = не удалось прочитать. Не трогаем исключения,
+                            // иначе «пустой» ответ приведёт к лишним/потерянным отменам.
+                            if (discordExceptions != null)
+                            {
+                                var discordByDate = discordExceptions
+                                    .GroupBy(x => x.OriginalStartUtc)
+                                    .ToDictionary(g => g.Key, g => g.First());
 
-                            foreach (var desired in desiredExceptions)
-                            {
-                                if (discordByDate.TryGetValue(desired.OriginalStartUtc, out var current)
-                                    && !SeriesExceptionDiff.NeedsUpdate(current, desired, ruleChanged: true))
-                                    continue;
-                                await _recurringClient.AddExceptionAsync(
-                                    guildId, ev.DiscordEventId.Value,
-                                    desired.OriginalStartUtc, desired.IsCanceled, desired.NewStartUtc, ct,
-                                    desired.NewStartUtc.HasValue
-                                        ? desired.NewStartUtc.Value + (ev.EndUtc - ev.StartUtc) : null);
-                                await Task.Delay(150, ct);
-                            }
-                            foreach (var kv in discordByDate.Where(kv => !desiredDates.Contains(kv.Key)))
-                            {
-                                if (!string.IsNullOrEmpty(kv.Value.ExceptionId))
+                                foreach (var desired in desiredExceptions)
                                 {
-                                    await _recurringClient.RemoveExceptionAsync(
-                                        guildId, ev.DiscordEventId.Value, kv.Value.ExceptionId, ct);
+                                    if (discordByDate.TryGetValue(desired.OriginalStartUtc, out var current)
+                                        && !SeriesExceptionDiff.NeedsUpdate(current, desired, ruleChanged: true))
+                                        continue;
+                                    await _recurringClient.AddExceptionAsync(
+                                        guildId, ev.DiscordEventId.Value,
+                                        desired.OriginalStartUtc, desired.IsCanceled, desired.NewStartUtc, ct,
+                                        desired.NewStartUtc.HasValue
+                                            ? desired.NewStartUtc.Value + (ev.EndUtc - ev.StartUtc) : null);
                                     await Task.Delay(150, ct);
                                 }
+                                foreach (var kv in discordByDate.Where(kv => !desiredDates.Contains(kv.Key)))
+                                {
+                                    if (!string.IsNullOrEmpty(kv.Value.ExceptionId))
+                                    {
+                                        await _recurringClient.RemoveExceptionAsync(
+                                            guildId, ev.DiscordEventId.Value, kv.Value.ExceptionId, ct);
+                                        await Task.Delay(150, ct);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                plan.Errors.Add($"«{ev.Title}»: не удалось прочитать исключения из Discord.");
                             }
 
                             ev.DiscordSnapshot = BuildSnapshot(ev);
@@ -490,6 +538,7 @@ namespace AnimatorsWeb.Services
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Recurring push failed for event {Id}", ev.Id);
+                    plan.Errors.Add($"«{ev.Title}»: {ex.Message}");
                 }
             }
 
@@ -503,12 +552,15 @@ namespace AnimatorsWeb.Services
                 {
                     var preset = ev.EventPresetId.HasValue && presetById.TryGetValue(ev.EventPresetId.Value, out var p)
                         ? p : null;
-                    await _sync.PushAsync(ev, ct, await GetCoverDataUriAsync(preset, ct));
+                    var pushed = await _sync.PushAsync(ev, ct, await GetCoverDataUriAsync(preset, ct));
+                    if (pushed == null)
+                        plan.Errors.Add($"«{ev.Title}»: не удалось отправить событие в Discord.");
                     await _db.SaveChangesAsync(ct);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Push failed for event {Id}", ev.Id);
+                    plan.Errors.Add($"«{ev.Title}»: {ex.Message}");
                 }
                 await Task.Delay(200, ct);
             }
@@ -659,6 +711,41 @@ namespace AnimatorsWeb.Services
                 .SequenceEqual(desired.Select(Key).OrderBy(k => k));
         }
 
+        /// <summary>
+        /// Ищет уже существующую серию с тем же названием и точным правилом, которая
+        /// ещё не привязана ни к одному пресету. Нужна, когда ответ Discord на создание
+        /// серии потерялся, или когда серию создали вручную, а Pull ещё не прошёл.
+        /// </summary>
+        private async Task<DiscordEventRawInfo?> FindAdoptableSeriesAsync(
+            ulong guildId, EventPreset preset, string ruleJson, CancellationToken ct)
+        {
+            try
+            {
+                var all = await _recurringClient.GetAllEventsRawAsync(guildId, ct);
+                if (all.Count == 0) return null;
+
+                var owned = await _db.EventPresets
+                    .Where(p => p.DiscordSeriesEventId != null)
+                    .Select(p => p.DiscordSeriesEventId!.Value)
+                    .ToListAsync(ct);
+                var ownedSet = owned.ToHashSet();
+
+                return all.Values
+                    .Where(e => e.IsRecurring
+                             && e.Status is not (3 or 4)
+                             && !ownedSet.Contains(e.Id)
+                             && string.Equals(e.Name, preset.DefaultTitle, StringComparison.Ordinal)
+                             && DiscordRuleJson.Same(e.RecurrenceRuleJson, ruleJson))
+                    .OrderBy(e => e.StartUtc)
+                    .FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to search adoptable Discord series for preset {Id}", preset.Id);
+                return null;
+            }
+        }
+
         private async Task<bool> SyncSeriesAsync(
     ulong guildId,
     EventPreset preset,
@@ -689,32 +776,104 @@ namespace AnimatorsWeb.Services
             ulong seriesId;
             var cover = await GetCoverDataUriAsync(preset, ct);
 
+            // Любая неудача ниже должна оставить PendingApply=true. Иначе фоновый Pull
+            // сочтёт Discord истиной и затрёт локальные отмены, которые ещё не доехали.
+            // Сохраняем ДО сетевых вызовов: gateway-событие от нашего же PATCH
+            // может прийти раньше, чем Apply успеет сохранить результат.
+            preset.PendingApply = true;
+            await _db.SaveChangesAsync(ct);
+
             if (preset.DiscordSeriesEventId == null)
             {
-                bool isChannel = ulong.TryParse(preset.Location, out var chId);
-                ulong? channel = isChannel ? chId : null;
-                var newId = await _recurringClient.CreateRecurringAsync(
-                    guildId, channel, preset.DefaultTitle, preset.DefaultDescription,
-                    calc.RuleStartUtc, seriesEndUtc, rule, ct, cover);
-
-                if (string.IsNullOrEmpty(newId) || !ulong.TryParse(newId, out var parsed))
-                {
-                    _logger.LogWarning("Create series failed for preset {PresetId}", preset.Id);
-                    return false;
-                }
-                seriesId = parsed;
-                preset.DiscordSeriesEventId = parsed;
-
-                // Пресет мог раньше жить как обычное событие: серия его заменяет,
-                // иначе в Discord останется дубликат.
+                // Если у пресета уже есть событие в Discord (создано вручную, пришло
+                // из Pull или раньше было одиночным), не удаляем его и не создаём
+                // дубликат: Discord разрешает PATCH с recurrence_rule, поэтому это
+                // событие само становится серией. Сохраняются ID, подписчики, обложка.
                 var standalone = await _db.CalendarEvents
                     .Where(e => e.EventPresetId == preset.Id && e.DiscordEventId != null)
+                    .OrderBy(e => e.StartUtc)
                     .ToListAsync(ct);
+
+                var candidate = SeriesAdoption.Pick(
+                    standalone.Where(e => !e.IsHidden)
+                        .Select(e => new SeriesAdoption.Candidate(
+                            e.DiscordEventId!.Value, e.StartUtc, e.Source))
+                        .ToList(),
+                    calc.RuleStartUtc);
+
+                if (candidate == null)
+                {
+                    // Ответ на POST создания серии мог потеряться при сетевой ошибке:
+                    // в Discord серия уже есть, а DiscordSeriesEventId пуст. Ищем её
+                    // по имени и точному правилу, чтобы не создать дубликат.
+                    var remote = await FindAdoptableSeriesAsync(guildId, preset, ruleJson, ct);
+                    if (remote != null)
+                    {
+                        candidate = new SeriesAdoption.Candidate(
+                            remote.Id, remote.StartUtc, "Discord");
+                        CalendarTrace.Write("APPLY",
+                            $"preset={preset.Id} found unowned Discord series {remote.Id} by rule");
+                    }
+                }
+
+                if (candidate != null)
+                {
+                    var ok = await _recurringClient.ModifyRecurringAsync(
+                        guildId, candidate.DiscordEventId,
+                        preset.DefaultTitle, preset.DefaultDescription,
+                        calc.RuleStartUtc, seriesEndUtc, rule, ct, includeRule: true,
+                        imageDataUri: cover, keepExistingImageWhenNull: cover == null);
+                    if (!ok)
+                    {
+                        _logger.LogWarning(
+                            "Adopt existing event {EventId} as series failed for preset {PresetId}",
+                            candidate.DiscordEventId, preset.Id);
+                        return false;
+                    }
+
+                    seriesId = candidate.DiscordEventId;
+                    preset.DiscordSeriesEventId = seriesId;
+                    CalendarTrace.Write("APPLY",
+                        $"preset={preset.Id} adopted existing event {seriesId} as series");
+                }
+                else
+                {
+                    bool isChannel = ulong.TryParse(preset.Location, out var chId);
+                    ulong? channel = isChannel ? chId : null;
+                    var newId = await _recurringClient.CreateRecurringAsync(
+                        guildId, channel, preset.DefaultTitle, preset.DefaultDescription,
+                        calc.RuleStartUtc, seriesEndUtc, rule, ct, cover);
+
+                    if (string.IsNullOrEmpty(newId) || !ulong.TryParse(newId, out var parsed))
+                    {
+                        _logger.LogWarning("Create series failed for preset {PresetId}", preset.Id);
+                        return false;
+                    }
+                    seriesId = parsed;
+                    preset.DiscordSeriesEventId = parsed;
+                }
+
+                // Фиксируем серию в БД ДО работы с исключениями. Иначе сетевая ошибка
+                // на исключении оставит DiscordSeriesEventId пустым, и следующий Apply
+                // создаст ВТОРУЮ серию вместо продолжения уже созданной.
+                preset.RecurrenceRuleJson = ruleJson;
+                await _db.SaveChangesAsync(ct);
+
+                // Остальные одиночные события этого пресета больше не нужны: серия
+                // их заменяет. Основное событие (candidate) сохранено и превращено
+                // в серию, а не удалено и создано заново.
                 foreach (var old in standalone)
                 {
+                    if (old.DiscordEventId == seriesId) continue;
+
                     try
                     {
-                        await _recurringClient.DeleteAsync(guildId, old.DiscordEventId!.Value, ct);
+                        if (!await _recurringClient.DeleteAsync(guildId, old.DiscordEventId!.Value, ct))
+                        {
+                            _logger.LogWarning(
+                                "Failed to delete duplicate standalone event {Id} of preset {PresetId}",
+                                old.DiscordEventId, preset.Id);
+                        }
                         await Task.Delay(150, ct);
                     }
                     catch (Exception ex)
@@ -744,6 +903,10 @@ namespace AnimatorsWeb.Services
                     _logger.LogWarning("Modify series failed for preset {PresetId}", preset.Id);
                     return false;
                 }
+
+                // Правило тоже сохраняем сразу — до сетевых операций с исключениями.
+                preset.RecurrenceRuleJson = ruleJson;
+                await _db.SaveChangesAsync(ct);
             }
 
             var previous = ParsePresetExceptions(preset.RecurrenceExceptionsJson);
@@ -753,6 +916,20 @@ namespace AnimatorsWeb.Services
             int failures = 0;
 
             var discordExceptions = await _recurringClient.GetExceptionsFromEventAsync(guildId, seriesId, ct);
+            if (discordExceptions == null)
+            {
+                // Серия уже создана/обновлена и её ID сохранён, но список исключений
+                // прочитать не удалось. Оставляем PendingApply, чтобы Pull не затёр
+                // локальные отмены до успешной повторной попытки.
+                preset.RecurrenceRuleJson = ruleJson;
+                preset.RecurrenceExceptionsJson = SerializePresetExceptions(desiredExceptions);
+                preset.PendingApply = true;
+                await _db.SaveChangesAsync(ct);
+
+                CalendarTrace.Write("APPLY",
+                    $"preset={preset.Id} exceptions read failed — keep pending");
+                return false;
+            }
             var discordByDate = discordExceptions
                 .GroupBy(e => e.OriginalStartUtc)
                 .ToDictionary(g => g.Key, g => g.First());
@@ -789,11 +966,14 @@ namespace AnimatorsWeb.Services
 
             preset.RecurrenceRuleJson = ruleJson;
             preset.RecurrenceExceptionsJson = SerializePresetExceptions(desiredExceptions);
+            await _db.SaveChangesAsync(ct);
 
             if (failures > 0)
             {
                 // Не снимаем PendingApply: иначе следующий Pull решит, что Discord
                 // — истина, и удалит карточки, которые не успели доехать.
+                preset.PendingApply = true;
+                await _db.SaveChangesAsync(ct);
                 CalendarTrace.Write("APPLY",
                     $"preset={preset.Id} exceptions failed={failures} — keep pending");
                 return false;
@@ -862,6 +1042,7 @@ namespace AnimatorsWeb.Services
             preset.RecurrenceExceptionsJson = SerializePresetExceptions(previous);
 
             var discordExceptions = await _recurringClient.GetExceptionsFromEventAsync(guildId, seriesId, ct);
+            if (discordExceptions == null) return;
             var discordByDate = discordExceptions
                 .GroupBy(e => e.OriginalStartUtc)
                 .ToDictionary(g => g.Key, g => g.First());

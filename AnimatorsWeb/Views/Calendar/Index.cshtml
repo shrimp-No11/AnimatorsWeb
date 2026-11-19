@@ -1502,7 +1502,7 @@
             const data = await r.json();
             if (data.success) window.location.reload();
             else alert(data.error || 'Ошибка обновления');
-        } catch { alert('Сетевая ошибка'); }
+        } catch { alert('Сетевая ошибка: сервер не ответил. Обновите страницу — синхронизация могла продолжиться.'); }
         finally { if (btn) { btn.disabled = false; btn.textContent = '⬇ Получить ивенты'; } }
     }
 
@@ -1517,6 +1517,12 @@
             const data = await r.json();
             document.getElementById('applyLoading').style.display = 'none';
             document.getElementById('applyResult').style.display = 'block';
+            if (data.success === false) {
+                document.getElementById('applyItemsList').innerHTML =
+                    `<p style="color: var(--brand-accent);">${escapeHtml(data.error || 'Ошибка подготовки')}</p>`;
+                document.getElementById('applyConfirmBtn').disabled = true;
+                return;
+            }
             document.getElementById('applyCreateCount').textContent = data.toCreate;
             document.getElementById('applyUpdateCount').textContent = data.toUpdate;
             document.getElementById('applyDeleteCount').textContent = data.toDelete;
@@ -1537,7 +1543,10 @@
             }
             document.getElementById('applyConfirmBtn').disabled =
                 data.toCreate === 0 && data.toUpdate === 0 && data.toDelete === 0;
-        } catch { document.getElementById('applyLoading').textContent = 'Ошибка загрузки'; }
+        } catch {
+            document.getElementById('applyLoading').textContent =
+                'Сервер не ответил. Закройте окно и попробуйте ещё раз.';
+        }
     }
     function closeApplyModal() { document.getElementById('applyModal')?.classList.remove('is-open'); }
     async function doApply() {
@@ -1546,9 +1555,24 @@
         try {
             const r = await fetch('/Calendar/ApplyToDiscord', { method: 'POST' });
             const data = await r.json();
-            if (data.success) { closeApplyModal(); window.location.reload(); }
-            else { alert('Ошибка применения'); btn.disabled = false; btn.textContent = '⬆ Отправить в Discord'; }
-        } catch { alert('Сетевая ошибка'); btn.disabled = false; btn.textContent = '⬆ Отправить в Discord'; }
+            if (data.success) {
+                closeApplyModal();
+                const errors = Array.isArray(data.errors) ? data.errors : [];
+                if (errors.length) {
+                    alert('Синхронизация завершена, но не всё доехало до Discord:\n\n' + errors.join('\n'));
+                }
+                window.location.reload();
+            }
+            else {
+                alert(data.error || 'Ошибка применения');
+                btn.disabled = false;
+                btn.textContent = '⬆ Отправить в Discord';
+            }
+        } catch {
+            alert('Сетевая ошибка: сервер не ответил. Обновите страницу — синхронизация могла продолжиться.');
+            btn.disabled = false;
+            btn.textContent = '⬆ Отправить в Discord';
+        }
     }
 
     const presetCovers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
