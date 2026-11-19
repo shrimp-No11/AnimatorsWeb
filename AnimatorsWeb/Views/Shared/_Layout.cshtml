@@ -273,6 +273,30 @@
             min-width: 0;
             line-height: 1.3;
         }
+        .today-events-title-track {
+            display: inline-flex;
+            width: max-content;
+            white-space: nowrap;
+            will-change: transform;
+        }
+        .today-events-title.is-scrolling .today-events-title-track {
+            animation: today-events-marquee var(--marquee-duration, 10s) linear infinite;
+        }
+        .today-events-title.is-scrolling .today-events-title-segment {
+            padding-right: 42px;
+        }
+        .today-events-widget:hover .today-events-title-track {
+            animation-play-state: paused;
+        }
+        @@keyframes today-events-marquee {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+        @@media (prefers-reduced-motion: reduce) {
+            .today-events-title.is-scrolling .today-events-title-track {
+                animation: none;
+            }
+        }
         .today-events-counter {
             flex-shrink: 0;
             font-size: 11px;
@@ -373,7 +397,7 @@
                         <li class="nav-item today-events-nav" id="todayEventsWidget" style="display:none;">
                             <div class="today-events-widget color-primary" title="">
                                 <span class="today-events-dot"></span>
-                                <span class="today-events-title" id="todayEventsContent"></span>
+                                <span class="today-events-title" id="todayEventsTitle"><span class="today-events-title-track" id="todayEventsContent"></span></span>
                                 <span class="today-events-counter" id="todayEventsCounter" style="display:none;"></span>
                             </div>
                         </li>
@@ -495,16 +519,45 @@
 
                 const widgetLi = document.getElementById('todayEventsWidget');
                 const content = document.getElementById('todayEventsContent');
+                const titleEl = document.getElementById('todayEventsTitle');
                 const counter = document.getElementById('todayEventsCounter');
-                if (!widgetLi || !content) return;
+                if (!widgetLi || !content || !titleEl) return;
 
                 const widget = widgetLi.querySelector('.today-events-widget');
                 let idx = 0;
 
+                // Если заголовок не влезает — превращаем его в бегущую строку:
+                // дублируем текст и двигаем дорожку на половину её ширины (бесшовно).
+                function setWidgetTitle(text) {
+                    content.innerHTML = '';
+                    titleEl.classList.remove('is-scrolling');
+                    content.style.removeProperty('--marquee-duration');
+
+                    const segment = document.createElement('span');
+                    segment.className = 'today-events-title-segment';
+                    segment.textContent = text;
+                    content.appendChild(segment);
+
+                    // Ширины известны только после раскладки.
+                    requestAnimationFrame(() => {
+                        if (content.scrollWidth - titleEl.clientWidth <= 1) return;
+
+                        const clone = segment.cloneNode(true);
+                        clone.setAttribute('aria-hidden', 'true');
+                        content.appendChild(clone);
+                        titleEl.classList.add('is-scrolling');
+
+                        // ~45 px/с, но не быстрее 6 секунд на круг.
+                        const half = content.scrollWidth / 2;
+                        content.style.setProperty('--marquee-duration',
+                            `${Math.max(6, Math.round(half / 45))}s`);
+                    });
+                }
+
                 function render() {
                     const e = todays[idx];
                     const time = e.start.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                    content.textContent = `${time} · ${e.title}`;
+                    setWidgetTitle(`${time} · ${e.title}`);
 
                     if (widget) {
                         widget.className = 'today-events-widget color-' + (e.color || 'primary');
@@ -523,6 +576,8 @@
                     }
                 }
 
+                // Показываем до замера: у скрытого элемента ширина нулевая.
+                widgetLi.style.display = 'flex';
                 render();
 
                 if (todays.length > 1 && widget) {
@@ -531,8 +586,6 @@
                         render();
                     });
                 }
-
-                widgetLi.style.display = 'flex';
             })
             .catch(() => {});
     })();

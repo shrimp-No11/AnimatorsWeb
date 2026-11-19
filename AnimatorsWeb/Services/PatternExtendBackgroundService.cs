@@ -1,4 +1,7 @@
-﻿namespace AnimatorsWeb.Services
+﻿using AnimatorsWeb.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace AnimatorsWeb.Services
 {
     public class PatternExtendBackgroundService : BackgroundService
     {
@@ -17,16 +20,10 @@
         {
             while (!ct.IsCancellationRequested)
             {
-                var now = DateTime.UtcNow;
-                // 04:00 МСК = 01:00 UTC, + случайные 0..45 минут
-                var baseTime = now.Date.AddDays(1).AddHours(1);
-                var jitter = TimeSpan.FromMinutes(Random.Shared.Next(0, 46));
-                var next = baseTime + jitter;
-                if (next <= now) next = next.AddDays(1);
-
-                var delay = next - now;
+                var next = ComputeNextRunUtc(DateTime.UtcNow);
+                var delay = next - DateTime.UtcNow;
                 _logger.LogInformation(
-                    "Pattern extend scheduled for {Next} UTC (in {Hours:F1}h)",
+                    "Weekly calendar job scheduled for {Next} UTC (in {Hours:F1}h)",
                     next, delay.TotalHours);
 
                 try { await Task.Delay(delay, ct); }
@@ -35,16 +32,36 @@
                 try
                 {
                     using var scope = _scopeFactory.CreateScope();
-                    var materialization = scope.ServiceProvider.GetRequiredService<PatternMaterializationService>();
+                    var sp = scope.ServiceProvider;
+
+                    var materialization = sp.GetRequiredService<PatternMaterializationService>();
                     var created = await materialization.ExtendAllActiveAsync(ct);
-                    _logger.LogInformation("Pattern extend: created {Created} events", created);
+                    _logger.LogInformation("Pattern extend: materialized {Created} events", created);
+
+                    var seriesExtender = sp.GetRequiredService<SeriesOccurrenceExtender>();
+                    var seriesCreated = await seriesExtender.ExtendAllAsync(ct);
+                    _logger.LogInformation("Series extend: materialized {Created} occurrences", seriesCreated);
+
+                    var apply = sp.GetRequiredService<DiscordCalendarApplyService>();
+                    var plan = await apply.ApplyAsync(ct);
+                    _logger.LogInformation(
+                        "Weekly apply: created {C}, updated {U}, deleted {D}",
+                        plan.ToCreate, plan.ToUpdate, plan.ToDelete);
+
+                    var cleanup = sp.GetRequiredService<EventPresetCleanupService>();
+                    var removed = await cleanup.CleanupAsync(ct);
+                    _logger.LogInformation("Preset cleanup: removed {Count} presets", removed);
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Pattern extend failed");
+                    _logger.LogError(ex, "Weekly calendar job failed");
                 }
             }
         }
+
+        /// <summary>Вторник 02:15 МСК = понедельник 23:15 UTC, без случайной задержки.</summary>
+        private static DateTime ComputeNextRunUtc(DateTime nowUtc)
+            => CalendarJobSchedule.NextRunUtc(nowUtc);
     }
 }

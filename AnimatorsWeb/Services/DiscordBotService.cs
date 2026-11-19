@@ -25,21 +25,6 @@ public class DiscordBotService : BackgroundService
         // Догоняем реакции, пропущенные во время офлайна
         _ = Task.Run(() => CatchUpReactionsAsync(stoppingToken), stoppingToken);
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(5000);
-                using var scope = _scopeFactory.CreateScope();
-                var sync = scope.ServiceProvider.GetRequiredService<DiscordCalendarSyncService>();
-                await sync.PullAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[calendar pull] failed: {ex.Message}");
-            }
-        }, stoppingToken);
-
         // Watchdog: если gateway умер и не оживает — принудительный рестарт контейнера
         _ = Task.Run(() => WatchdogAsync(stoppingToken), stoppingToken);
 

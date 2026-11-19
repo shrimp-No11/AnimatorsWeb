@@ -44,7 +44,7 @@ namespace AnimatorsWeb.Services
 
             var presetIds = pattern.Events.Select(e => e.EventPresetId).Distinct().ToList();
             var presets = await _db.EventPresets
-                .Where(p => presetIds.Contains(p.Id))
+                .Where(p => presetIds.Contains(p.Id) && !p.IsDeleted)
                 .ToDictionaryAsync(p => p.Id, p => p, ct);
 
             var existingStarts = await _db.CalendarEvents
@@ -54,16 +54,13 @@ namespace AnimatorsWeb.Services
             var existingSet = existingStarts.ToHashSet();
 
             var cycleDays = 7 * Math.Max(1, pattern.CycleWeeksCount);
-
-            // AutoRecurring = true → горизонт HorizonWeeks недель
-            // AutoRecurring = false → только один цикл
-            DateTime targetEnd = pattern.AutoRecurring
-                ? instance.StartWeekUtc.AddDays(HorizonWeeks * 7)
-                : instance.StartWeekUtc.AddDays(cycleDays);
+            var (cycleStart, targetEnd) = PatternCycleMath.Compute(
+                instance.StartWeekUtc, cycleDays, pattern.AutoRecurring,
+                HorizonWeeks, DateTime.UtcNow);
 
             int created = 0;
 
-            for (var cycleStart = instance.StartWeekUtc; cycleStart < targetEnd; cycleStart = cycleStart.AddDays(cycleDays))
+            for (; cycleStart < targetEnd; cycleStart = cycleStart.AddDays(cycleDays))
             {
                 foreach (var pe in pattern.Events)
                 {

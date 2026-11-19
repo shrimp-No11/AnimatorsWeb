@@ -12,6 +12,9 @@
         public List<EventPattern> Patterns { get; set; } = new();
         public List<GuildMemberOption> VoiceChannels { get; set; } = new();
         public List<CalendarEvent> AllGridEvents { get; set; } = new();
+
+        /// <summary>Есть локальные правки серии, ещё не отправленные в Discord.</summary>
+        public bool HasPendingApply { get; set; }
     }
 
     public class CalendarDayCell

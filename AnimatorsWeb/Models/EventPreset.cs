@@ -19,5 +19,25 @@
         public TimeSpan? DefaultStartTimeUtc { get; set; }
         public string? Color { get; set; }
 
+
+        public bool IsDiscordSeries { get; set; }
+        public ulong? DiscordSeriesEventId { get; set; }
+        public string? RecurrenceRuleJson { get; set; }
+        public string? RecurrenceExceptionsJson { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
+
+        /// <summary>
+        /// Есть локальные правки (сетка/настройки серии), которые ещё не отправлены в Discord.
+        /// Автоматический Pull такие правки не затирает; ручная кнопка «Обновить из Discord» — затирает.
+        /// </summary>
+        public bool PendingApply { get; set; }
+
+        /// <summary>Обложка события: внешняя ссылка...</summary>
+        public string? CoverImageUrl { get; set; }
+
+        /// <summary>...или загруженный файл в wwwroot/uploads/covers.</summary>
+        public string? CoverImageFileName { get; set; }
+
     }
 }

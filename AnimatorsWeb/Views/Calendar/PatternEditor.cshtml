@@ -443,7 +443,31 @@
     </div>
 </div>
 
+@Html.AntiForgeryToken()
 <script>
+    (function () {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const originalFetch = window.fetch;
+        window.fetch = async function (input, init) {
+            const url = typeof input === 'string' ? input : input.url;
+            const method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+            if (token && method === 'POST' && url && url.startsWith('/Calendar/')) {
+                init = init || {};
+                const headers = new Headers(init.headers || {});
+                headers.set('RequestVerificationToken', token);
+                init.headers = headers;
+            }
+            const pressed = document.activeElement;
+            const busyButton = pressed && pressed.tagName === 'BUTTON' ? pressed : null;
+            if (busyButton) busyButton.disabled = true;
+            try {
+                return await originalFetch(input, init);
+            } finally {
+                if (busyButton) busyButton.disabled = false;
+            }
+        };
+    })();
+
     const patternId = @(Model.IsNew ? 0 : Model.Pattern.Id);
     const isNew = @(Model.IsNew ? "true" : "false");
     const weeksCountJs = @weeksCount;

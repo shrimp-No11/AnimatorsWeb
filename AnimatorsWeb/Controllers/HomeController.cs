@@ -210,7 +210,7 @@ namespace AnimatorsWeb.Controllers
             var rangeEnd = now.Date.AddDays(3);
 
             var events = await db.CalendarEvents
-                .Where(e => e.StartUtc < rangeEnd && e.EndUtc > rangeStart)
+                .Where(e => !e.IsHidden && e.StartUtc < rangeEnd && e.EndUtc > rangeStart)
                 .ToListAsync();
 
             var presetIds = events.Where(e => e.EventPresetId.HasValue)

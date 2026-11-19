@@ -51,7 +51,6 @@
     .cal-nav {
         display: flex;
         gap: 6px;
-        margin-left: auto;
     }
 
         .cal-nav a {
@@ -256,6 +255,36 @@
         background: var(--brand-card);
     }
 
+    .cal-sync-note {
+        color: var(--cal-muted);
+        font-size: 13px;
+        margin: 0 0 12px;
+    }
+
+    .cal-sync-btn {
+        width: 100%;
+        display: block;
+    }
+
+    .cal-sync-hint {
+        color: var(--cal-muted);
+        font-size: 11px;
+        line-height: 1.35;
+        margin: 6px 0 12px;
+    }
+
+    .cal-sync-hint:last-of-type {
+        margin-bottom: 0;
+    }
+
+    .cal-sync-pending {
+        color: var(--brand-accent);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.35;
+        margin: 2px 0 0;
+    }
+
         .cal-sidebar-section h3 {
             margin: 0 0 10px;
             font-size: 15px;
@@ -362,6 +391,16 @@
             margin-bottom: 4px;
         }
 
+        .cal-modal-content input[readonly],
+        .cal-modal-content textarea[readonly],
+        .cal-modal-content select:disabled {
+            background: transparent;
+            border-color: transparent;
+            color: var(--brand-text);
+            opacity: 1;
+            padding-left: 0;
+        }
+
         .cal-modal-content input[type=text],
         .cal-modal-content input[type=number],
         .cal-modal-content input[type=time],
@@ -382,16 +421,26 @@
 
     .cal-modal-actions {
         display: flex;
+        flex-wrap: wrap;
         justify-content: flex-end;
-        gap: 10px;
+        gap: 8px;
         margin-top: 16px;
     }
 
         .cal-modal-actions button {
-            padding: 8px 16px;
+            padding: 6px 12px;
+            min-height: 34px;
+            line-height: 1.2;
+            white-space: nowrap;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+        }
+
+        .cal-modal-actions .secondary {
+            background: var(--brand-card);
+            color: var(--brand-text);
+            border: 1px solid var(--cal-line);
         }
 
         .cal-modal-actions .cancel {
@@ -409,6 +458,32 @@
             background: var(--brand-bg);
             color: var(--brand-primary);
             border: 1px solid var(--brand-primary);
+        }
+
+    .cal-field-group {
+        border-top: 1px solid var(--cal-line);
+        padding-top: 10px;
+        margin-top: 4px;
+    }
+
+    .cal-info-panel {
+        background: var(--brand-bg);
+        border: 1px solid var(--cal-line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+        .cal-info-panel .info-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .cal-info-panel .info-row {
+            color: var(--cal-muted);
         }
 
     .cal-error {
@@ -477,12 +552,24 @@
         <aside class="cal-sidebar">
             <div class="cal-sidebar-section" style="border-color: var(--brand-primary);">
                 <h3>Discord</h3>
-                <p style="color: var(--cal-muted); font-size: 13px; margin: 0 0 10px;">
-                    Сохранить и отправить в Discord
-                </p>
-                <button type="button" onclick="previewApply()" class="btn btn-primary" style="width: 100%;">
-                    🔄 Применить
+
+                <p class="cal-sync-hint">Сайт станет как в Discord. Неотправленные правки сбросятся.</p>
+                <button type="button" class="btn btn-primary cal-sync-btn" onclick="refreshFromDiscord()" id="refreshDiscordBtn">
+                    ⬇ Получить ивенты
                 </button>
+
+                <p class="cal-sync-hint">Discord станет как на сайте. Сначала покажем список изменений.</p>
+                <button type="button" class="btn btn-primary cal-sync-btn" onclick="previewApply()">
+                    ⬆ Отправить ивенты
+                </button>
+
+
+                @if (Model.HasPendingApply)
+                {
+                    <p class="cal-sync-pending" id="pendingApplyHint">
+                        Есть неприменённые изменения — отправьте их в Discord.
+                    </p>
+                }
             </div>
             <div class="cal-sidebar-section">
                 <h3>
@@ -508,12 +595,16 @@
                                  data-is-recurring="@p.IsRecurring.ToString().ToLower()"
                                  data-recurrence-frequency="@(p.RecurrenceFrequency?.ToString() ?? "")"
                                  data-start-time-utc="@(p.DefaultStartTimeUtc.HasValue ? p.DefaultStartTimeUtc.Value.ToString(@"hh\:mm") : "")"
-                                 data-color="@(p.Color ?? "primary")">
-                                
+                                 data-color="@(p.Color ?? "primary")"
+                                 data-is-discord-series="@p.IsDiscordSeries.ToString().ToLower()"
+                                 data-discord-series-event-id="@(p.DiscordSeriesEventId?.ToString() ?? "")"
+                                  data-cover-url="@(p.CoverImageUrl ?? "")"
+                                  data-cover-file="@(p.CoverImageFileName ?? "")"
+                                  data-recurrence-interval="@p.RecurrenceInterval">
 
                                 <div class="info" onclick="openPresetModal(@p.Id)">
                                     <div class="name">@p.Name</div>
-                                    <div class="meta">@p.DurationHours ч. · @p.DefaultTitle</div>
+                                    <div class="meta">@p.DurationHours ч. · @p.DefaultTitle@(p.IsDiscordSeries ? " · каждую неделю" : "")</div>
                                 </div>
                                 <button type="button" class="del" onclick="deletePreset(@p.Id, '@p.Name')" title="Удалить">×</button>
                             </div>
@@ -563,7 +654,7 @@
                     <div id="applyItemsList" style="max-height: 400px; overflow-y: auto; font-size: 13px;"></div>
                     <div class="cal-modal-actions" style="margin-top: 16px;">
                         <button type="button" class="cancel" onclick="closeApplyModal()">Отмена</button>
-                        <button type="button" class="save" onclick="doApply()" id="applyConfirmBtn">Применить</button>
+                        <button type="button" class="save" onclick="doApply()" id="applyConfirmBtn">⬆ Отправить в Discord</button>
                     </div>
                 </div>
             </div>
@@ -588,6 +679,18 @@
             <input type="checkbox" id="presetCreateInDiscord" checked />
             Создавать событие в Discord
         </label>
+        <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+            <input type="checkbox" id="presetIsDiscordSeries" onchange="onPresetSeriesChange()" />
+            Повторять каждую неделю
+        </label>
+        <div id="presetSeriesWarning" style="display: none; color: var(--cal-muted); font-size: 12px; margin-bottom: 10px;">
+            При перетаскивании пресета на сетку появится одна карточка. Кнопка «Продлить» разложит повторы на 13 недель, дальше они будут продлеваться сами. Снять галочку после отправки в Discord нельзя.
+        </div>
+        <label>Интервал повтора</label>
+        <select id="presetRecurrenceInterval">
+            <option value="1">Каждую неделю</option>
+            <option value="2">Раз в 2 недели</option>
+        </select>
 
         <label>Время начала по умолчанию</label>
         <input type="time" id="presetDefaultStartTime" />
@@ -626,6 +729,11 @@
         </select>
         <input type="text" id="presetLocationText" placeholder="Или произвольный текст" style="display: none;" />
 
+        <label>Обложка события (необязательно)</label>
+        <input type="url" id="presetCoverUrl" placeholder="https://…" />
+        <input type="file" id="presetCoverFile" accept="image/*" />
+        <img id="presetCoverPreview" alt="Обложка" style="display:none; max-width:120px; max-height:70px; border-radius:6px; margin: 6px 0;" />
+
         <div class="cal-modal-actions">
             <button type="button" class="cancel" onclick="closePresetModal()">Отмена</button>
             <button type="button" class="save" onclick="savePreset()" id="presetSaveBtn">Сохранить</button>
@@ -663,55 +771,87 @@
         <div class="cal-modal-content">
             <h3>Редактировать событие</h3>
             <div id="editEventError" class="cal-error"></div>
+            <img id="editEventCover" alt="Обложка" style="display:none; max-width:100%; max-height:140px; border-radius:8px; margin-bottom:12px;" />
             <input type="hidden" id="editEventId" />
+            <input type="hidden" id="editEventOriginalStartUtc" />
+            <input type="hidden" id="editEventPresetId" />
 
-            <label>Название</label>
-            <input type="text" id="editEventTitle" />
+            <div id="editEventInfoPanel" class="cal-info-panel" style="display:none;"></div>
 
-            <label>Описание</label>
-            <textarea id="editEventDescription" rows="3"></textarea>
-
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                <input type="checkbox" id="editEventIsRecurring" onchange="onEditEventRecurringChange()" />
-                Повторяющееся событие
-            </label>
-
-            <div id="editEventRecurringFields" style="display: none;">
-                <label>Как часто</label>
-                <select id="editEventRecurrenceFrequency">
-                    <option value="2">Каждую неделю</option>
-                    <option value="3">Каждый день</option>
-                    <option value="1">Каждый месяц</option>
-                </select>
+            <div id="editEventEditableFields">
+                <label>Название</label>
+                <input type="text" id="editEventTitle" />
+                <label>Описание</label>
+                <textarea id="editEventDescription" rows="2"></textarea>
             </div>
 
-            <label>Начало</label>
-            <input type="datetime-local" id="editEventStart" />
+            <div class="cal-field-group">
+                <label>Когда</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="datetime-local" id="editEventStart" style="flex:1;" />
+                    <input type="datetime-local" id="editEventEnd" style="flex:1;" />
+                </div>
+            </div>
 
-            <label>Окончание</label>
-            <input type="datetime-local" id="editEventEnd" />
-
-            <label>Голосовой канал</label>
-            <select id="editEventLocationSelect">
-                <option value="">— Произвольное значение —</option>
-                @foreach (var ch in Model.VoiceChannels)
-                {
-                    <option value="@ch.Id">@ch.Name</option>
-                }
-            </select>
-            <input type="text" id="editEventLocationText" placeholder="Произвольное значение" style="display: none;" />
+            <div id="editEventLocationGroup" class="cal-field-group">
+                <label>Локация: голосовой канал или свой текст</label>
+                <select id="editEventLocationSelect">
+                    <option value="">— Не выбран —</option>
+                    @foreach (var ch in Model.VoiceChannels)
+                    {
+                        <option value="@ch.Id">@ch.Name</option>
+                    }
+                </select>
+                <input type="text" id="editEventLocationText" placeholder="Например: Discord VC / Zoom / площадка" />
+            </div>
 
             <div class="cal-modal-actions">
-                <button type="button" class="del" onclick="deleteSeriesEvents()" id="editEventDeleteSeriesBtn" style="display:none;">Удалить все этой серии</button>
                 <button type="button" class="cancel" onclick="closeEditEventModal()">Отмена</button>
                 <button type="button" class="save" onclick="updateEvent()" id="editEventSaveBtn">Сохранить</button>
-                <button type="button" class="del" onclick="deleteEvent()" id="editEventDeleteBtn">Удалить</button>
+                <button type="button" class="secondary" onclick="editSeriesPreset()" id="editEventEditSeriesBtn" style="display:none;">Настроить серию</button>
+                <button type="button" class="secondary" onclick="makeEventSeries()" id="editEventMakeSeriesBtn" style="display:none;">Продлить</button>
+                <button type="button" class="del" onclick="cancelAllOccurrences()" id="editEventCancelAllBtn" style="display:none;">Отменить все повторения</button>
+                <button type="button" class="del" onclick="deleteEvent()" id="editEventDeleteBtn">Убрать с сетки</button>
             </div>
         </div>
     </div>
+    
 }
 
+@Html.AntiForgeryToken()
 <script>
+    // Сколько POST-запросов календаря выполняется прямо сейчас.
+    // Пока идёт запрос, страницу не перезагружаем (иначе оборвём его).
+    let calRequestsInFlight = 0;
+
+    // Все POST-запросы календаря автоматически несут CSRF-токен.
+    (function () {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const originalFetch = window.fetch;
+        window.fetch = async function (input, init) {
+            const url = typeof input === 'string' ? input : input.url;
+            const method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+            if (token && method === 'POST' && url && url.startsWith('/Calendar/')) {
+                init = init || {};
+                const headers = new Headers(init.headers || {});
+                headers.set('RequestVerificationToken', token);
+                init.headers = headers;
+            }
+            // Не даём повторно нажать кнопку, пока запрос выполняется.
+            const pressed = document.activeElement;
+            const busyButton = pressed && pressed.tagName === 'BUTTON' ? pressed : null;
+            if (busyButton) busyButton.disabled = true;
+            const isPost = method !== 'GET';
+            if (isPost) calRequestsInFlight++;
+            try {
+                return await originalFetch(input, init);
+            } finally {
+                if (isPost) calRequestsInFlight--;
+                if (busyButton) busyButton.disabled = false;
+            }
+        };
+    })();
+
     const isModerator = @(Model.IsModerator ? "true" : "false");
     const voiceChannels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
                 Model.VoiceChannels.Select(c => new { id = c.Id.ToString(), name = c.Name })
@@ -757,7 +897,20 @@
             }
         });
     }
+    function onPresetSeriesChange() {
+        const cb = document.getElementById('presetIsDiscordSeries');
+        const createCb = document.getElementById('presetCreateInDiscord');
+        const warn = document.getElementById('presetSeriesWarning');
+        if (!cb) return;
 
+        if (cb.checked) {
+            if (createCb) { createCb.checked = true; createCb.disabled = true; }
+            if (warn) warn.style.display = 'block';
+        } else {
+            if (createCb) createCb.disabled = cb.disabled;
+            if (warn) warn.style.display = 'none';
+        }
+    }
     function openPresetModal(id) {
         const modal = document.getElementById('presetModal');
         if (!modal) return;
@@ -769,7 +922,30 @@
         document.getElementById('presetDefaultDescription').value = item?.dataset.description || '';
         document.getElementById('presetDuration').value = item?.dataset.duration || 2;
         document.getElementById('presetCreateInDiscord').checked = item ? item.dataset.createInDiscord === 'true' : true;
+        const seriesCb = document.getElementById('presetIsDiscordSeries');
+        if (seriesCb) {
+            seriesCb.checked = item?.dataset.isDiscordSeries === 'true';
+            seriesCb.disabled = !!item?.dataset.discordSeriesEventId;
+        }
+        const seriesWarn = document.getElementById('presetSeriesWarning');
+        if (seriesWarn) seriesWarn.style.display = seriesCb?.checked ? 'block' : 'none';
+        const createCb = document.getElementById('presetCreateInDiscord');
+        if (createCb) createCb.disabled = seriesCb?.checked || seriesCb?.disabled;
         document.getElementById('presetDefaultStartTime').value = item?.dataset.startTimeUtc ? utcTimeToLocal(item.dataset.startTimeUtc) : '';
+        const intervalInput = document.getElementById('presetRecurrenceInterval');
+        if (intervalInput) intervalInput.value = String(item?.dataset.recurrenceInterval || 1);
+        const coverUrlInput = document.getElementById('presetCoverUrl');
+        if (coverUrlInput) coverUrlInput.value = item?.dataset.coverUrl || '';
+        const coverFileInput = document.getElementById('presetCoverFile');
+        if (coverFileInput) coverFileInput.value = '';
+        const coverPreview = document.getElementById('presetCoverPreview');
+        if (coverPreview) {
+            const coverUrl = item?.dataset.coverUrl
+                || (item?.dataset.coverFile ? '/uploads/covers/' + item.dataset.coverFile : '');
+            if (coverUrl) { coverPreview.src = coverUrl; coverPreview.style.display = 'block'; }
+            else { coverPreview.removeAttribute('src'); coverPreview.style.display = 'none'; }
+        }
+
         const colorVal = item?.dataset.color || 'primary';
         document.querySelectorAll('input[name="presetColor"]').forEach(el => {
             el.checked = el.value === colorVal;
@@ -805,7 +981,8 @@
         const durationHours = parseInt(document.getElementById('presetDuration').value) || 0;
         let presetLocation = presetLocationSelect.value;
         if (!presetLocation && presetLocationText.value.trim()) presetLocation = presetLocationText.value.trim();
-        const createInDiscord = document.getElementById('presetCreateInDiscord').checked;
+        const createInDiscord = document.getElementById('presetCreateInDiscord')?.checked ?? true;
+        const isDiscordSeries = document.getElementById('presetIsDiscordSeries')?.checked ?? false;
         const defaultStartTimeUtc = localTimeToUtc(document.getElementById('presetDefaultStartTime').value || '');
         const color = document.querySelector('input[name="presetColor"]:checked')?.value || 'primary';
 
@@ -819,16 +996,25 @@
         const btn = document.getElementById('presetSaveBtn');
         btn.disabled = true; btn.textContent = 'Сохраняю...';
         try {
+            const form = new FormData();
+            form.set('id', String(id));
+            form.set('name', defaultTitle);
+            form.set('defaultTitle', defaultTitle);
+            form.set('defaultDescription', defaultDescription || '');
+            form.set('durationHours', String(durationHours));
+            form.set('location', presetLocation || '');
+            form.set('createInDiscord', String(createInDiscord));
+            form.set('isDiscordSeries', String(isDiscordSeries));
+            form.set('defaultStartTimeUtc', defaultStartTimeUtc || '');
+            form.set('color', color);
+            form.set('coverImageUrl', document.getElementById('presetCoverUrl').value.trim());
+            form.set('recurrenceInterval', document.getElementById('presetRecurrenceInterval')?.value || '1');
+            const fileInput = document.getElementById('presetCoverFile');
+            if (fileInput && fileInput.files.length) form.set('coverImage', fileInput.files[0]);
+
             const r = await fetch('/Calendar/SavePreset', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    id, name: defaultTitle, defaultTitle, defaultDescription,
-                    durationHours, location: presetLocation,
-                    createInDiscord,
-                    defaultStartTimeUtc,
-                    color
-                })
+                body: form
             });
             const data = await r.json();
             if (data.success) window.location.reload();
@@ -930,35 +1116,68 @@
         if (!modal) return;
 
         document.getElementById('editEventId').value = String(ev.id);
+        document.getElementById('editEventOriginalStartUtc').value = ev.startUtc;
+        document.getElementById('editEventPresetId').value = String(ev.presetId || 0);
+        const cover = presetCovers[ev.presetId] || '';
+        const coverImg = document.getElementById('editEventCover');
+        if (coverImg) {
+            if (cover) { coverImg.src = cover; coverImg.style.display = 'block'; }
+            else { coverImg.removeAttribute('src'); coverImg.style.display = 'none'; }
+        }
         document.getElementById('editEventTitle').value = ev.title;
         document.getElementById('editEventDescription').value = ev.description;
         document.getElementById('editEventStart').value = utcToLocalInput(ev.startUtc);
         document.getElementById('editEventEnd').value = utcToLocalInput(ev.endUtc);
 
-        const sel = document.getElementById('editEventLocationSelect');
-        const txt = document.getElementById('editEventLocationText');
         const loc = ev.location || '';
-        const isCh = voiceChannels.some(c => c.id === loc);
-        if (isCh) { sel.value = loc; txt.value = ''; txt.style.display = 'none'; }
-        else if (loc) { sel.value = ''; txt.value = loc; txt.style.display = 'block'; }
-        else { sel.value = ''; txt.value = ''; txt.style.display = 'none'; }
 
-        const recCb = document.getElementById('editEventIsRecurring');
-        if (recCb) recCb.checked = !!ev.isRecurring;
-        let freq = 2;
-        if (ev.isRecurring && ev.recurrenceRuleJson) {
-            try {
-                const r = JSON.parse(ev.recurrenceRuleJson);
-                if (r.frequency) freq = r.frequency;
-            } catch { }
+        const editSeriesBtn = document.getElementById('editEventEditSeriesBtn');
+        const makeSeriesBtn = document.getElementById('editEventMakeSeriesBtn');
+        const cancelAllBtn = document.getElementById('editEventCancelAllBtn');
+        if (editSeriesBtn) editSeriesBtn.style.display = 'none';
+        if (makeSeriesBtn) makeSeriesBtn.style.display = 'none';
+        if (cancelAllBtn) cancelAllBtn.style.display = 'none';
+
+        const titleInput = document.getElementById('editEventTitle');
+        const descInput = document.getElementById('editEventDescription');
+        const locSelect = document.getElementById('editEventLocationSelect');
+        const locText = document.getElementById('editEventLocationText');
+        [titleInput, descInput, locText].forEach(el => { if (el) { el.disabled = false; el.readOnly = false; } });
+        if (locSelect) locSelect.disabled = false;
+
+        // Как в настройке пресета: выбран голосовой канал — текстовое поле скрыто,
+        // канал не выбран — поле доступно для произвольного текста.
+        const isChannel = voiceChannels.some(c => c.id === loc);
+        if (isChannel) {
+            if (locSelect) locSelect.value = loc;
+            if (locText) { locText.value = ''; locText.style.display = 'none'; }
+        } else {
+            if (locSelect) locSelect.value = '';
+            if (locText) { locText.value = loc; locText.style.display = 'block'; }
         }
-        const recSel = document.getElementById('editEventRecurrenceFrequency');
-        if (recSel) recSel.value = String(freq);
-        const recDiv = document.getElementById('editEventRecurringFields');
-        if (recDiv) recDiv.style.display = ev.isRecurring ? 'block' : 'none';
 
-        const delSeriesBtn = document.getElementById('editEventDeleteSeriesBtn');
-        if (delSeriesBtn) delSeriesBtn.style.display = ev.hasPreset ? 'block' : 'none';
+        const locked = ev.isSeriesPreset || ev.isRecurring;
+        const infoPanel = document.getElementById('editEventInfoPanel');
+        const editableFields = document.getElementById('editEventEditableFields');
+        const locationGroup = document.getElementById('editEventLocationGroup');
+
+        if (locked) {
+            // Карточка серии — конкретное вхождение: правим только дату и время.
+            const locationText = voiceChannels.find(c => c.id === loc)?.name || loc || '—';
+            let html = `<div class="info-title">${escapeHtml(ev.title || '')}</div>`;
+            if (ev.description) html += `<div class="info-row">${escapeHtml(ev.description)}</div>`;
+            html += `<div class="info-row">Локация: ${escapeHtml(locationText)}</div>`;
+            if (infoPanel) { infoPanel.innerHTML = html; infoPanel.style.display = 'block'; }
+            if (editableFields) editableFields.style.display = 'none';
+            if (locationGroup) locationGroup.style.display = 'none';
+            if (ev.isSeriesPreset && editSeriesBtn) editSeriesBtn.style.display = 'inline-block';
+            if (ev.hasPreset && !ev.isRecurring && makeSeriesBtn) makeSeriesBtn.style.display = 'inline-block';
+            if (cancelAllBtn) cancelAllBtn.style.display = 'inline-block';
+        } else {
+            if (infoPanel) infoPanel.style.display = 'none';
+            if (editableFields) editableFields.style.display = 'block';
+            if (locationGroup) locationGroup.style.display = 'block';
+        }
 
         document.getElementById('editEventError').style.display = 'none';
         modal.classList.add('is-open');
@@ -978,10 +1197,10 @@
         if (!evLocation && document.getElementById('editEventLocationText').value.trim())
             evLocation = document.getElementById('editEventLocationText').value.trim();
 
-        const isRecurring = document.getElementById('editEventIsRecurring')?.checked ?? false;
-        const recFreq = isRecurring
-            ? (parseInt(document.getElementById('editEventRecurrenceFrequency')?.value) || 2)
-            : '';
+        // Галочки «повторяющееся» в карточке больше нет: повторения задаются пресетом.
+        // Пустое значение => бэкенд не меняет IsRecurring.
+        const isRecurring = '';
+        const recFreq = '';
 
         const err = document.getElementById('editEventError');
         const btn = document.getElementById('editEventSaveBtn');
@@ -1004,7 +1223,8 @@
                     endUtc: new Date(endLocal).toISOString(),
                     isRecurring: isRecurring,
                     recurrenceFrequency: recFreq,
-                    recurrenceByWeekdays: ''
+                    recurrenceByWeekdays: '',
+                    originalStartUtc: document.getElementById('editEventOriginalStartUtc').value || ''
                 })
             });
             const data = await r.json();
@@ -1017,12 +1237,17 @@
     async function deleteEvent() {
         const id = parseInt(document.getElementById('editEventId').value) || 0;
         if (!id) return;
-        if (!confirm('Удалить событие?')) return;
+        if (!confirm('Убрать карточку с сетки? В Discord событие останется, пока не удалён его пресет.')) return;
+        // Берём ИСХОДНУЮ дату карточки из скрытого поля, а не из (возможно изменённого) поля ввода.
+        const startUtc = document.getElementById('editEventOriginalStartUtc').value;
         try {
             const r = await fetch('/Calendar/DeleteEvent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ id })
+                body: new URLSearchParams({
+                    id,
+                    originalStartUtc: startUtc ? new Date(startUtc).toISOString() : ''
+                })
             });
             const data = await r.json();
             if (data.success) window.location.reload();
@@ -1030,12 +1255,12 @@
         } catch { alert('Сетевая ошибка'); }
     }
 
-    async function deleteSeriesEvents() {
+    async function cancelAllOccurrences() {
         const id = parseInt(document.getElementById('editEventId').value) || 0;
         if (!id) return;
-        if (!confirm('Удалить все события этого пресета с календаря? Пресет останется. События исчезнут из Discord при «Применить».')) return;
+        if (!confirm('Отменить все будущие повторения? Карточки исчезнут с сетки, а в Discord будут пропущены.')) return;
         try {
-            const r = await fetch('/Calendar/DeleteSeriesEvents', {
+            const r = await fetch('/Calendar/CancelAllOccurrences', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ eventId: id })
@@ -1045,6 +1270,85 @@
             else alert(data.error || 'Ошибка');
         } catch { alert('Сетевая ошибка'); }
     }
+
+    async function removeEventOccurrence() {
+        const id = parseInt(document.getElementById('editEventId').value) || 0;
+        const startLocal = document.getElementById('editEventOriginalStartUtc').value;
+        if (!id || !startLocal) return;
+
+        if (!confirm('Убрать это вхождение? При следующем применении оно будет отменено в Discord.')) return;
+
+        try {
+            const r = await fetch('/Calendar/RemoveEventOccurrence', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ eventId: id, originalStartUtc: new Date(startLocal).toISOString() })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+        async function makeEventSeries() {
+        const id = parseInt(document.getElementById('editEventId').value) || 0;
+        if (!id) return;
+        if (!confirm('Продлить событие на 13 недель вперёд?')) return;
+
+        try {
+            const r = await fetch('/Calendar/MakeEventSeries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ eventId: id })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+    function editSeriesPreset() {
+        const presetId = parseInt(document.getElementById('editEventPresetId').value) || 0;
+        if (!presetId) return;
+        closeEditEventModal();
+        openPresetModal(presetId);
+    }
+
+    async function removeEventFromSeries() {
+        const id = parseInt(document.getElementById('editEventId').value) || 0;
+        if (!id) return;
+        if (!confirm('Убрать это вхождение серии? При следующем применении оно будет отменено в Discord.')) return;
+
+        try {
+            const r = await fetch('/Calendar/RemoveEventFromSeries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ eventId: id })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+    async function deleteAllSeriesEvents() {
+        const presetId = parseInt(document.getElementById('editEventPresetId').value) || 0;
+        if (!presetId) return;
+        if (!confirm('Удалить все события этой серии с сетки? Серия в Discord останется, но все вхождения будут отменены.')) return;
+
+        try {
+            const r = await fetch('/Calendar/DeleteAllSeriesEvents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ presetId })
+            });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка');
+        } catch { alert('Сетевая ошибка'); }
+    }
+
+        
+
 
     document.getElementById('createEventModal')?.addEventListener('click', e => {
         if (e.target === e.currentTarget) closeCreateEventModal();
@@ -1142,7 +1446,11 @@
                         const r = await fetch('/Calendar/MoveEvent', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                            body: new URLSearchParams({ eventId, daysDelta })
+                            body: new URLSearchParams({
+                                eventId,
+                                daysDelta,
+                                originalStartUtc: new Date(evStartUtc).toISOString()
+                            })
                         });
                         const data = await r.json();
                         if (data.success) window.location.reload();
@@ -1182,6 +1490,22 @@
         if (cb && f) f.style.display = cb.checked ? 'block' : 'none';
     }
     // ===== Apply =====
+    async function refreshFromDiscord() {
+        const btn = document.getElementById('refreshDiscordBtn');
+        if (document.getElementById('pendingApplyHint')
+            && !confirm('Взять фактическое состояние из Discord? Неприменённые изменения на сайте будут потеряны.')) {
+            return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = 'Загружаю из Discord…'; }
+        try {
+            const r = await fetch('/Calendar/PullFromDiscord', { method: 'POST' });
+            const data = await r.json();
+            if (data.success) window.location.reload();
+            else alert(data.error || 'Ошибка обновления');
+        } catch { alert('Сетевая ошибка'); }
+        finally { if (btn) { btn.disabled = false; btn.textContent = '⬇ Получить ивенты'; } }
+    }
+
     async function previewApply() {
         const modal = document.getElementById('applyModal');
         if (!modal) return;
@@ -1218,38 +1542,48 @@
     function closeApplyModal() { document.getElementById('applyModal')?.classList.remove('is-open'); }
     async function doApply() {
         const btn = document.getElementById('applyConfirmBtn');
-        btn.disabled = true; btn.textContent = 'Применяю...';
+        btn.disabled = true; btn.textContent = 'Отправляю…';
         try {
             const r = await fetch('/Calendar/ApplyToDiscord', { method: 'POST' });
             const data = await r.json();
             if (data.success) { closeApplyModal(); window.location.reload(); }
-            else { alert('Ошибка применения'); btn.disabled = false; btn.textContent = 'Применить'; }
-        } catch { alert('Сетевая ошибка'); btn.disabled = false; btn.textContent = 'Применить'; }
+            else { alert('Ошибка применения'); btn.disabled = false; btn.textContent = '⬆ Отправить в Discord'; }
+        } catch { alert('Сетевая ошибка'); btn.disabled = false; btn.textContent = '⬆ Отправить в Discord'; }
     }
 
+    const presetCovers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Presets.ToDictionary(p => p.Id, p =>
+                p.CoverImageUrl ?? (p.CoverImageFileName != null ? "/uploads/covers/" + p.CoverImageFileName : ""))
+        ));
     const presetColors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-            Model.Presets.ToDictionary(p => p.Id, p => p.Color ?? "primary")
+            Model.Presets.ToDictionary(p => p.Id, p =>
+                new[] { "primary", "accent", "hover", "text", "bg" }.Contains(p.Color ?? "")
+                    ? p.Color! : "primary")
+    ));
+    const seriesPresetIds = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.Presets.Where(p => p.IsDiscordSeries && !p.IsDeleted).Select(p => p.Id).ToList()
     ));
 
     // ===== Рендер событий горизонтальными полосами =====
-    (function renderCalendarEvents() {
+        (function renderCalendarEvents() {
         const events = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                Model.AllGridEvents.Select(e => new
-                {
-                        id = e.Id,
-                        title = e.Title ?? "",
-                        description = e.Description ?? "",
-                        location = e.Location ?? "",
-                        startUtc = e.StartUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                        endUtc = e.EndUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                        isRecurring = e.IsRecurring,
-                        recurrenceRuleJson = e.RecurrenceRuleJson ?? "",
-                        hasPreset = e.EventPresetId.HasValue,
-                        presetId = e.EventPresetId ?? 0,
-                        syncToDiscord = !e.SkipDiscordSync
-                })
-        ));
+                        Model.AllGridEvents.Select(e => new
+                        {
+                                id = e.Id,
+                                title = e.Title ?? "",
+                                description = e.Description ?? "",
+                                location = e.Location ?? "",
+                                startUtc = e.StartUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                                endUtc = e.EndUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                                isRecurring = e.IsRecurring,
+                                recurrenceRuleJson = e.RecurrenceRuleJson ?? "",
+                                hasPreset = e.EventPresetId.HasValue,
+                                presetId = e.EventPresetId ?? 0,
+                                syncToDiscord = !e.SkipDiscordSync
+                        })
+                ));
         if (!events.length) return;
+
         const weeks = document.querySelectorAll('.cal-week');
         if (!weeks.length) return;
 
@@ -1328,7 +1662,6 @@
             });
             const maxLane = Math.max(...items.map(i => i.lane));
             const weekEl = weeks[weekIndex];
-            // Считаем, сколько событий занимает каждый день недели
             const dayEventCounts = new Array(7).fill(0);
             items.forEach(it => {
                 for (let c = it.colStart; c <= it.colEnd; c++) dayEventCounts[c]++;
@@ -1339,15 +1672,10 @@
                 const ev = item.event;
                 const bar = document.createElement('div');
                 bar.className = 'cal-event-bar';
-                bar.draggable = true;
-                bar.addEventListener('dragstart', e => {
-                    e.dataTransfer.setData('application/x-event-id', String(ev.id));
-                    e.dataTransfer.setData('application/x-event-start', ev.startUtc);
-                    e.dataTransfer.effectAllowed = 'move';
-                });
                 const color = presetColors[ev.presetId] || 'primary';
                 bar.classList.add(`color-${color}`);
                 if (!ev.syncToDiscord) bar.classList.add('local');
+
                 bar.style.gridColumn = `${item.colStart + 1} / span ${item.colEnd - item.colStart + 1}`;
                 let allSingle = true;
                 for (let c = item.colStart; c <= item.colEnd; c++) {
@@ -1365,6 +1693,18 @@
                 bar.innerHTML = `<div class="cal-event-time">${timeText}</div><div class="cal-event-title">${titleText}</div>`;
                 bar.title = ev.title || '';
 
+                // Любая карточка на сетке переносится. Для повторяющегося события сервер
+                // отменит исходное вхождение и создаст новую карточку на новой дате.
+                if (isModerator) {
+                    bar.draggable = true;
+                    bar.addEventListener('dragstart', e => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('application/x-event-id', String(ev.id));
+                        e.dataTransfer.setData('application/x-event-start', ev.startUtc);
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                }
+
                 bar.addEventListener('click', e => {
                     e.stopPropagation();
                     if (!isModerator) return;
@@ -1378,7 +1718,8 @@
                         isRecurring: ev.isRecurring,
                         recurrenceRuleJson: ev.recurrenceRuleJson,
                         hasPreset: ev.hasPreset,
-                        syncToDiscord: ev.syncToDiscord
+                        presetId: ev.presetId,
+                        isSeriesPreset: seriesPresetIds.includes(ev.presetId)
                     });
                 });
 
@@ -1386,4 +1727,41 @@
             });
         });
     })();
+
+    // Авто-обновление открытой страницы. Сервер меняет версию, когда календарь
+    // обновился (gateway Discord, Pull, Apply или правка в другой вкладке).
+    // Опрашивается только маленький in-memory счётчик: Discord и БД не трогаем.
+    let calendarVersion = @AnimatorsWeb.Services.CalendarChangeNotifier.Version;
+    let calendarVersionCheckRunning = false;
+
+    async function checkCalendarVersion() {
+        if (calendarVersionCheckRunning) return;
+        if (document.hidden || calRequestsInFlight > 0) return;
+        if (document.querySelector('.cal-modal.is-open')) return;
+
+        calendarVersionCheckRunning = true;
+        try {
+            const r = await fetch('/Calendar/SyncVersion', {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!r.ok) return;
+            const data = await r.json();
+            if (data.version !== calendarVersion
+                && calRequestsInFlight === 0
+                && !document.querySelector('.cal-modal.is-open')) {
+                // Защита от цикла, если вкладка попала на другой инстанс приложения.
+                const lastReload = Number(sessionStorage.getItem('calendar:autoReloadAt') || 0);
+                if (Date.now() - lastReload > 15000) {
+                    sessionStorage.setItem('calendar:autoReloadAt', String(Date.now()));
+                    window.location.reload();
+                }
+            }
+        } catch { /* сеть недоступна — попробуем при следующей проверке */ }
+        finally { calendarVersionCheckRunning = false; }
+    }
+
+    setInterval(checkCalendarVersion, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkCalendarVersion(); });
+    window.addEventListener('focus', checkCalendarVersion);
 </script>

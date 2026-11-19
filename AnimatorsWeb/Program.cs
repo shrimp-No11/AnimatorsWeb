@@ -126,13 +126,22 @@ builder.Services.AddHostedService<ActiveRoleBackgroundService>();
 
 builder.Services.AddScoped<PatternMaterializationService>();
 builder.Services.AddHostedService<PatternExtendBackgroundService>();
+builder.Services.AddHostedService<DiscordCalendarPullBackgroundService>();
 builder.Services.AddScoped<DiscordCalendarSyncService>();
 builder.Services.AddScoped<DiscordCalendarApplyService>();
 builder.Services.AddHttpClient("DiscordApi");
 builder.Services.AddScoped<DiscordRecurringEventClient>();
+builder.Services.AddScoped<RecurrenceRuleBuilder>();
+builder.Services.AddScoped<EventPresetCleanupService>();
+builder.Services.AddScoped<SeriesOccurrenceExtender>();
 
 
 var app = builder.Build();
+
+// Путь к trace-логу фиксируем от content root: иначе при запуске из разных
+// каталогов лог оказывался в разных местах (и казался пустым).
+CalendarTrace.Initialize(app.Environment.ContentRootPath);
+Console.WriteLine($"[CALENDAR] trace log: {CalendarTrace.PathValue}");
 
 
 app.UseMiddleware<NoIndexMiddleware>(); 
@@ -143,6 +152,12 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+
+    // Разовая уборка артефактов старого механизма переноса вхождений.
+    var cleanup = scope.ServiceProvider.GetRequiredService<EventPresetCleanupService>();
+    var removed = await cleanup.RemoveDetachedArtifactsAsync();
+    if (removed > 0)
+        Console.WriteLine($"[CALENDAR] removed {removed} legacy detached calendar cards");
 }
 
 // Configure the HTTP request pipeline.

@@ -23,6 +23,18 @@
 
         public bool SkipDiscordSync { get; set; }
 
+        /// <summary>
+        /// Карточка снята с сетки, но событие в Discord продолжает существовать.
+        /// Такие строки нужны, чтобы сохранить связь с Discord и не воскрешать карточку при Pull.
+        /// </summary>
+        public bool IsHidden { get; set; }
+
+        /// <summary>
+        /// Исходный слот вхождения, если карточка перенесена с другой даты.
+        /// Позволяет построить точный moved exception без эвристики по ближайшей дате.
+        /// </summary>
+        public DateTime? OriginalStartUtc { get; set; }
+
         public bool IsRecurring { get; set; }
         public string? RecurrenceRuleJson { get; set; }
         public string? RecurrenceExceptionsJson { get; set; }

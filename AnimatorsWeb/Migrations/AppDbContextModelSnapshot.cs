@@ -129,6 +129,9 @@ namespace AnimatorsWeb.Migrations
                     b.Property<int?>("EventPresetId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsRecurring")
                         .HasColumnType("boolean");
 
@@ -137,6 +140,9 @@ namespace AnimatorsWeb.Migrations
 
                     b.Property<string>("Location")
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("OriginalStartUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("PatternInstanceId")
                         .HasColumnType("integer");
@@ -296,6 +302,12 @@ namespace AnimatorsWeb.Migrations
                     b.Property<string>("Color")
                         .HasColumnType("text");
 
+                    b.Property<string>("CoverImageFileName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CoverImageUrl")
+                        .HasColumnType("text");
+
                     b.Property<bool>("CreateInDiscord")
                         .HasColumnType("boolean");
 
@@ -309,8 +321,17 @@ namespace AnimatorsWeb.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("DiscordSeriesEventId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<int>("DurationHours")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDiscordSeries")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsRecurring")
                         .HasColumnType("boolean");
@@ -322,7 +343,13 @@ namespace AnimatorsWeb.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("PendingApply")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("RecurrenceByWeekdays")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecurrenceExceptionsJson")
                         .HasColumnType("text");
 
                     b.Property<int?>("RecurrenceFrequency")
@@ -330,6 +357,9 @@ namespace AnimatorsWeb.Migrations
 
                     b.Property<int>("RecurrenceInterval")
                         .HasColumnType("integer");
+
+                    b.Property<string>("RecurrenceRuleJson")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

@@ -5,6 +5,7 @@ x64/
 x86/
 [Bb]in/
 [Oo]bj/
+logs/
 [Ll]og/
 [Ll]ogs/
 
@@ -38,6 +39,8 @@ ScaffoldingReadMe.txt
 **/wwwroot/images/favicon-32.png
 **/wwwroot/images/apple-touch-icon.png
 **/wwwroot/images/bg-decoration.png
+# Обложки пресетов — пользовательские загрузки, в git не нужны
+**/wwwroot/uploads/covers/
 **/wwwroot/uploads/rules/*
 !**/wwwroot/uploads/rules/.gitkeep
 
@@ -50,3 +53,7 @@ secrets.json
 .env.*
 !.env.example
 docker-compose.override.yml
+
+# ===== Тесты и рабочие заметки не коммитим =====
+/AnimatorsWeb.Tests/
+NOTES*.md

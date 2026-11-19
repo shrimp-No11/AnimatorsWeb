@@ -21,6 +21,9 @@ namespace AnimatorsWeb.Services
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
+        /// <summary>Для тел событий: image=null означает «убрать обложку».</summary>
+        private static readonly JsonSerializerOptions JsonOptsWithNulls = new();
+
         public DiscordRecurringEventClient(
             IHttpClientFactory httpFactory,
             IConfiguration config,
@@ -54,7 +57,8 @@ namespace AnimatorsWeb.Services
             DateTime startUtc,
             DateTime endUtc,
             DiscordRecurrenceRule rule,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            string? imageDataUri = null)
         {
             var body = new Dictionary<string, object?>
             {
@@ -63,6 +67,7 @@ namespace AnimatorsWeb.Services
                 ["scheduled_start_time"] = ToIso(startUtc),
                 ["scheduled_end_time"] = ToIso(endUtc),
                 ["privacy_level"] = 2,
+                ["image"] = imageDataUri,
                 ["entity_type"] = channelId.HasValue ? 2 : 3,
                 ["recurrence_rule"] = new Dictionary<string, object?>
                 {
@@ -75,7 +80,7 @@ namespace AnimatorsWeb.Services
             if (channelId.HasValue) body["channel_id"] = channelId.Value.ToString();
             else body["entity_metadata"] = new Dictionary<string, object?> { ["location"] = "" };
 
-            var json = JsonSerializer.Serialize(body, JsonOpts);
+            var json = JsonSerializer.Serialize(body, JsonOptsWithNulls);
             var (ok, resp) = await SendAsync(HttpMethod.Post, $"guilds/{guildId}/scheduled-events", json, ct);
             if (!ok || resp == null)
             {
@@ -97,16 +102,19 @@ namespace AnimatorsWeb.Services
             DateTime startUtc,
             DateTime endUtc,
             DiscordRecurrenceRule? rule,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            bool includeRule = true,
+            string? imageDataUri = null)
         {
             var body = new Dictionary<string, object?>
             {
                 ["name"] = name,
                 ["description"] = description,
                 ["scheduled_start_time"] = ToIso(startUtc),
-                ["scheduled_end_time"] = ToIso(endUtc)
+                ["scheduled_end_time"] = ToIso(endUtc),
+                ["image"] = imageDataUri
             };
-            if (rule != null)
+            if (rule != null && includeRule)
             {
                 body["recurrence_rule"] = new Dictionary<string, object?>
                 {
@@ -117,7 +125,7 @@ namespace AnimatorsWeb.Services
                 };
             }
 
-            var json = JsonSerializer.Serialize(body, JsonOpts);
+            var json = JsonSerializer.Serialize(body, JsonOptsWithNulls);
             var (ok, resp) = await SendAsync(HttpMethod.Patch, $"guilds/{guildId}/scheduled-events/{eventId}", json, ct);
             if (!ok)
                 _logger.LogWarning("ModifyRecurringAsync failed for {EventId}: {Status} {Body}", eventId, resp?.Status, resp?.Body);
@@ -134,18 +142,30 @@ namespace AnimatorsWeb.Services
 
         // -------- Exceptions --------
 
+        /// <summary>
+        /// Создаёт или ПОЛНОСТЬЮ ПЕРЕЗАПИСЫВАЕТ исключение с тем же original_scheduled_start_time.
+        /// Для перенесённого вхождения передайте newStartUtc и isCanceled=false — Discord
+        /// использует scheduled_start_time как новое время этого вхождения.
+        /// </summary>
         public async Task<string?> AddExceptionAsync(
             ulong guildId,
             ulong eventId,
             DateTime originalStartUtc,
             bool isCanceled,
-            CancellationToken ct = default)
+            DateTime? newStartUtc = null,
+            CancellationToken ct = default,
+            DateTime? newEndUtc = null)
         {
             var body = new Dictionary<string, object?>
             {
                 ["original_scheduled_start_time"] = ToIso(originalStartUtc),
                 ["is_canceled"] = isCanceled
             };
+            if (!isCanceled && newStartUtc.HasValue)
+            {
+                body["scheduled_start_time"] = ToIso(newStartUtc.Value);
+                if (newEndUtc.HasValue) body["scheduled_end_time"] = ToIso(newEndUtc.Value);
+            }
             var json = JsonSerializer.Serialize(body, JsonOpts);
             var (ok, resp) = await SendAsync(HttpMethod.Post, $"guilds/{guildId}/scheduled-events/{eventId}/exceptions", json, ct);
             if (!ok || resp == null)
@@ -206,6 +226,14 @@ namespace AnimatorsWeb.Services
             return ParseExceptionsArray(arrEl);
         }
 
+        /// <summary>event_exception_id — snowflake, описывающий исходное время вхождения.</summary>
+        private static DateTime SnowflakeToUtc(string? value)
+        {
+            if (!ulong.TryParse(value, out var id)) return default;
+            var milliseconds = (long)(id >> 22) + 1420070400000L; // Discord epoch
+            return DateTime.SpecifyKind(DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).UtcDateTime, DateTimeKind.Utc);
+        }
+
         private static List<DiscordExceptionInfo> ParseExceptions(string json)
         {
             using var doc = JsonDocument.Parse(json);
@@ -224,11 +252,27 @@ namespace AnimatorsWeb.Services
                     ExceptionId = el.TryGetProperty("event_exception_id", out var idEl) ? idEl.GetString() ?? "" : "",
                     IsCanceled = el.TryGetProperty("is_canceled", out var cEl) && cEl.GetBoolean()
                 };
-                // поле времени: original_scheduled_start_time
-                if (el.TryGetProperty("original_scheduled_start_time", out var tEl))
+                // Discord не возвращает original_scheduled_start_time в объекте исключения:
+                // исходный слот зашит в event_exception_id (snowflake).
+                if (el.TryGetProperty("original_scheduled_start_time", out var tEl)
+                    && tEl.ValueKind == JsonValueKind.String
+                    && DateTime.TryParse(tEl.GetString(), null,
+                        System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                        out var dt))
                 {
-                    if (DateTime.TryParse(tEl.GetString(), null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var dt))
-                        info.OriginalStartUtc = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                    info.OriginalStartUtc = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                }
+                else if (el.TryGetProperty("event_exception_id", out var exceptionIdEl)
+                         && exceptionIdEl.ValueKind == JsonValueKind.String)
+                {
+                    info.OriginalStartUtc = SnowflakeToUtc(exceptionIdEl.GetString());
+                }
+                // Время перенесённого вхождения (для is_canceled=false)
+                if (el.TryGetProperty("scheduled_start_time", out var nEl)
+                    && nEl.ValueKind == JsonValueKind.String)
+                {
+                    if (DateTime.TryParse(nEl.GetString(), null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var nd))
+                        info.NewStartUtc = DateTime.SpecifyKind(nd, DateTimeKind.Utc);
                 }
                 result.Add(info);
             }
@@ -301,24 +345,13 @@ namespace AnimatorsWeb.Services
             }
 
             using var doc = JsonDocument.Parse(resp.Body);
-            var info = new DiscordEventRawInfo { RawBody = resp.Body };
-
-            if (doc.RootElement.TryGetProperty("recurrence_rule", out var rrEl) && rrEl.ValueKind == JsonValueKind.Object)
-            {
-                info.IsRecurring = true;
-                info.RecurrenceRuleJson = rrEl.GetRawText();
-            }
-
-            if (doc.RootElement.TryGetProperty("guild_scheduled_event_exceptions", out var exEl))
-                info.Exceptions = ParseExceptionsArray(exEl);
-
-            return info;
+            return ParseEvent(doc.RootElement);
         }
 
         public async Task<string?> CreateSingleAsync(
     ulong guildId, ulong? channelId, string name, string? description,
     DateTime startUtc, DateTime endUtc, string? externalLocation,
-    CancellationToken ct = default)
+    CancellationToken ct = default, string? imageDataUri = null)
         {
             var body = new Dictionary<string, object?>
             {
@@ -327,12 +360,13 @@ namespace AnimatorsWeb.Services
                 ["scheduled_start_time"] = ToIso(startUtc),
                 ["scheduled_end_time"] = ToIso(endUtc),
                 ["privacy_level"] = 2,
+                ["image"] = imageDataUri,
                 ["entity_type"] = channelId.HasValue ? 2 : 3,
             };
             if (channelId.HasValue) body["channel_id"] = channelId.Value.ToString();
             else body["entity_metadata"] = new Dictionary<string, object?> { ["location"] = externalLocation ?? "" };
 
-            var json = JsonSerializer.Serialize(body, JsonOpts);
+            var json = JsonSerializer.Serialize(body, JsonOptsWithNulls);
             var (ok, resp) = await SendAsync(HttpMethod.Post, $"guilds/{guildId}/scheduled-events", json, ct);
             if (!ok || resp == null)
             {
@@ -346,7 +380,7 @@ namespace AnimatorsWeb.Services
         public async Task<bool> ModifySingleAsync(
             ulong guildId, ulong eventId, string name, string? description,
             DateTime startUtc, DateTime endUtc, ulong? channelId, string? externalLocation,
-            CancellationToken ct = default)
+            CancellationToken ct = default, string? imageDataUri = null)
         {
             var body = new Dictionary<string, object?>
             {
@@ -354,11 +388,12 @@ namespace AnimatorsWeb.Services
                 ["description"] = description,
                 ["scheduled_start_time"] = ToIso(startUtc),
                 ["scheduled_end_time"] = ToIso(endUtc),
+                ["image"] = imageDataUri
             };
             if (channelId.HasValue) body["channel_id"] = channelId.Value.ToString();
             else body["entity_metadata"] = new Dictionary<string, object?> { ["location"] = externalLocation ?? "" };
 
-            var json = JsonSerializer.Serialize(body, JsonOpts);
+            var json = JsonSerializer.Serialize(body, JsonOptsWithNulls);
             var (ok, resp) = await SendAsync(HttpMethod.Patch, $"guilds/{guildId}/scheduled-events/{eventId}", json, ct);
             if (!ok)
                 _logger.LogWarning("ModifySingleAsync failed for {EventId}: {Status} {Body}", eventId, resp?.Status, resp?.Body);
@@ -383,48 +418,53 @@ namespace AnimatorsWeb.Services
                 if (!el.TryGetProperty("id", out var idEl)) continue;
                 if (!ulong.TryParse(idEl.GetString(), out var id)) continue;
 
-                var info = new DiscordEventRawInfo { Id = id, RawBody = el.GetRawText() };
-
-                if (el.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
-                    info.Name = nameEl.GetString() ?? "";
-
-                if (el.TryGetProperty("description", out var descEl) && descEl.ValueKind == JsonValueKind.String)
-                    info.Description = descEl.GetString();
-
-                if (el.TryGetProperty("channel_id", out var chEl) && chEl.ValueKind == JsonValueKind.String)
-                    if (ulong.TryParse(chEl.GetString(), out var chId)) info.ChannelId = chId;
-
-                if (el.TryGetProperty("scheduled_start_time", out var stEl) && stEl.ValueKind == JsonValueKind.String)
-                {
-                    if (DateTime.TryParse(stEl.GetString(), null,
-                        System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
-                        out var st))
-                        info.StartUtc = DateTime.SpecifyKind(st, DateTimeKind.Utc);
-                }
-
-                if (el.TryGetProperty("scheduled_end_time", out var etEl) && etEl.ValueKind == JsonValueKind.String)
-                {
-                    if (DateTime.TryParse(etEl.GetString(), null,
-                        System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
-                        out var et))
-                        info.EndUtc = DateTime.SpecifyKind(et, DateTimeKind.Utc);
-                }
-
-                if (el.TryGetProperty("status", out var sEl) && sEl.TryGetInt32(out var stInt))
-                    info.Status = stInt;
-
-                if (el.TryGetProperty("recurrence_rule", out var rrEl) && rrEl.ValueKind == JsonValueKind.Object)
-                {
-                    info.IsRecurring = true;
-                    info.RecurrenceRuleJson = rrEl.GetRawText();
-                }
-
-                if (el.TryGetProperty("guild_scheduled_event_exceptions", out var exEl))
-                    info.Exceptions = ParseExceptionsArray(exEl);
-
+                var info = ParseEvent(el);
                 result[id] = info;
             }
             return result;
+        }
+
+        public static DiscordEventRawInfo ParseEvent(JsonElement el)
+        {
+            var info = new DiscordEventRawInfo { RawBody = el.GetRawText() };
+
+            if (el.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
+                && ulong.TryParse(idEl.GetString(), out var id)) info.Id = id;
+
+            if (el.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                info.Name = nameEl.GetString() ?? "";
+
+            if (el.TryGetProperty("description", out var descEl) && descEl.ValueKind == JsonValueKind.String)
+                info.Description = descEl.GetString();
+
+            if (el.TryGetProperty("channel_id", out var chEl) && chEl.ValueKind == JsonValueKind.String
+                && ulong.TryParse(chEl.GetString(), out var chId)) info.ChannelId = chId;
+
+            if (el.TryGetProperty("scheduled_start_time", out var stEl) && stEl.ValueKind == JsonValueKind.String
+                && DateTime.TryParse(stEl.GetString(), null,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out var st))
+                info.StartUtc = DateTime.SpecifyKind(st, DateTimeKind.Utc);
+
+            if (el.TryGetProperty("scheduled_end_time", out var etEl) && etEl.ValueKind == JsonValueKind.String
+                && DateTime.TryParse(etEl.GetString(), null,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out var et))
+                info.EndUtc = DateTime.SpecifyKind(et, DateTimeKind.Utc);
+
+            if (el.TryGetProperty("status", out var sEl) && sEl.TryGetInt32(out var status))
+                info.Status = status;
+
+            if (el.TryGetProperty("recurrence_rule", out var rrEl) && rrEl.ValueKind == JsonValueKind.Object)
+            {
+                info.IsRecurring = true;
+                info.RecurrenceRuleJson = rrEl.GetRawText();
+            }
+
+            if (el.TryGetProperty("guild_scheduled_event_exceptions", out var exEl))
+                info.Exceptions = ParseExceptionsArray(exEl);
+
+            return info;
         }
     }
 
@@ -433,6 +473,8 @@ namespace AnimatorsWeb.Services
         public string ExceptionId { get; set; } = "";
         public DateTime OriginalStartUtc { get; set; }
         public bool IsCanceled { get; set; }
+        /// <summary>Новое начало для перенесённого вхождения (null для отмены).</summary>
+        public DateTime? NewStartUtc { get; set; }
     }
 
 
