@@ -17,6 +17,15 @@ namespace AnimatorsWeb.Models
 
         [ValidateNever] public string? Message { get; set; }
         [ValidateNever] public List<AnimJam> AllJams { get; set; } = new();
+
+        /// <summary>Общая страница объявления: AniJam или ArtJam.</summary>
+        [ValidateNever] public EventType EventType { get; set; } = EventType.AniJam;
+
+        /// <summary>ArtJam: число сообщений-опросов.</summary>
+        public int PollsCount { get; set; }
+
+        /// <summary>ArtJam: победители с вложениями.</summary>
+        public List<ArtJamWinnerItem> Winners { get; set; } = new();
     }
 
     public class NominationSection

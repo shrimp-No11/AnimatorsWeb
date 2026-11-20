@@ -2,7 +2,12 @@
 @using AnimatorsWeb.Models
 
 @{
-    ViewData["Title"] = "Голосование за победителя";
+    if (Model.Sections.Count == 0) Model.Sections.Add(new PollSection());
+
+    bool isArtJam = Model.EventType == EventType.ArtJam;
+    string eventName = isArtJam ? "АртДжема" : "аниджема";
+    ViewData["Title"] = $"Голосование за победителя {eventName}";
+    string formAction = isArtJam ? "ArtJamCreateWinnerPoll" : "CreateWinnerPoll";
 }
 <style>
     .team-block {
@@ -68,14 +73,16 @@
     }
 </style>
 
-<h1>Голосование за победителя</h1>
+<h1>Голосование за победителя @eventName</h1>
 
 @if (Model.Message != null) { <p style="color: darkblue;">@Model.Message</p> }
 @if (TempData["Result"] != null) { <p style="color: green;">@TempData["Result"]</p> }
 @if (TempData["Info"] != null) { <p style="color: darkblue;">@TempData["Info"]</p> }
 <div asp-validation-summary="All" style="color: red;"></div>
 
-<form asp-action="CreateWinnerPoll" method="post">
+<form asp-action="@formAction" method="post">
+    <input type="hidden" asp-for="EventType" />
+    <input type="hidden" asp-for="AllowMultiSelect" />
     @{
         var uniqueTeams = Model.Sections
             .SelectMany(s => s.Teams)
@@ -101,27 +108,43 @@
     {
         <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px 16px;
                     border-radius: 8px; margin-bottom: 16px; font-size: 14px; line-height: 1.6;">
-            ⚠️ Работ: <b>@uniqueCount</b>. Режим: @modeLabel.<br />
-            В каждой номинации будет создано <b>@pollsPerNom</b>
-            @(pollsPerNom == 1 ? "сообщение-опрос" : "сообщений-опросов")
-            (по 9 работ + вариант «#голосую в другом опросе»).<br />
-            Всего в Discord будет <b>@totalPolls</b> @(totalPolls == 1 ? "опрос" : "опросов").
-            Голоса тех, кто проголосует в нескольких опросах, не учитываются.
+            @if (isArtJam)
+            {
+                <text>⚠️ Работ: <b>@uniqueCount</b>. Будет создано <b>@pollsPerNom</b>
+                @(pollsPerNom == 1 ? "сообщение-опрос" : "сообщений-опросов")
+                (по 9 работ + служебный вариант «#голосую в другом опросе»).<br />
+                Голосование с мультивыбором, итог — топ-3 по числу голосов.</text>
+            }
+            else
+            {
+                <text>⚠️ Работ: <b>@uniqueCount</b>. Режим: @modeLabel.<br />
+                В каждой номинации будет создано <b>@pollsPerNom</b>
+                @(pollsPerNom == 1 ? "сообщение-опрос" : "сообщений-опросов")
+                (по 9 работ + вариант «#голосую в другом опросе»).<br />
+                Всего в Discord будет <b>@totalPolls</b> @(totalPolls == 1 ? "опрос" : "опросов").
+                Голоса тех, кто проголосует в нескольких опросах, не учитываются.</text>
+            }
         </div>
     }
 
     <input type="hidden" asp-for="AnimJamNumber" />
 
     <div class="form-group">
-        <label>Номер аниджема:</label>
+        <label>Номер @eventName:</label>
         <input asp-for="AnimJamNumber" type="number" class="form-control" id="inputAnimJamNumber" />
     </div>
 
-    <div class="form-group">
+    <div class="form-group" style="display: @(isArtJam ? "none" : "block");">
         <label>Режим:</label><br />
         <label><input type="radio" asp-for="Mode" value="TwoNominations" id="modeTwo" /> Две номинации</label>
         <label style="margin-left: 20px;"><input type="radio" asp-for="Mode" value="Combined" id="modeCombined" /> Одна общая</label>
     </div>
+    @if (isArtJam)
+    {
+        <p style="color: gray; font-size: 13px;">
+            АртДжем: одна общая номинация, можно выбрать несколько работ. Итог — топ-3.
+        </p>
+    }
 
     <div id="combined-block" style="display: none;">
         <div class="form-group">
@@ -230,6 +253,8 @@
     <br />
     <button type="submit" class="btn btn-primary">Опубликовать опрос</button>
 </form>
+
+<p style="margin-top: 20px;"><a asp-action="Index">← Назад в модераторскую</a></p>
 
 <datalist id="guild-members-list">
     @foreach (var m in Model.GuildMembers)

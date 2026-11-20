@@ -98,23 +98,39 @@ namespace AnimatorsWeb.Controllers
             return new SelectList(channels, "Id", "Name", selectedId);
         }
 
+        /// <summary>Следующий номер ивента считается одинаково для AniJam и ArtJam.</summary>
+        private async Task<int> GetNextJamNumberAsync(EventType type)
+        {
+            var lastJam = await _db.AnimJams
+                .Where(j => j.EventType == type)
+                .OrderByDescending(j => j.Number)
+                .Select(j => (int?)j.Number)
+                .FirstOrDefaultAsync();
+            if (lastJam.HasValue) return lastJam.Value + 1;
+
+            var lastPoll = await _db.ThemePolls
+                .Where(p => p.EventType == type)
+                .OrderByDescending(p => p.AnimJamNumber)
+                .Select(p => (int?)p.AnimJamNumber)
+                .FirstOrDefaultAsync();
+            return lastPoll.GetValueOrDefault() + 1;
+        }
+
         // ========== ГОЛОСОВАНИЕ ЗА ТЕМУ ==========
 
         public async Task<IActionResult> ChooseTheme()
         {
             var settings = await _settingsService.GetAsync();
 
-            int nextNumber = _db.AnimJams.Any()
-                ? _db.AnimJams.Max(j => j.Number) + 1
-                : 1;
-            ViewBag.NextNumber = nextNumber;
+            ViewBag.NextNumber = await GetNextJamNumberAsync(EventType.AniJam);
 
             var model = new ChannelSelectViewModel
             {
                 ChannelList = GetChannelSelectList(settings.ThemePollChannelId),
-                SelectedChannelId = settings.ThemePollChannelId ?? 0
+                SelectedChannelId = settings.ThemePollChannelId ?? 0,
+                EventType = EventType.AniJam
             };
-            return View(model);
+            return View("JamThemePoll", model);
         }
 
         [HttpPost]
@@ -167,9 +183,11 @@ namespace AnimatorsWeb.Controllers
             var model = new ChannelSelectViewModel
             {
                 ChannelList = GetChannelSelectList(settings.ThemePollChannelId),
-                SelectedChannelId = settings.ThemePollChannelId ?? 0
+                SelectedChannelId = settings.ThemePollChannelId ?? 0,
+                EventType = EventType.AniJam
             };
-            return View("ChooseTheme", model);
+            ViewBag.NextNumber = await GetNextJamNumberAsync(EventType.AniJam);
+            return View("JamThemePoll", model);
         }
 
         // ========== ОТПРАВКА СООБЩЕНИЯ ==========
@@ -264,20 +282,18 @@ namespace AnimatorsWeb.Controllers
         {
             var settings = await _settingsService.GetAsync();
 
-            int nextNumber = _db.AnimJams.Any(j => j.EventType == EventType.AniJam)
-                ? _db.AnimJams.Where(j => j.EventType == EventType.AniJam).Max(j => j.Number) + 1
-                : 1;
-
             var model = new CreateAnimJamViewModel
             {
-                Number = nextNumber,
+                Number = await GetNextJamNumberAsync(EventType.AniJam),
                 EndDate = DateTime.SpecifyKind(GetNextSunday1800Msk().AddHours(-3), DateTimeKind.Utc),
                 ChannelId = settings.AnimJamStartChannelId ?? 0,
-                ChannelList = GetChannelSelectList(settings.AnimJamStartChannelId)
+                ChannelList = GetChannelSelectList(settings.AnimJamStartChannelId),
+                EventType = EventType.AniJam,
+                AnnouncementTemplate = JamAnnouncementTemplate.Default(EventType.AniJam)
             };
 
             await TryFillWinningTheme(model);
-            return View(model);
+            return View("JamCreate", model);
         }
 
         // POST: публикация
@@ -290,7 +306,10 @@ namespace AnimatorsWeb.Controllers
             if (!ModelState.IsValid)
             {
                 model.ChannelList = GetChannelSelectList(model.ChannelId);
-                return View(model);
+                model.EventType = EventType.AniJam;
+                if (string.IsNullOrWhiteSpace(model.AnnouncementTemplate))
+                    model.AnnouncementTemplate = JamAnnouncementTemplate.Default(EventType.AniJam);
+                return View("JamCreate", model);
             }
 
             // 1. Создаём запись в БД
@@ -308,7 +327,8 @@ namespace AnimatorsWeb.Controllers
             _db.AnimJams.Add(jam);
 
             // 2. Публикуем объявление
-            string text = BuildAnnouncementText(jam);
+            string text = JamAnnouncementTemplate.Render(
+                model.AnnouncementTemplate, EventType.AniJam, jam.Number, jam.Theme, jam.EndDate);
             ulong messageId = await _discord.SendAnnouncementAsync(
                     model.ChannelId,
                     text,
@@ -422,29 +442,6 @@ namespace AnimatorsWeb.Controllers
             return mskNow.Date.AddDays(daysUntilSunday).AddHours(18);
         }
 
-        private string BuildAnnouncementText(AnimJam jam)
-        {
-            long endUnix = new DateTimeOffset(DateTime.SpecifyKind(jam.EndDate, DateTimeKind.Utc)).ToUnixTimeSeconds();
-            string endLine = $"<t:{endUnix}:F> (<t:{endUnix}:R>)";
-
-            return
-                $"<@&{Roles.role2dId}>  <@&{Roles.role3dId}>\n" +
-                $"{jam.Number} AniJam начинается!\n\n" +
-                $"Дедлайн - {endLine}\n" +
-                $"Тема - **{jam.Theme}**\n\n" +
-                "Правила:\n" +
-                "1) Следовать теме (хоть как-то)\n" +
-                "2) Новая анимация, сделана специально для AniJam\n" +
-                "3) Звук - желательно, не обязательно\n" +
-                "4) Главное - веселье, а не качество\n\n" +
-                "Номинации:\n" +
-                $"{EmojiHelper.Star} Лучшая идея\n" +
-                $"{EmojiHelper.Hammer} Лучшее техническое исполнение\n" +
-                $"{EmojiHelper.GoldPoopDiscord} Золотая какаха\n\n" +
-                "Скидывать работы в этот канал.\n" +
-                "Комментарии к анимациям - в ветках\n" +
-                "*Анимации могут быть использованы в видеобзоре аниджема для ютуб-канала \"Сообщество Аниматоров\"";
-        }
         [HttpGet]
         public async Task<IActionResult> CreateWinnerPoll(int? animJamNumber)
         {
@@ -466,7 +463,8 @@ namespace AnimatorsWeb.Controllers
                 IdeaTitle = $"{EmojiHelper.Star} Лучшая идея {number}го аниджема",
                 TechnicalTitle = $"{EmojiHelper.Hammer} Лучшее техническое исполнение {number}го аниджема",
                 ChannelId = settings.WinnerPollChannelId ?? 0,
-                ChannelList = GetChannelSelectList(settings.WinnerPollChannelId)
+                ChannelList = GetChannelSelectList(settings.WinnerPollChannelId),
+                EventType = EventType.AniJam
             };
 
             // Список всех участников гильдии — для автозаполнения
@@ -537,7 +535,7 @@ namespace AnimatorsWeb.Controllers
                     : "Участники не найдены — заполните вручную";
             }
 
-            return View(model);
+            return View("JamWinnerPoll", model);
         }
 
         [HttpPost]
@@ -578,7 +576,8 @@ namespace AnimatorsWeb.Controllers
                 model.GuildMembers = _discord.GetAllGuildMembers()
                     .Select(m => new GuildMemberOption { Id = m.Id, Name = m.Name })
                     .ToList();
-                return View(model);
+                model.EventType = EventType.AniJam;
+                return View("JamWinnerPoll", model);
             }
 
             // Один вариант — сразу в объявление
@@ -734,7 +733,7 @@ namespace AnimatorsWeb.Controllers
         [HttpGet]
         public async Task<IActionResult> AnnounceWinners(int? animJamNumber)
         {
-            var model = new WinnersPageViewModel();
+            var model = new WinnersPageViewModel { EventType = EventType.AniJam };
 
             var jams = await _db.AnimJams
                 .Where(j => j.EventType == EventType.AniJam)
@@ -742,13 +741,13 @@ namespace AnimatorsWeb.Controllers
                 .ToListAsync();
             model.AllJams = jams;
 
-            if (!animJamNumber.HasValue) return View(model);
+            if (!animJamNumber.HasValue) return View("JamAnnounceWinners", model);
 
             var jam = jams.FirstOrDefault(j => j.Number == animJamNumber.Value);
             if (jam == null)
             {
                 model.Message = "Аниджем не найден";
-                return View(model);
+                return View("JamAnnounceWinners", model);
             }
 
             model.AnimJamNumber = jam.Number;
@@ -931,7 +930,7 @@ namespace AnimatorsWeb.Controllers
             if (honorableSection != null)
                 model.Sections.Add(honorableSection);
             
-            return View(model);
+            return View("JamAnnounceWinners", model);
         }
 
         private string GetNominationDisplay(NominationType nom, int jamNumber)
@@ -1198,7 +1197,8 @@ namespace AnimatorsWeb.Controllers
                     .Where(j => j.EventType == EventType.AniJam)
                     .OrderByDescending(j => j.Number)
                     .ToListAsync();
-                return View(model);
+                model.EventType = EventType.AniJam;
+                return View("JamAnnounceWinners", model);
             }
 
             var jam = await _db.AnimJams.FirstOrDefaultAsync(j => j.Number == model.AnimJamNumber && j.EventType == EventType.AniJam);
@@ -2874,33 +2874,15 @@ namespace AnimatorsWeb.Controllers
         {
             var settings = await _settingsService.GetAsync();
 
-            // Следующий номер: по последнему АртДжему или по последнему ThemePoll с EventType=ArtJam
-            int nextNumber = 1;
-            var lastArtJam = await _db.AnimJams
-                .Where(j => j.EventType == EventType.ArtJam)
-                .OrderByDescending(j => j.Number)
-                .FirstOrDefaultAsync();
-            if (lastArtJam != null)
-            {
-                nextNumber = lastArtJam.Number + 1;
-            }
-            else
-            {
-                var lastThemePoll = await _db.ThemePolls
-                    .Where(p => p.EventType == EventType.ArtJam)
-                    .OrderByDescending(p => p.AnimJamNumber)
-                    .FirstOrDefaultAsync();
-                if (lastThemePoll != null)
-                    nextNumber = lastThemePoll.AnimJamNumber + 1;
-            }
-            ViewBag.NextNumber = nextNumber;
+            ViewBag.NextNumber = await GetNextJamNumberAsync(EventType.ArtJam);
 
             var model = new ChannelSelectViewModel
             {
                 ChannelList = GetChannelSelectList(settings.ArtJamThemePollChannelId),
-                SelectedChannelId = settings.ArtJamThemePollChannelId ?? 0
+                SelectedChannelId = settings.ArtJamThemePollChannelId ?? 0,
+                EventType = EventType.ArtJam
             };
-            return View(model);
+            return View("JamThemePoll", model);
         }
 
         [HttpPost]
@@ -2952,9 +2934,11 @@ namespace AnimatorsWeb.Controllers
             var model = new ChannelSelectViewModel
             {
                 ChannelList = GetChannelSelectList(settings.ArtJamThemePollChannelId),
-                SelectedChannelId = settings.ArtJamThemePollChannelId ?? 0
+                SelectedChannelId = settings.ArtJamThemePollChannelId ?? 0,
+                EventType = EventType.ArtJam
             };
-            return View("ArtJamChooseTheme", model);
+            ViewBag.NextNumber = await GetNextJamNumberAsync(EventType.ArtJam);
+            return View("JamThemePoll", model);
         }
 
         // ===== АРТДЖЕМ: СОЗДАНИЕ =====
@@ -2964,23 +2948,18 @@ namespace AnimatorsWeb.Controllers
         {
             var settings = await _settingsService.GetAsync();
 
-            int nextNumber = 1;
-            var lastArtJam = await _db.AnimJams
-                .Where(j => j.EventType == EventType.ArtJam)
-                .OrderByDescending(j => j.Number)
-                .FirstOrDefaultAsync();
-            if (lastArtJam != null) nextNumber = lastArtJam.Number + 1;
-
             var model = new CreateAnimJamViewModel
             {
-                Number = nextNumber,
+                Number = await GetNextJamNumberAsync(EventType.ArtJam),
                 EndDate = DateTime.SpecifyKind(GetNextSunday1800Msk().AddHours(-3), DateTimeKind.Utc),
                 ChannelId = settings.ArtJamStartChannelId ?? 0,
-                ChannelList = GetChannelSelectList(settings.ArtJamStartChannelId)
+                ChannelList = GetChannelSelectList(settings.ArtJamStartChannelId),
+                EventType = EventType.ArtJam,
+                AnnouncementTemplate = JamAnnouncementTemplate.Default(EventType.ArtJam)
             };
 
             await TryFillArtJamWinningTheme(model);
-            return View(model);
+            return View("JamCreate", model);
         }
 
         [HttpPost]
@@ -2992,7 +2971,10 @@ namespace AnimatorsWeb.Controllers
             if (!ModelState.IsValid)
             {
                 model.ChannelList = GetChannelSelectList(model.ChannelId);
-                return View(model);
+                model.EventType = EventType.ArtJam;
+                if (string.IsNullOrWhiteSpace(model.AnnouncementTemplate))
+                    model.AnnouncementTemplate = JamAnnouncementTemplate.Default(EventType.ArtJam);
+                return View("JamCreate", model);
             }
 
             var jam = new AnimJam
@@ -3006,7 +2988,8 @@ namespace AnimatorsWeb.Controllers
 
             _db.AnimJams.Add(jam);
 
-            string text = BuildArtJamAnnouncementText(jam);
+            string text = JamAnnouncementTemplate.Render(
+                model.AnnouncementTemplate, EventType.ArtJam, jam.Number, jam.Theme, jam.EndDate);
             ulong messageId = await _discord.SendAnnouncementAsync(
                 model.ChannelId, text, new[] { Roles.roleArtistId });
 
@@ -3044,24 +3027,6 @@ namespace AnimatorsWeb.Controllers
                 model.Theme = winner;
         }
 
-        private string BuildArtJamAnnouncementText(AnimJam jam)
-        {
-            long endUnix = new DateTimeOffset(DateTime.SpecifyKind(jam.EndDate, DateTimeKind.Utc)).ToUnixTimeSeconds();
-            string endLine = $"<t:{endUnix}:F> (<t:{endUnix}:R>)";
-
-            return
-                $"<@&{Roles.roleArtistId}>\n" +
-                $"{jam.Number} ArtJam начинается!\n\n" +
-                $"Дедлайн - {endLine}\n" +
-                $"Тема - **{jam.Theme}**\n\n" +
-                "Правила:\n" +
-                "1) Следовать теме\n" +
-                "2) Новая работа, созданная специально для ArtJam\n" +
-                "3) Главное - интересность и креативность\n\n" +
-                "Скидывать работы в этот канал.\n" +
-                "Комментарии к работам - в ветках\n" +
-                "По итогу будет выбран топ лучших работ";
-        }
         // ===== АРТДЖЕМ: ГОЛОСОВАНИЕ ЗА ПОБЕДИТЕЛЕЙ =====
 
         [HttpGet]
@@ -3079,17 +3044,23 @@ namespace AnimatorsWeb.Controllers
 
             int number = jam?.Number ?? 0;
 
-            var model = new ArtJamWinnerPollViewModel
+            // Общая со страницей аниджема модель: ArtJam — это одна номинация
+            // с мультивыбором, поэтому секция ровно одна.
+            var model = new WinnerPollViewModel
             {
-                ArtJamNumber = number,
+                AnimJamNumber = number,
+                Mode = WinnerPollMode.Combined,
+                AllowMultiSelect = true,
                 PollTitle = $"🏆 Победитель {number}-го АртДжема",
                 ChannelId = settings.ArtJamWinnerPollChannelId ?? 0,
                 ChannelList = GetChannelSelectList(settings.ArtJamWinnerPollChannelId),
                 DurationHours = 24,
                 GuildMembers = _discord.GetAllGuildMembers()
                     .Select(m => new GuildMemberOption { Id = m.Id, Name = m.Name })
-                    .ToList()
+                    .ToList(),
+                EventType = EventType.ArtJam
             };
+            model.Sections.Add(new PollSection { Nomination = NominationType.Winner });
 
             if (jam != null && settings.ArtJamStartChannelId.HasValue)
             {
@@ -3104,12 +3075,12 @@ namespace AnimatorsWeb.Controllers
                 foreach (var group in worksByUrl)
                 {
                     var primary = group.First();
-                    model.Works.Add(new ArtJamWorkItem
+                    model.Sections[0].Teams.Add(new PollTeam
                     {
                         WorkUrl = primary.WorkUrl,
                         MessageUrl = primary.MessageUrl,
-                        People = group
-                            .Select(p => new ArtJamPerson
+                        Participants = group
+                            .Select(p => new PollParticipant
                             {
                                 DiscordUserId = p.UserId,
                                 DisplayName = p.DisplayName
@@ -3121,24 +3092,45 @@ namespace AnimatorsWeb.Controllers
                     });
                 }
 
-                if (model.Works.Count == 0)
+                int found = model.Sections[0].Teams.Count;
+                if (found == 0)
+                {
+                    model.Sections[0].Teams.Add(new PollTeam
+                    {
+                        Participants = new List<PollParticipant> { new PollParticipant() }
+                    });
                     model.Message = "Работ не найдено — заполните вручную или проверьте канал.";
+                }
                 else
-                    model.Message = $"Найдено работ: {model.Works.Count}";
+                {
+                    model.Message = $"Найдено работ: {found}";
+                }
             }
 
-            return View(model);
+            return View("JamWinnerPoll", model);
         }
 
         [HttpPost]
-        public async Task<IActionResult> ArtJamCreateWinnerPoll(ArtJamWinnerPollViewModel model)
+        public async Task<IActionResult> ArtJamCreateWinnerPoll(WinnerPollViewModel model)
         {
-            // Убираем пустые работы (без участников)
-            model.Works = (model.Works ?? new List<ArtJamWorkItem>())
-                .Where(w => w.People.Any(p => !string.IsNullOrWhiteSpace(p.DisplayName)))
+            // Общая форма: работы лежат в единственной секции номинации Winner.
+            if (model.Sections.Count == 0)
+                model.Sections.Add(new PollSection { Nomination = NominationType.Winner });
+
+            foreach (var section in model.Sections)
+            {
+                foreach (var team in section.Teams)
+                {
+                    team.Participants = team.Participants
+                        .Where(p => !string.IsNullOrWhiteSpace(p.DisplayName))
+                        .ToList();
+                }
+            }
+            var works = model.Sections.SelectMany(s => s.Teams)
+                .Where(t => t.Participants.Count > 0)
                 .ToList();
 
-            if (model.Works.Count == 0)
+            if (works.Count == 0)
                 ModelState.AddModelError("", "Нужен хотя бы 1 вариант");
 
             if (!ModelState.IsValid)
@@ -3148,23 +3140,24 @@ namespace AnimatorsWeb.Controllers
                 model.GuildMembers = _discord.GetAllGuildMembers()
                     .Select(m => new GuildMemberOption { Id = m.Id, Name = m.Name })
                     .ToList();
-                return View(model);
+                model.EventType = EventType.ArtJam;
+                return View("JamWinnerPoll", model);
             }
 
             // Одна работа — сразу в объявление
-            if (model.Works.Count == 1)
+            if (works.Count == 1)
             {
                 TempData["Info"] = "Работа только одна. Голосование не нужно — сразу переходим к объявлению.";
-                return RedirectToAction("ArtJamAnnounceWinners", new { artJamNumber = model.ArtJamNumber });
+                return RedirectToAction("ArtJamAnnounceWinners", new { artJamNumber = model.AnimJamNumber });
             }
 
             // === Сохраняем Participants с EventType = ArtJam ===
             var newParticipants = new List<Participant>();
             var seen = new HashSet<(ulong, string)>();
 
-            foreach (var work in model.Works)
+            foreach (var work in works)
             {
-                foreach (var p in work.People)
+                foreach (var p in work.Participants)
                 {
                     var userId = ResolveUserIdByName(p.DisplayName, model.GuildMembers);
                     if (userId == null) continue;
@@ -3174,7 +3167,7 @@ namespace AnimatorsWeb.Controllers
 
                     newParticipants.Add(new Participant
                     {
-                        AnimJamNumber = model.ArtJamNumber,
+                        AnimJamNumber = model.AnimJamNumber,
                         DiscordUserId = userId.Value,
                         DisplayName = p.DisplayName,
                         WorkUrl = work.WorkUrl,
@@ -3185,7 +3178,7 @@ namespace AnimatorsWeb.Controllers
             }
 
             var oldParticipants = await _db.Participants
-                .Where(p => p.AnimJamNumber == model.ArtJamNumber && p.EventType == EventType.ArtJam)
+                .Where(p => p.AnimJamNumber == model.AnimJamNumber && p.EventType == EventType.ArtJam)
                 .ToListAsync();
 
             bool same = oldParticipants.Count == newParticipants.Count &&
@@ -3200,18 +3193,19 @@ namespace AnimatorsWeb.Controllers
             }
 
             // === Опции ===
-            var optionTexts = model.Works
-                .Select(w => FormatTeamNames(w.People.Select(p => p.DisplayName).ToList()))
+            var optionTexts = works
+                .Select(w => FormatTeamNames(w.Participants.Select(p => p.DisplayName).ToList()))
                 .ToList();
 
-            var optionsJson = System.Text.Json.JsonSerializer.Serialize(model.Works);
+            // Сериализуем в общий формат PollTeam — он же читается при объявлении победителей.
+            var optionsJson = System.Text.Json.JsonSerializer.Serialize(works);
 
             // === Разбиваем на опросы (>10) ===
             var chunks = BuildPollChunksForArtJam(optionTexts);
 
             // === Удаляем старые WinnerPoll для артджема ===
             var oldPolls = await _db.WinnerPolls
-                .Where(p => p.AnimJamNumber == model.ArtJamNumber && p.EventType == EventType.ArtJam)
+                .Where(p => p.AnimJamNumber == model.AnimJamNumber && p.EventType == EventType.ArtJam)
                 .ToListAsync();
             var oldPollIds = oldPolls.Select(p => p.Id).ToList();
             var oldPollMessages = await _db.WinnerPollMessages
@@ -3224,14 +3218,14 @@ namespace AnimatorsWeb.Controllers
             // === Публикация ===
             var poll = new WinnerPoll
             {
-                AnimJamNumber = model.ArtJamNumber,
+                AnimJamNumber = model.AnimJamNumber,
                 Nomination = NominationType.Winner,
                 ChannelId = model.ChannelId,
                 MessageId = 0,
                 CreatedAt = DateTime.UtcNow,
                 OptionsJson = optionsJson,
                 EventType = EventType.ArtJam,
-                AllowMultiSelect = true
+                AllowMultiSelect = model.AllowMultiSelect
             };
             _db.WinnerPolls.Add(poll);
             await _db.SaveChangesAsync();
@@ -3239,7 +3233,8 @@ namespace AnimatorsWeb.Controllers
             for (int i = 0; i < chunks.Count; i++)
             {
                 var msgId = await _discord.SendCustomPollAsync(
-                    model.ChannelId, model.PollTitle, chunks[i], model.DurationHours, allowMulti: true);
+                    model.ChannelId, model.PollTitle, chunks[i], model.DurationHours,
+                    allowMulti: model.AllowMultiSelect);
 
                 _db.WinnerPollMessages.Add(new WinnerPollMessage
                 {
@@ -3259,6 +3254,37 @@ namespace AnimatorsWeb.Controllers
                 : $"Опубликовано {chunks.Count} опросов (работ >10).";
 
             return RedirectToAction("Index");
+        }
+
+        /// <summary>
+        /// Читает варианты опроса АртДжема. Новые опросы пишут общий PollTeam,
+        /// старые — ArtJamWorkItem со свойством People.
+        /// </summary>
+        private static List<PollTeam> ParseSavedArtJamTeams(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new();
+
+            try
+            {
+                var teams = System.Text.Json.JsonSerializer.Deserialize<List<PollTeam>>(json) ?? new();
+                if (teams.Any(t => t.Participants.Count > 0)) return teams;
+
+                var legacy = System.Text.Json.JsonSerializer.Deserialize<List<ArtJamWorkItem>>(json) ?? new();
+                return legacy.Select(w => new PollTeam
+                {
+                    WorkUrl = w.WorkUrl,
+                    MessageUrl = w.MessageUrl,
+                    Participants = w.People.Select(p => new PollParticipant
+                    {
+                        DiscordUserId = p.DiscordUserId,
+                        DisplayName = p.DisplayName
+                    }).ToList()
+                }).ToList();
+            }
+            catch
+            {
+                return new();
+            }
         }
 
         private static List<List<string>> BuildPollChunksForArtJam(List<string> options)
@@ -3288,24 +3314,24 @@ namespace AnimatorsWeb.Controllers
         [HttpGet]
         public async Task<IActionResult> ArtJamAnnounceWinners(int? artJamNumber)
         {
-            var model = new ArtJamWinnersPageViewModel();
+            var model = new WinnersPageViewModel { EventType = EventType.ArtJam };
 
             var artJams = await _db.AnimJams
                 .Where(j => j.EventType == EventType.ArtJam)
                 .OrderByDescending(j => j.Number)
                 .ToListAsync();
-            model.AllArtJams = artJams;
+            model.AllJams = artJams;
 
-            if (!artJamNumber.HasValue) return View(model);
+            if (!artJamNumber.HasValue) return View("JamAnnounceWinners", model);
 
             var jam = artJams.FirstOrDefault(j => j.Number == artJamNumber.Value);
             if (jam == null)
             {
                 model.Message = "АртДжем не найден";
-                return View(model);
+                return View("JamAnnounceWinners", model);
             }
 
-            model.ArtJamNumber = jam.Number;
+            model.AnimJamNumber = jam.Number;
             model.Theme = jam.Theme;
             model.AnnouncementUrl = jam.AnounceMessage ?? "";
 
@@ -3351,15 +3377,7 @@ namespace AnimatorsWeb.Controllers
                 foreach (var m in messages)
                     pollMessages.Add((m.ChannelId, m.MessageId));
 
-                if (!string.IsNullOrEmpty(poll.OptionsJson))
-                {
-                    try
-                    {
-                        var teams = System.Text.Json.JsonSerializer.Deserialize<List<PollTeam>>(poll.OptionsJson);
-                        if (teams != null) savedTeams.AddRange(teams);
-                    }
-                    catch { }
-                }
+                savedTeams.AddRange(ParseSavedArtJamTeams(poll.OptionsJson));
             }
 
             // Считаем голоса
@@ -3368,7 +3386,7 @@ namespace AnimatorsWeb.Controllers
             if (votesByWork.Count == 0)
             {
                 model.Message = "Голосование ещё идёт или не найдено работ с голосами.";
-                return View(model);
+                return View("JamAnnounceWinners", model);
             }
 
             // Сортируем и берём топ-3 (+ ничьи на границе)
@@ -3438,10 +3456,10 @@ namespace AnimatorsWeb.Controllers
             if (model.Winners.Count == 0)
                 model.Message = "Не удалось определить победителей — возможно, работы удалены.";
 
-            return View(model);
+            return View("JamAnnounceWinners", model);
         }
         [HttpPost]
-        public async Task<IActionResult> ArtJamAnnounceWinners(ArtJamWinnersPageViewModel model)
+        public async Task<IActionResult> ArtJamAnnounceWinners(WinnersPageViewModel model)
         {
             if (model.Winners.Count == 0)
             {
@@ -3449,18 +3467,19 @@ namespace AnimatorsWeb.Controllers
             }
 
             var jam = await _db.AnimJams.FirstOrDefaultAsync(j =>
-                j.Number == model.ArtJamNumber && j.EventType == EventType.ArtJam);
+                j.Number == model.AnimJamNumber && j.EventType == EventType.ArtJam);
 
             if (jam == null)
                 return NotFound();
 
             if (!ModelState.IsValid)
             {
-                model.AllArtJams = await _db.AnimJams
+                model.AllJams = await _db.AnimJams
                     .Where(j => j.EventType == EventType.ArtJam)
                     .OrderByDescending(j => j.Number)
                     .ToListAsync();
-                return View(model);
+                model.EventType = EventType.ArtJam;
+                return View("JamAnnounceWinners", model);
             }
 
             // === Сохранение Winners ===
@@ -3471,7 +3490,7 @@ namespace AnimatorsWeb.Controllers
                 {
                     newWinners.Add(new Winner
                     {
-                        AnimJamNumber = model.ArtJamNumber,
+                        AnimJamNumber = model.AnimJamNumber,
                         DiscordUserId = p.DiscordUserId,
                         Nomination = NominationType.Winner,
                         WorkUrl = w.WorkUrl,
@@ -3481,7 +3500,7 @@ namespace AnimatorsWeb.Controllers
             }
 
             var oldWinners = await _db.Winners
-                .Where(w => w.AnimJamNumber == model.ArtJamNumber && w.EventType == EventType.ArtJam)
+                .Where(w => w.AnimJamNumber == model.AnimJamNumber && w.EventType == EventType.ArtJam)
                 .ToListAsync();
 
             bool same = oldWinners.Count == newWinners.Count &&
@@ -3500,7 +3519,7 @@ namespace AnimatorsWeb.Controllers
 
             // 1. Шапка
             var headerSb = new System.Text.StringBuilder();
-            headerSb.AppendLine($"╠══════════ ArtJam {model.ArtJamNumber} ══════════╣");
+            headerSb.AppendLine($"╠══════════ ArtJam {model.AnimJamNumber} ══════════╣");
             var themeLine = string.IsNullOrEmpty(model.AnnouncementUrl)
                 ? $"Тема - {model.Theme}"
                 : $"Тема - [{model.Theme}]({model.AnnouncementUrl})";

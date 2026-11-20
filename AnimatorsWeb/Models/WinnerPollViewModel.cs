@@ -28,6 +28,12 @@ namespace AnimatorsWeb.Models
 
         // Для автозаполнения имён
         [ValidateNever] public List<GuildMemberOption> GuildMembers { get; set; } = new();
+
+        /// <summary>Общая страница голосования: AniJam или ArtJam.</summary>
+        [ValidateNever] public EventType EventType { get; set; } = EventType.AniJam;
+
+        /// <summary>ArtJam голосует за несколько работ сразу.</summary>
+        public bool AllowMultiSelect { get; set; }
     }
 
     public class PollSection

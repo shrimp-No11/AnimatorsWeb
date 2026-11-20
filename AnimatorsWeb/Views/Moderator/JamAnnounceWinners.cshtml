@@ -3,10 +3,15 @@
 @using AnimatorsWeb.Models
 
 @{
-    ViewData["Title"] = "Объявление победителей";
+    bool isArtJam = Model.EventType == EventType.ArtJam;
+    string eventName = isArtJam ? "АртДжема" : "аниджема";
+    string eventLabel = isArtJam ? "АртДжем" : "АниДжем";
+    ViewData["Title"] = $"Объявление победителей {eventName}";
+    string formAction = isArtJam ? "ArtJamAnnounceWinners" : "AnnounceWinners";
+    string numberParam = isArtJam ? "artJamNumber" : "animJamNumber";
 }
 
-<h1>Объявление победителей</h1>
+<h1>Объявление победителей @eventName</h1>
 
 @if (Model.Message != null)
 {
@@ -22,12 +27,12 @@
 }
 <div asp-validation-summary="All" style="color: red;"></div>
 
-<h3>Выбор аниджема</h3>
-<form method="get" asp-action="AnnounceWinners">
+<h3>Выбор @eventName</h3>
+<form method="get" asp-action="@formAction">
     <div class="form-group">
-        <label>Аниджем:</label>
-        <select name="animJamNumber" class="form-control" onchange="this.form.submit()">
-            <option value="">-- Выберите аниджем --</option>
+        <label>@eventLabel:</label>
+        <select name="@numberParam" class="form-control" onchange="this.form.submit()">
+            <option value="">-- Выберите @eventName --</option>
             @foreach (var jam in Model.AllJams)
             {
                 if (jam.Number == Model.AnimJamNumber)
@@ -43,12 +48,12 @@
     </div>
 </form>
 
-@if (Model.Sections.Any())
+@if (!isArtJam && Model.Sections.Any())
 {
     <hr />
     <h3>Победители</h3>
 
-    <form asp-action="AnnounceWinners" method="post">
+    <form asp-action="@formAction" method="post">
         <input type="hidden" asp-for="AnimJamNumber" />
         <input type="hidden" asp-for="Theme" />
         <input type="hidden" asp-for="PublishChannelId" />
@@ -167,6 +172,90 @@
         <button type="submit" class="btn btn-primary">Опубликовать объявление</button>
     </form>
 }
+
+@if (isArtJam && Model.Winners.Any())
+{
+    <hr />
+    <h3>Победители (@Model.Winners.Count)</h3>
+    @if (Model.PollsCount > 1)
+    {
+        <p style="color: gray; font-size: 13px;">
+            Голосование проходило в @Model.PollsCount сообщениях-опросах.
+        </p>
+    }
+
+    <form asp-action="@formAction" method="post">
+        <input type="hidden" asp-for="AnimJamNumber" />
+        <input type="hidden" asp-for="Theme" />
+        <input type="hidden" asp-for="AnnouncementUrl" />
+        <input type="hidden" asp-for="PublishChannelId" />
+        <input type="hidden" asp-for="PollsCount" />
+
+        @for (int w = 0; w < Model.Winners.Count; w++)
+        {
+            var winner = Model.Winners[w];
+            <div style="border: 2px solid #888; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
+
+                <input type="hidden" asp-for="Winners[w].WorkUrl" />
+                <input type="hidden" asp-for="Winners[w].MessageUrl" />
+                <input type="hidden" asp-for="Winners[w].Votes" />
+                <input type="hidden" asp-for="Winners[w].ParticipantId" />
+                <input type="hidden" asp-for="Winners[w].PrimaryDiscordUserId" />
+
+                <h4 style="margin-top: 0;">
+                    🏆 @winner.Votes @(winner.Votes == 1 ? "голос" : "голосов")
+                </h4>
+
+                @for (int p = 0; p < winner.People.Count; p++)
+                {
+                    <input type="hidden" asp-for="Winners[w].People[p].DiscordUserId" />
+                    <input type="hidden" asp-for="Winners[w].People[p].DisplayName" />
+                    <span style="margin-right: 8px;">@winner.People[p].DisplayName</span>
+                }
+
+                <div style="margin-top: 12px;">
+                    <div style="font-weight: 600; margin-bottom: 8px;">Арты для публикации:</div>
+                    @if (winner.Attachments.Count == 0)
+                    {
+                        <p style="color: #b3261e; font-size: 13px;">
+                            Вложений не найдено — возможно, сообщение удалено.
+                        </p>
+                    }
+                    else
+                    {
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            @for (int a = 0; a < winner.Attachments.Count; a++)
+                            {
+                                var att = winner.Attachments[a];
+                                <label style="display: flex; flex-direction: column; gap: 4px; cursor: pointer;
+                                              border: 1px solid #ccc; border-radius: 8px; padding: 8px;
+                                              background: @(att.Selected ? "#f0f8ff" : "#fafafa");">
+                                    <input type="hidden" asp-for="Winners[w].Attachments[a].Index" />
+                                    <input type="hidden" asp-for="Winners[w].Attachments[a].FileName" />
+                                    <input type="hidden" asp-for="Winners[w].Attachments[a].Url" />
+                                    <input type="checkbox" asp-for="Winners[w].Attachments[a].Selected"
+                                           style="align-self: flex-start;" />
+                                    <img src="/Media/StreamAttachment/@winner.ParticipantId/@att.Index"
+                                         style="width: 120px; height: 80px; object-fit: cover;
+                                                border-radius: 4px; background: #eee;"
+                                         onerror="this.style.display='none';" />
+                                    <span style="font-size: 11px; color: #666; max-width: 120px;
+                                                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        @att.FileName
+                                    </span>
+                                </label>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <button type="submit" class="btn btn-primary">Опубликовать победителей</button>
+    </form>
+}
+
+<p style="margin-top: 20px;"><a asp-action="Index">← Назад в модераторскую</a></p>
 
 <script>
     function extractYouTubeId(url) {
@@ -307,11 +396,12 @@
     }
 
     // Подписка на изменение ссылок для обновления превью
-    document.querySelector('form[action*="AnnounceWinners"]').addEventListener('input', e => {
-        if (e.target.classList.contains('work-url-input')) {
-            updateWorkPreview(e.target.closest('.team-block'));
-        }
-    });
+    document.querySelectorAll('form[action*="AnnounceWinners"]').forEach(f =>
+        f.addEventListener('input', e => {
+            if (e.target.classList.contains('work-url-input')) {
+                updateWorkPreview(e.target.closest('.team-block'));
+            }
+        }));
 
     // Инициализация превью при загрузке
     document.querySelectorAll('.team-block').forEach(updateWorkPreview);

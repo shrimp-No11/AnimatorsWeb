@@ -20,5 +20,15 @@ namespace AnimatorsWeb.Models
         public string? PollError { get; set; }
         [ValidateNever]
         public List<string> TieCandidates { get; set; } = new();
+
+        /// <summary>Общая страница старта ивента: AniJam или ArtJam.</summary>
+        [ValidateNever]
+        public EventType EventType { get; set; } = EventType.AniJam;
+
+        /// <summary>
+        /// Редактируемый текст объявления с токенами {{number}}, {{theme}}, {{deadline}} и т.д.
+        /// Если пусто — используется стандартный текст ивента.
+        /// </summary>
+        public string? AnnouncementTemplate { get; set; }
     }
 }

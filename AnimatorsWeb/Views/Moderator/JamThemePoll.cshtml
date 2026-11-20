@@ -1,8 +1,12 @@
 ﻿@model AnimatorsWeb.Models.ChannelSelectViewModel
+@using AnimatorsWeb.Models
 
 @{
-    ViewData["Title"] = "Голосование за тему";
+    bool isArtJam = Model.EventType == EventType.ArtJam;
+    string eventName = isArtJam ? "ArtJam" : "AniJam";
+    ViewData["Title"] = $"Голосование за тему {eventName}";
     var eventNumber = ViewBag.NextNumber ?? 1;
+    string formAction = isArtJam ? "ArtJamPublishThemePoll" : "PublishThemePoll";
 }
 
 <style>
@@ -224,7 +228,7 @@
     <div class="theme-result ok">@ViewBag.Result</div>
 }
 
-<form asp-action="ArtJamPublishThemePoll" method="post" class="theme-form">
+<form asp-action="@formAction" method="post" class="theme-form">
 
     <div class="form-group">
         <label asp-for="SelectedChannelId">Канал для публикации</label>
@@ -235,7 +239,7 @@
 
     <div class="theme-panel">
         <div class="theme-panel-title">
-            Голосование за тему ArtJam #
+            Голосование за тему @eventName #
             <input type="number" name="animJamNumber" value="@eventNumber" required min="1" />
         </div>
 
@@ -246,7 +250,7 @@
             {
                 <div class="theme-option">
                     <span class="theme-num">@(i + 1)</span>
-                    <input type="text" name="themes" />
+                    <input type="text" name="themes"/>
                     <button type="button" class="theme-remove" onclick="removeTheme(this)" title="Удалить">×</button>
                 </div>
             }

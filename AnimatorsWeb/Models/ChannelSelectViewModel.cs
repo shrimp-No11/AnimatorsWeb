@@ -9,5 +9,9 @@ namespace AnimatorsWeb.Models
         public SelectList ChannelList { get; set; }
 
         public ulong SelectedChannelId { get; set; }
+
+        /// <summary>Для общих страниц модератора: какой ивент редактируем.</summary>
+        [ValidateNever]
+        public EventType EventType { get; set; } = EventType.AniJam;
     }
 }
