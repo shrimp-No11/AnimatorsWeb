@@ -343,10 +343,20 @@ namespace AnimatorsWeb.Controllers
             return RedirectToAction("Index");
         }
 
-        private async Task TryFillWinningTheme(CreateAnimJamViewModel model)
+        private Task TryFillWinningTheme(CreateAnimJamViewModel model) =>
+            TryFillWinningTheme(model, EventType.AniJam);
+
+        /// <summary>
+        /// Единый алгоритм выбора победившей темы для обоих ивентов:
+        /// 1) явный лидер по голосам;
+        /// 2) тай-брейк по голосам обладателей роли победителя ивента (для AniJam);
+        /// 3) тай-брейк по голосам обладателей роли «Актив»;
+        /// 4) если ничья сохранилась — отдаём варианты модератору.
+        /// </summary>
+        private async Task TryFillWinningTheme(CreateAnimJamViewModel model, EventType eventType)
         {
             var poll = await _db.ThemePolls
-                .Where(p => p.AnimJamNumber == model.Number && p.EventType == EventType.AniJam)
+                .Where(p => p.AnimJamNumber == model.Number && p.EventType == eventType)
                 .OrderByDescending(p => p.CreatedAt)
                 .FirstOrDefaultAsync();
 
@@ -375,14 +385,17 @@ namespace AnimatorsWeb.Controllers
             }
 
             // === Тай-брейк 1: голоса пользователей с ролью "Победитель аниджема" ===
-            var winnerFiltered = await FilterLeadersByRoleAsync(poll, leaders, DiscordMessageService.WinnerRoleId);
-            if (winnerFiltered.Count < leaders.Count)
-                leaders = winnerFiltered;
-
-            if (leaders.Count == 1)
+            if (eventType == EventType.AniJam)
             {
-                ApplyTheme(model, leaders[0].Text);
-                return;
+                var winnerFiltered = await FilterLeadersByRoleAsync(poll, leaders, DiscordMessageService.WinnerRoleId);
+                if (winnerFiltered.Count < leaders.Count)
+                    leaders = winnerFiltered;
+
+                if (leaders.Count == 1)
+                {
+                    ApplyTheme(model, leaders[0].Text);
+                    return;
+                }
             }
 
             // === Тай-брейк 2: голоса пользователей с ролью "Актив" ===
@@ -3001,31 +3014,8 @@ namespace AnimatorsWeb.Controllers
             return RedirectToAction("Index");
         }
 
-        private async Task TryFillArtJamWinningTheme(CreateAnimJamViewModel model)
-        {
-            var poll = await _db.ThemePolls
-                .Where(p => p.EventType == EventType.ArtJam && p.AnimJamNumber == model.Number)
-                .OrderByDescending(p => p.CreatedAt)
-                .FirstOrDefaultAsync();
-
-            if (poll == null)
-            {
-                model.PollError = "Опрос для этого номера не найден";
-                return;
-            }
-
-            var winner = await _discord.GetWinningThemeViaRestAsync(poll.ChannelId, poll.MessageId);
-
-            if (winner == null)
-            {
-                model.PollError = "Опрос ещё идёт или ничья";
-                return;
-            }
-
-            model.WinningThemeFromPoll = winner;
-            if (string.IsNullOrWhiteSpace(model.Theme))
-                model.Theme = winner;
-        }
+        private Task TryFillArtJamWinningTheme(CreateAnimJamViewModel model) =>
+            TryFillWinningTheme(model, EventType.ArtJam);
 
         // ===== АРТДЖЕМ: ГОЛОСОВАНИЕ ЗА ПОБЕДИТЕЛЕЙ =====
 

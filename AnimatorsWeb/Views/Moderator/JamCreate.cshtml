@@ -111,6 +111,9 @@
             </select>
         </div>
 
+        <input type="hidden" name="AnnouncementTemplate" id="hiddenAnnouncementTemplate"
+               value="@(Model.AnnouncementTemplate ?? "")" />
+
         <button type="submit" class="btn btn-primary">Опубликовать</button>
     </form>
 
@@ -143,9 +146,6 @@
                     border: 1px solid #ccc; border-radius: 6px; padding: 12px;
                     background: #fff; outline: none;">
         </div>
-
-        <input type="hidden" name="AnnouncementTemplate" id="hiddenAnnouncementTemplate"
-               value="@(Model.AnnouncementTemplate ?? "")" />
 
         <p style="color: #777; font-size: 12px; margin: 8px 0 0;">
             Нажми на текст, чтобы редактировать. Переменные выделены рамкой — кнопка выше вставит её туда,
