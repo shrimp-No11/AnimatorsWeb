@@ -9,6 +9,8 @@
     let ytLoadTimer = null;
     const ytVolumeTimers = [];
     let ytVolumePollTimer = null;
+    let ytPlayTimer = null;
+    let ytHasPlayed = false;
     let ytActiveIframe = null;
     let ytVolumeCaptureFrom = 0;
 
@@ -35,14 +37,22 @@
     window.addEventListener('message', event => {
         if (event.origin !== 'https://www.youtube-nocookie.com' &&
             event.origin !== 'https://www.youtube.com') return;
-        if (!ytActiveIframe || event.source !== ytActiveIframe.contentWindow) return;
-        if (performance.now() < ytVolumeCaptureFrom) return;
+        if (!ytActiveIframe) return;
+        // source может быть вложенным окном плеера — проверяем только origin
 
         let data;
         try {
             data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         } catch (e) { return; }
         if (!data || data.event !== 'infoDelivery' || !data.info) return;
+
+        // 1 — PLAYING. Если плеер начал играть, тревожить пользователя не нужно.
+        if (data.info.playerState === 1) {
+            ytHasPlayed = true;
+            clearTimeout(ytPlayTimer);
+        }
+
+        if (performance.now() < ytVolumeCaptureFrom) return;
 
         const volume = data.info.volume;
         if (typeof volume !== 'number' || volume < 0 || volume > 100) return;
@@ -86,7 +96,7 @@
         try {
             iframe.contentWindow.postMessage(
                 JSON.stringify({ event: 'listening', id: iframe.id }),
-                'https://www.youtube-nocookie.com'
+                '*'
             );
             netLog('yt-listening', { id: iframe.id });
         } catch (e) { }
@@ -97,7 +107,7 @@
         try {
             iframe.contentWindow.postMessage(
                 JSON.stringify({ event: 'command', func: func, args: args || [], id: iframe.id }),
-                'https://www.youtube-nocookie.com'
+                '*'
             );
             netLog('yt-command', { func: func, args: args || [], id: iframe.id });
         } catch (e) {
@@ -139,6 +149,8 @@
 
     function createYouTubeIframe(container, videoId, poster) {
         clearTimeout(ytLoadTimer);
+        clearTimeout(ytPlayTimer);
+        ytHasPlayed = false;
         clearInterval(ytVolumePollTimer);
         ytVolumeTimers.forEach(clearTimeout);
         ytVolumeTimers.length = 0;
@@ -172,6 +184,17 @@
             // Включаем обратную связь от плеера, чтобы получать infoDelivery с громкостью
             enableYouTubeMessages(iframe);
             if (poster && poster.isConnected) poster.remove();
+
+            // Видео может не стартовать из-за таймаута googlevideo.com — дадим ссылку
+            ytPlayTimer = setTimeout(() => {
+                if (!ytHasPlayed && container.isConnected) {
+                    netLog('yt-no-play-timeout', {
+                        videoId: videoId,
+                        ms: Math.round(performance.now() - startedAt)
+                    });
+                    showYouTubeFallback(container, videoId, poster);
+                }
+            }, 15000);
         });
 
         container.insertBefore(iframe, poster);
@@ -526,6 +549,7 @@
         if (!modal) return;
 
         clearTimeout(ytLoadTimer);
+        clearTimeout(ytPlayTimer);
         ytVolumeTimers.forEach(clearTimeout);
         ytVolumeTimers.length = 0;
         clearInterval(ytVolumePollTimer);
