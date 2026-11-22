@@ -59,23 +59,61 @@
         flex-wrap: wrap;
     }
 
-        .theme-panel-title input {
-            width: 70px;
-            padding: 4px 8px;
-            border: 1px solid color-mix(in srgb, var(--brand-text) 20%, transparent);
-            border-radius: 6px;
-            background: transparent;
-            color: var(--brand-primary);
-            font-size: 16px;
-            font-weight: 700;
-            text-align: center;
-            outline: none;
-            transition: border-color 0.15s;
+    .poll-token-toolbar {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .poll-token-btn {
+        padding: 5px 10px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 20%, transparent);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--brand-card) 70%, transparent);
+        color: var(--brand-text);
+        font-size: 12px;
+        cursor: grab;
+        user-select: none;
+    }
+
+        .poll-token-btn:hover {
+            border-color: var(--brand-accent);
+            color: var(--brand-accent);
         }
 
-            .theme-panel-title input:focus {
-                border-color: var(--brand-primary);
-            }
+        .poll-token-btn:active { cursor: grabbing; }
+
+    .poll-title-editor {
+        padding: 4px 8px;
+        border: 1px solid color-mix(in srgb, var(--brand-text) 25%, transparent);
+        border-radius: 6px;
+        background: transparent;
+        outline: none;
+        transition: border-color 0.15s;
+        line-height: 1.5;
+    }
+
+        .poll-title-editor:focus { border-color: var(--brand-primary); }
+
+    .poll-token {
+        display: inline;
+        padding: 1px 5px;
+        margin: 0 1px;
+        border: 1px solid var(--brand-accent);
+        border-radius: 5px;
+        background: color-mix(in srgb, var(--brand-accent) 14%, var(--brand-card));
+        color: var(--brand-accent);
+        font-weight: 600;
+        white-space: pre-wrap;
+        user-select: none;
+    }
+
+        .poll-token[contenteditable="true"] {
+            user-select: text;
+            cursor: text;
+        }
 
     .theme-panel-subtitle {
         font-size: 12px;
@@ -239,9 +277,17 @@
 
     <div class="theme-panel">
         <div class="theme-panel-title">
-            Голосование за тему @eventName #
-            <input type="number" name="animJamNumber" value="@eventNumber" required min="1" />
+            <div id="pollQuestion" class="poll-title-editor" contenteditable="true" spellcheck="false"></div>
         </div>
+
+        <div id="pollQuestionToolbar" class="poll-token-toolbar" style="display: none;">
+            <button type="button" class="poll-token-btn" data-token="event" draggable="true" title="Название ивента">@(isArtJam ? "АртДжем" : "АниДжем")</button>
+            <button type="button" class="poll-token-btn" data-token="number" draggable="true" title="Номер ивента">@eventNumber</button>
+        </div>
+
+        <input type="hidden" name="animJamNumber" id="hiddenEventNumber" value="@eventNumber" />
+        <input type="hidden" name="pollTitleTemplate" id="hiddenPollTitle"
+               value="@(Model.PollTitleTemplate ?? "")" />
 
         <div class="theme-panel-subtitle">Варианты</div>
 
@@ -308,4 +354,223 @@
             row.querySelector('input').placeholder = `Тема ${i + 1}`;
         });
     }
+
+    // === Редактируемый заголовок опроса ===
+    const questionEditor = document.getElementById('pollQuestion');
+    const questionToolbar = document.getElementById('pollQuestionToolbar');
+    const hiddenQuestion = document.getElementById('hiddenPollTitle');
+    const hiddenEventNumber = document.getElementById('hiddenEventNumber');
+    const initialQuestion = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.PollTitleTemplate ?? ""));
+    const defaultQuestion = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(AnimatorsWeb.Services.JamAnnouncementTemplate.DefaultThemePollQuestion(Model.EventType)));
+    const eventChipLabel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(isArtJam ? "АртДжем" : "АниДжем"));
+    const initialNumber = "@eventNumber";
+
+    function questionTokenLabel(name, arg) {
+        if (name === 'event') return eventChipLabel;
+        if (name === 'number') return hiddenEventNumber.value || initialNumber;
+        if (name === 'emoji') return arg || '(эмодзи)';
+        return '{{' + name + '}}';
+    }
+
+    function makeQuestionToken(body) {
+        const colon = body.indexOf(':');
+        const name = colon < 0 ? body : body.substring(0, colon);
+        const arg = colon < 0 ? '' : body.substring(colon + 1);
+
+        const span = document.createElement('span');
+        span.className = 'poll-token';
+        span.contentEditable = name === 'number' ? 'true' : 'false';
+        span.dataset.token = name;
+        if (arg) span.dataset.arg = arg;
+        span.textContent = questionTokenLabel(name, arg);
+        return span;
+    }
+
+    function renderQuestion(template) {
+        questionEditor.innerHTML = '';
+        for (let i = 0; i < template.length;) {
+            const open = template.indexOf('{{', i);
+            if (open < 0) {
+                questionEditor.appendChild(document.createTextNode(template.substring(i)));
+                break;
+            }
+            if (open > i) questionEditor.appendChild(document.createTextNode(template.substring(i, open)));
+            const close = template.indexOf('}}', open + 2);
+            if (close < 0) {
+                questionEditor.appendChild(document.createTextNode(template.substring(open)));
+                break;
+            }
+            questionEditor.appendChild(makeQuestionToken(template.substring(open + 2, close)));
+            i = close + 2;
+        }
+        syncQuestion();
+    }
+
+    function serializeQuestion() {
+        let out = '';
+        function walk(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                out += node.nodeValue.replace(/[\r\n]+/g, ' ');
+                return;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            if (node.tagName === 'BR') { out += ' '; return; }
+            if (node.classList && node.classList.contains('poll-token')) {
+                const name = node.dataset.token;
+                out += name === 'emoji'
+                    ? '{{emoji:' + (node.dataset.arg || '') + '}}'
+                    : '{{' + name + '}}';
+                return;
+            }
+            node.childNodes.forEach(walk);
+        }
+        questionEditor.childNodes.forEach(walk);
+        return out.trim();
+    }
+
+    function syncQuestion() {
+        hiddenQuestion.value = serializeQuestion();
+    }
+
+    function updateToolbarLabels() {
+        questionToolbar.querySelectorAll('.poll-token-btn[data-token]').forEach(btn => {
+            btn.textContent = questionTokenLabel(btn.dataset.token, '');
+        });
+    }
+
+    function updateQuestionTokens() {
+        questionEditor.querySelectorAll('.poll-token').forEach(span => {
+            // Число пользователь редактирует сам — не перезаписываем его
+            if (span.dataset.token !== 'number')
+                span.textContent = questionTokenLabel(span.dataset.token, span.dataset.arg || '');
+        });
+        updateToolbarLabels();
+        syncQuestion();
+    }
+
+    let questionRange = null;
+    function saveQuestionSelection() {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        if (questionEditor.contains(range.commonAncestorContainer)) questionRange = range.cloneRange();
+    }
+
+    function questionTargetRange(override) {
+        if (override && questionEditor.contains(override.commonAncestorContainer)) return override;
+        if (questionRange && questionEditor.contains(questionRange.commonAncestorContainer)) return questionRange;
+        const range = document.createRange();
+        range.selectNodeContents(questionEditor);
+        range.collapse(false);
+        return range;
+    }
+
+    function insertQuestionNode(node, override) {
+        questionEditor.focus();
+        const range = questionTargetRange(override);
+        range.deleteContents();
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        questionRange = range.cloneRange();
+        updateQuestionTokens();
+    }
+
+    // Панель переменных появляется только во время редактирования заголовка
+    questionEditor.addEventListener('focus', () => { questionToolbar.style.display = 'flex'; });
+    questionEditor.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (!questionToolbar.contains(document.activeElement)) questionToolbar.style.display = 'none';
+        }, 0);
+    });
+
+    questionToolbar.querySelectorAll('.poll-token-btn[data-token]').forEach(btn => {
+        btn.addEventListener('mousedown', e => e.preventDefault());
+        btn.addEventListener('click', () => {
+            insertQuestionNode(makeQuestionToken(btn.dataset.token));
+        });
+        btn.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', '{{' + btn.dataset.token + '}}');
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+    });
+
+    questionEditor.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    questionEditor.addEventListener('drop', e => {
+        e.preventDefault();
+        const raw = e.dataTransfer.getData('text/plain') || '';
+        if (!raw) return;
+        let range = null;
+        if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        } else if (document.caretPositionFromPoint) {
+            const p = document.caretPositionFromPoint(e.clientX, e.clientY);
+            if (p) {
+                range = document.createRange();
+                range.setStart(p.offsetNode, p.offset);
+                range.collapse(true);
+            }
+        }
+        const match = /^\{\{(.+)\}\}$/.exec(raw);
+        insertQuestionNode(match ? makeQuestionToken(match[1]) : document.createTextNode(raw.replace(/[\r\n]+/g, ' ')), range);
+    });
+
+    document.addEventListener('selectionchange', () => {
+        if (document.activeElement === questionEditor) saveQuestionSelection();
+    });
+    questionEditor.addEventListener('mouseup', saveQuestionSelection);
+    questionEditor.addEventListener('keyup', saveQuestionSelection);
+
+    // Клик по номеру выделяет его для замены
+    questionEditor.addEventListener('click', e => {
+        if (!(e.target instanceof Element)) return;
+        const chip = e.target.closest('.poll-token[data-token="number"]');
+        if (!chip || !questionEditor.contains(chip)) return;
+        const range = document.createRange();
+        range.selectNodeContents(chip);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        saveQuestionSelection();
+    });
+
+    // Вопрос опроса — одна строка
+    questionEditor.addEventListener('keydown', e => {
+        if (e.key === 'Enter') e.preventDefault();
+    });
+    questionEditor.addEventListener('paste', e => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        if (text) insertQuestionNode(document.createTextNode(text.replace(/[\r\n]+/g, ' ')));
+    });
+
+    questionEditor.addEventListener('input', e => {
+        if (e.target instanceof Element && e.target.classList.contains('poll-token') &&
+            e.target.dataset.token === 'number') {
+            const digits = (e.target.textContent.match(/\d+/g) || []).join('');
+            if (digits) hiddenEventNumber.value = digits;
+            updateToolbarLabels();
+        }
+        syncQuestion();
+    });
+
+    questionEditor.addEventListener('focusout', e => {
+        if (!(e.target instanceof Element) || !e.target.classList.contains('poll-token') ||
+            e.target.dataset.token !== 'number') return;
+        const digits = (e.target.textContent.match(/\d+/g) || []).join('');
+        if (digits) hiddenEventNumber.value = digits;
+        e.target.textContent = hiddenEventNumber.value || initialNumber;
+        updateToolbarLabels();
+        syncQuestion();
+    });
+
+    questionEditor.closest('form').addEventListener('submit', () => {
+        if (!/^\d+$/.test(hiddenEventNumber.value)) hiddenEventNumber.value = initialNumber;
+        syncQuestion();
+    });
+
+    renderQuestion(initialQuestion || defaultQuestion);
 </script>

@@ -3,13 +3,12 @@ using AnimatorsWeb.Services;
 using AspNet.Security.OAuth.Discord;
 using DSharpPlus;
 using DSharpPlus.Extensions;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http.Headers;
 using System.Security.Claims;
-using System.Text.Json;
 
 
 
@@ -55,7 +54,46 @@ builder.Services.AddAuthentication(options =>
     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = DiscordAuthenticationDefaults.AuthenticationScheme;
 })
-    .AddCookie()
+    .AddCookie(options =>
+    {
+        // Роль могли выдать уже после логина. Раз в день (при первом заходе) перепроверяем
+        // Discord и обновляем клейм в cookie — перелогиняться не нужно.
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var principal = context.Principal;
+            if (principal?.Identity?.IsAuthenticated != true) return;
+
+            string today = DateTime.Today.ToString(ModeratorRoleService.CheckDateFormat);
+            if (context.HttpContext.Request.Cookies[ModeratorRoleService.CheckDateCookie] == today)
+                return;
+
+            var discordId = principal.FindFirst(ModeratorRoleService.DiscordIdClaim)?.Value;
+            var accessToken = context.Properties.GetTokenValue("access_token");
+            if (string.IsNullOrEmpty(discordId) || string.IsNullOrEmpty(accessToken)) return;
+
+            var checker = context.HttpContext.RequestServices.GetRequiredService<ModeratorRoleService>();
+            var isModerator = await checker.CheckAsync(accessToken, discordId);
+            if (isModerator == null) return; // Discord недоступен — повторим при следующем заходе
+
+            if (ModeratorRoleService.IsModerator(principal) != isModerator.Value)
+            {
+                ModeratorRoleService.Apply(principal, isModerator.Value);
+                context.ReplacePrincipal(principal);
+                context.ShouldRenew = true;
+            }
+
+            context.HttpContext.Response.Cookies.Append(
+                ModeratorRoleService.CheckDateCookie,
+                today,
+                new CookieOptions
+                {
+                    Expires = DateTime.Today.AddDays(1).AddSeconds(-1),
+                    HttpOnly = true,
+                    SameSite = SameSiteMode.Lax,
+                    Secure = context.HttpContext.Request.IsHttps
+                });
+        };
+    })
     .AddDiscord(options =>
     {
         options.ClientId = builder.Configuration["Discord:ClientId"];
@@ -65,43 +103,21 @@ builder.Services.AddAuthentication(options =>
         options.SaveTokens = true; // Сохраняем токен, он понадобится для запросов к API
         options.Events.OnCreatingTicket = async context =>
         {
-            const ulong guildId = 1007550083627233290;
-            const ulong presidentRoleId = 1007550169526587392;
-            const ulong assistantRoleId = 1325850174194581556;
+            var checker = context.HttpContext.RequestServices.GetRequiredService<ModeratorRoleService>();
 
-            var http = context.HttpContext.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient();
-            http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", context.AccessToken);
-
-            var response = await http.GetAsync($"https://discord.com/api/v10/users/@me/guilds/{guildId}/member");
-
-            if (!response.IsSuccessStatusCode)
-            {
-                // Пользователь не на сервере или токен не даёт доступ
-                context.Identity.AddClaim(new Claim("is_moderator", "false"));
-                return;
-            }
-
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-            var roles = doc.RootElement.GetProperty("roles");
-
-            bool isModerator = false;
-            foreach (var role in roles.EnumerateArray())
-            {
-                var roleId = ulong.Parse(role.GetString());
-                if (roleId == presidentRoleId || roleId == assistantRoleId)
-                {
-                    isModerator = true;
-                    break;
-                }
-            }
-
-            context.Identity.AddClaim(new Claim("is_moderator", isModerator ? "true" : "false"));
             var userId = context.User.GetProperty("id").GetString();
+            bool isModerator = false;
+            if (!string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(context.AccessToken))
+                isModerator = await checker.CheckAsync(context.AccessToken, userId) ?? false;
+
+            context.Identity.AddClaim(new Claim(ModeratorRoleService.ModeratorClaim, isModerator ? "true" : "false"));
+
             if (!string.IsNullOrEmpty(userId))
-                context.Identity.AddClaim(new Claim("discord_id", userId));
-            context.Identity.AddClaim(new Claim(ClaimTypes.Name, context.User.GetProperty("username").GetString()));
+                context.Identity.AddClaim(new Claim(ModeratorRoleService.DiscordIdClaim, userId));
+
+            var username = context.User.GetProperty("username").GetString();
+            if (!string.IsNullOrEmpty(username))
+                context.Identity.AddClaim(new Claim(ClaimTypes.Name, username));
         };
     });
 
@@ -109,10 +125,11 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("ModeratorOnly", policy =>
-        policy.RequireClaim("is_moderator", "true"));
+        policy.RequireClaim(ModeratorRoleService.ModeratorClaim, "true"));
 });
 
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<ModeratorRoleService>();
 builder.Services.AddScoped<ChannelSettingsService>();
 builder.Services.AddScoped<RulesService>();
 

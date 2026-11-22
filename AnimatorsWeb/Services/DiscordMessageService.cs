@@ -90,7 +90,7 @@ public class DiscordMessageService
     }
     public async Task<ulong> SendThemePollAsync(
     ulong channelId, int eventNumber, List<string> themes,
-    AnimatorsWeb.Models.EventType eventType, bool allowMulti = false)
+    AnimatorsWeb.Models.EventType eventType, bool allowMulti = false, string? question = null)
     {
         var channel = await _client.GetChannelAsync(channelId);
         if (channel == null)
@@ -99,7 +99,9 @@ public class DiscordMessageService
         var label = eventType == AnimatorsWeb.Models.EventType.ArtJam ? "АртДжема" : "аниджема";
 
         var poll = new DiscordPollBuilder()
-            .WithQuestion($"Голосование за тему {label} #{eventNumber}")
+            .WithQuestion(string.IsNullOrWhiteSpace(question)
+                ? $"Голосование за тему {label} #{eventNumber}"
+                : question)
             .WithDuration(24)
             .AsMultipleChoice(allowMulti);
 

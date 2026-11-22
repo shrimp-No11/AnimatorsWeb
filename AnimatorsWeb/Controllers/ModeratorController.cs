@@ -128,18 +128,21 @@ namespace AnimatorsWeb.Controllers
             {
                 ChannelList = GetChannelSelectList(settings.ThemePollChannelId),
                 SelectedChannelId = settings.ThemePollChannelId ?? 0,
-                EventType = EventType.AniJam
+                EventType = EventType.AniJam,
+                PollTitleTemplate = JamAnnouncementTemplate.DefaultThemePollQuestion(EventType.AniJam)
             };
             return View("JamThemePoll", model);
         }
 
         [HttpPost]
-        public async Task<IActionResult> PublishThemePoll(ulong selectedChannelId, int animJamNumber, List<string> themes, bool allowMulti)
+        public async Task<IActionResult> PublishThemePoll(
+            ulong selectedChannelId, int animJamNumber, List<string> themes, bool allowMulti,
+            string? pollTitleTemplate)
         {
             if (selectedChannelId == 0)
             {
                 ViewBag.Error = "Пожалуйста, выберите канал.";
-                return await ReturnChooseThemeWithSettings();
+                return await ReturnChooseThemeWithSettings(pollTitleTemplate);
             }
 
             var validThemes = themes
@@ -151,10 +154,14 @@ namespace AnimatorsWeb.Controllers
             if (validThemes.Count < 2)
             {
                 ViewBag.Error = "Нужно минимум 2 темы.";
-                return await ReturnChooseThemeWithSettings();
+                return await ReturnChooseThemeWithSettings(pollTitleTemplate);
             }
 
-            var messageId = await _discord.SendThemePollAsync(selectedChannelId, animJamNumber, validThemes, EventType.AniJam, allowMulti);
+            string question = JamAnnouncementTemplate.RenderThemePollQuestion(
+                pollTitleTemplate, EventType.AniJam, animJamNumber);
+
+            var messageId = await _discord.SendThemePollAsync(
+                selectedChannelId, animJamNumber, validThemes, EventType.AniJam, allowMulti, question);
 
             _db.ThemePolls.Add(new ThemePoll
             {
@@ -174,17 +181,20 @@ namespace AnimatorsWeb.Controllers
 
             ViewBag.Result = "Голосование опубликовано!";
 
-            return await ReturnChooseThemeWithSettings();
+            return await ReturnChooseThemeWithSettings(pollTitleTemplate);
         }
 
-        private async Task<IActionResult> ReturnChooseThemeWithSettings()
+        private async Task<IActionResult> ReturnChooseThemeWithSettings(string? pollTitleTemplate = null)
         {
             var settings = await _settingsService.GetAsync();
             var model = new ChannelSelectViewModel
             {
                 ChannelList = GetChannelSelectList(settings.ThemePollChannelId),
                 SelectedChannelId = settings.ThemePollChannelId ?? 0,
-                EventType = EventType.AniJam
+                EventType = EventType.AniJam,
+                PollTitleTemplate = string.IsNullOrWhiteSpace(pollTitleTemplate)
+                    ? JamAnnouncementTemplate.DefaultThemePollQuestion(EventType.AniJam)
+                    : pollTitleTemplate
             };
             ViewBag.NextNumber = await GetNextJamNumberAsync(EventType.AniJam);
             return View("JamThemePoll", model);
@@ -2893,19 +2903,21 @@ namespace AnimatorsWeb.Controllers
             {
                 ChannelList = GetChannelSelectList(settings.ArtJamThemePollChannelId),
                 SelectedChannelId = settings.ArtJamThemePollChannelId ?? 0,
-                EventType = EventType.ArtJam
+                EventType = EventType.ArtJam,
+                PollTitleTemplate = JamAnnouncementTemplate.DefaultThemePollQuestion(EventType.ArtJam)
             };
             return View("JamThemePoll", model);
         }
 
         [HttpPost]
         public async Task<IActionResult> ArtJamPublishThemePoll(
-            ulong selectedChannelId, int animJamNumber, List<string> themes, bool allowMulti)
+            ulong selectedChannelId, int animJamNumber, List<string> themes, bool allowMulti,
+            string? pollTitleTemplate)
         {
             if (selectedChannelId == 0)
             {
                 ViewBag.Error = "Пожалуйста, выберите канал.";
-                return await ReturnArtJamChooseThemeWithSettings();
+                return await ReturnArtJamChooseThemeWithSettings(pollTitleTemplate);
             }
 
             var validThemes = themes
@@ -2917,11 +2929,14 @@ namespace AnimatorsWeb.Controllers
             if (validThemes.Count < 2)
             {
                 ViewBag.Error = "Нужно минимум 2 темы.";
-                return await ReturnArtJamChooseThemeWithSettings();
+                return await ReturnArtJamChooseThemeWithSettings(pollTitleTemplate);
             }
 
+            string question = JamAnnouncementTemplate.RenderThemePollQuestion(
+                pollTitleTemplate, EventType.ArtJam, animJamNumber);
+
             var messageId = await _discord.SendThemePollAsync(
-                selectedChannelId, animJamNumber, validThemes, EventType.ArtJam, allowMulti);
+                selectedChannelId, animJamNumber, validThemes, EventType.ArtJam, allowMulti, question);
 
             _db.ThemePolls.Add(new ThemePoll
             {
@@ -2938,17 +2953,20 @@ namespace AnimatorsWeb.Controllers
                 $"<@&{Roles.roleArtistId}>, голосование за тему {animJamNumber}-го АртДжема началось!");
 
             ViewBag.Result = "Голосование за тему АртДжема опубликовано!";
-            return await ReturnArtJamChooseThemeWithSettings();
+            return await ReturnArtJamChooseThemeWithSettings(pollTitleTemplate);
         }
 
-        private async Task<IActionResult> ReturnArtJamChooseThemeWithSettings()
+        private async Task<IActionResult> ReturnArtJamChooseThemeWithSettings(string? pollTitleTemplate = null)
         {
             var settings = await _settingsService.GetAsync();
             var model = new ChannelSelectViewModel
             {
                 ChannelList = GetChannelSelectList(settings.ArtJamThemePollChannelId),
                 SelectedChannelId = settings.ArtJamThemePollChannelId ?? 0,
-                EventType = EventType.ArtJam
+                EventType = EventType.ArtJam,
+                PollTitleTemplate = string.IsNullOrWhiteSpace(pollTitleTemplate)
+                    ? JamAnnouncementTemplate.DefaultThemePollQuestion(EventType.ArtJam)
+                    : pollTitleTemplate
             };
             ViewBag.NextNumber = await GetNextJamNumberAsync(EventType.ArtJam);
             return View("JamThemePoll", model);
