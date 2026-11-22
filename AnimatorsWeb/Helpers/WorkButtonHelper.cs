@@ -21,7 +21,8 @@ namespace AnimatorsWeb.Helpers
             string? mediaType,
             IEnumerable<Author>? authors = null,
             int? animJamNumber = null,
-            string? theme = null)
+            string? theme = null,
+            string? eventType = null)
         {
             var meta = new
             {
@@ -33,7 +34,8 @@ namespace AnimatorsWeb.Helpers
                     })
                     .Where(a => !string.IsNullOrEmpty(a.name) || !string.IsNullOrEmpty(a.discordId)),
                 jamNumber = animJamNumber,
-                theme = theme
+                theme = theme,
+                eventType = string.IsNullOrWhiteSpace(eventType) ? "AniJam" : eventType
             };
 
             var metaJson = JsonSerializer.Serialize(meta);

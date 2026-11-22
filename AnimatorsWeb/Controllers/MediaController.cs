@@ -31,6 +31,7 @@ namespace AnimatorsWeb.Controllers
 
         public async Task<IActionResult> StreamWork(int id)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var p = await _db.Participants.FindAsync(id);
             if (p == null) return NotFound();
 
@@ -38,7 +39,10 @@ namespace AnimatorsWeb.Controllers
 
             // === Из кэша ===
             if (_cache.TryGetValue(cacheKey, out CachedMedia? cachedMedia) && cachedMedia != null)
+            {
+                Console.WriteLine($"[MEDIA] StreamWork {id}: cache hit ({cachedMedia.Bytes.Length} bytes)");
                 return File(cachedMedia.Bytes, cachedMedia.ContentType, enableRangeProcessing: true);
+            }
 
             // === Запрашиваем у Discord ===
             var (channelId, messageId) = DiscordLinkParser.ParseMessageUrl(p.MessageUrl);
@@ -65,8 +69,9 @@ namespace AnimatorsWeb.Controllers
                     freshUrl = null;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"[MEDIA] StreamWork {id}: GetFreshAttachments error after {sw.ElapsedMilliseconds} ms: {ex.Message}");
                 freshUrl = null;
             }
 
@@ -98,8 +103,9 @@ namespace AnimatorsWeb.Controllers
                               ?? response.Content.Headers.ContentType?.MediaType
                               ?? GuessContentType(p.WorkUrl);
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"[MEDIA] StreamWork {id}: download error after {sw.ElapsedMilliseconds} ms: {ex.Message}");
                 if (!string.IsNullOrEmpty(p.MessageUrl))
                     return Redirect(p.MessageUrl);
                 return NotFound();
@@ -111,6 +117,8 @@ namespace AnimatorsWeb.Controllers
                 Size = bytes.Length,
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(6)
             });
+
+            Console.WriteLine($"[MEDIA] StreamWork {id}: Discord fetch {sw.ElapsedMilliseconds} ms, {bytes.Length} bytes, type={contentType}");
 
             return File(bytes, contentType, enableRangeProcessing: true);
         }

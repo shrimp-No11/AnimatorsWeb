@@ -6,34 +6,20 @@
     let closeButton = null;
     let previousFocus = null;
 
-    let currentYouTubePlayer = null;
-    let ytApiLoading = false;
-    const ytReadyQueue = [];
+    let ytLoadTimer = null;
 
-    // ===== YouTube: громкость =====
-    function getInitialVolume() {
-        const saved = localStorage.getItem('yt_volume');
-        if (saved !== null) {
-            const n = parseInt(saved, 10);
-            if (!isNaN(n) && n >= 0 && n <= 100) return n;
-        }
-        const fallback = window.MEDIA_MODAL_INITIAL_VOLUME;
-        return typeof fallback === 'number' ? fallback : 30;
-    }
-
-    function saveCurrentVolume() {
-        if (currentYouTubePlayer && typeof currentYouTubePlayer.getVolume === 'function') {
-            try {
-                const v = currentYouTubePlayer.getVolume();
-                if (v > 0) localStorage.setItem('yt_volume', Math.round(v));
-            } catch (e) { }
-        }
+    function netLog(kind, data) {
+        try {
+            if (window.NetworkLog) window.NetworkLog.record(kind, data);
+        } catch (e) { }
     }
 
     function pauseCurrentMedia() {
-        // YouTube — через API
-        if (currentYouTubePlayer && typeof currentYouTubePlayer.pauseVideo === 'function') {
-            try { currentYouTubePlayer.pauseVideo(); } catch (e) { }
+        // У обычного YouTube-iframe нет внешнего API паузы — выключаем звук,
+        // убрав источник, если пользователь ушёл по ссылке из заголовка.
+        const iframe = content?.querySelector('iframe.media-yt-frame');
+        if (iframe) {
+            try { iframe.src = 'about:blank'; } catch (e) { }
         }
 
         // HTML5 <video> — через DOM
@@ -49,50 +35,65 @@
         }
     }
 
-    function ensureYouTubeApi(callback) {
-        if (window.YT && window.YT.Player) {
-            callback();
-            return;
-        }
-        ytReadyQueue.push(callback);
-        if (ytApiLoading) return;
-        ytApiLoading = true;
+    // Тестовый вариант: обычный <iframe> без YouTube IFrame API — на один
+    // внешний скрипт и одну инициализацию меньше.
+    function createYouTubeIframe(container, videoId, poster) {
+        clearTimeout(ytLoadTimer);
+        let loaded = false;
+        const startedAt = performance.now();
 
-        window.onYouTubeIframeAPIReady = () => {
-            while (ytReadyQueue.length) ytReadyQueue.shift()();
-        };
+        const iframe = document.createElement('iframe');
+        iframe.className = 'media-yt-frame';
+        iframe.title = 'YouTube-видео';
 
-        const tag = document.createElement('script');
-        tag.src = 'https://www.youtube.com/iframe_api';
-        document.head.appendChild(tag);
+        // Важно: все атрибуты — ДО присваивания src. Иначе навигация начинается
+        // без Referer, и YouTube возвращает «Error 153 / неправильные настройки плеера».
+        iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.allowFullscreen = true;
+        iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0&playsinline=1`;
+
+        netLog('yt-iframe-create', { videoId: videoId, src: iframe.src, href: window.location.href });
+
+        iframe.addEventListener('load', () => {
+            loaded = true;
+            clearTimeout(ytLoadTimer);
+            netLog('yt-iframe-load', {
+                videoId: videoId,
+                ms: Math.round(performance.now() - startedAt),
+                src: iframe.src
+            });
+            if (poster && poster.isConnected) poster.remove();
+        });
+
+        container.insertBefore(iframe, poster);
+
+        ytLoadTimer = setTimeout(() => {
+            if (!loaded && container.isConnected) {
+                netLog('yt-iframe-timeout', {
+                    videoId: videoId,
+                    ms: Math.round(performance.now() - startedAt),
+                    src: iframe.src,
+                    detail: 'iframe не вызвал load за 4s — probable ERR_CONNECTION_CLOSED / блокировка'
+                });
+                showYouTubeFallback(container, videoId, poster);
+            }
+        }, 4000);
     }
 
-    function createYouTubePlayer(container, videoId) {
-        if (currentYouTubePlayer) {
-            try { currentYouTubePlayer.destroy(); } catch (e) { }
-            currentYouTubePlayer = null;
-        }
+    function showYouTubeFallback(container, videoId, poster) {
+        if (!container.isConnected) return;
+        const host = poster && poster.isConnected ? poster : container;
+        if (host.querySelector('.media-yt-fallback')) return;
+        netLog('yt-fallback-shown', { videoId: videoId });
 
-        const startVolume = getInitialVolume();
-
-        ensureYouTubeApi(() => {
-            currentYouTubePlayer = new YT.Player(container, {
-                width: '100%',
-                height: '100%',
-                videoId: videoId,
-                playerVars: {
-                    autoplay: 1,
-                    enablejsapi: 1,
-                    origin: window.location.origin,
-                    rel: 0
-                },
-                events: {
-                    onReady: (e) => {
-                        try { e.target.setVolume(startVolume); } catch (ex) { }
-                    }
-                }
-            });
-        });
+        const link = document.createElement('a');
+        link.className = 'media-yt-fallback';
+        link.href = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Открыть на YouTube ↗';
+        host.appendChild(link);
     }
 
     // ===== Модалка =====
@@ -287,12 +288,33 @@
         const pid = Number(participantId) || 0;
 
         if (ytId) {
+            netLog('media-open-youtube', { videoId: ytId, workUrl: workUrl, href: window.location.href });
+
             const wrap = document.createElement('div');
             wrap.className = 'media-yt-wrap';
             content.appendChild(wrap);
-            createYouTubePlayer(wrap, ytId);
+
+            // Сразу показываем превью с YouTube, пока грузится iframe
+            const poster = document.createElement('div');
+            poster.className = 'media-yt-poster';
+            poster.innerHTML =
+                `<img src="https://i.ytimg.com/vi/${encodeURIComponent(ytId)}/hqdefault.jpg" alt="" />` +
+                '<span class="media-yt-spinner" aria-hidden="true"></span>';
+            wrap.appendChild(poster);
+
+            const posterImg = poster.querySelector('img');
+            const posterStart = performance.now();
+            posterImg.addEventListener('load', () => netLog('yt-poster-load', {
+                videoId: ytId, ms: Math.round(performance.now() - posterStart)
+            }));
+            posterImg.addEventListener('error', () => netLog('yt-poster-error', {
+                videoId: ytId, ms: Math.round(performance.now() - posterStart)
+            }));
+
+            createYouTubeIframe(wrap, ytId, poster);
         } else if (pid > 0) {
             const proxyUrl = '/Media/StreamWork/' + pid;
+            netLog('media-open-local', { url: proxyUrl, workUrl: workUrl });
             let pathname = '';
             try {
                 pathname = new URL(workUrl || '', window.location.origin).pathname.toLowerCase();
@@ -394,13 +416,7 @@
     function closeModal() {
         if (!modal) return;
 
-        saveCurrentVolume();
-
-        if (currentYouTubePlayer) {
-            try { currentYouTubePlayer.destroy(); } catch (e) { }
-            currentYouTubePlayer = null;
-        }
-
+        clearTimeout(ytLoadTimer);
         modal.classList.remove('is-open');
         content.replaceChildren();
 
@@ -494,7 +510,9 @@
             const jamText = theme
                 ? `#${jamNumber} ${escapeHtml(theme)}`
                 : `#${jamNumber}`;
-            parts.push(`<a href="/Events/Details/AniJam/${encodeURIComponent(jamNumber)}" target="_blank" rel="noopener">${jamText}</a>`);
+            const eventType = String(meta.eventType || 'AniJam');
+            const detailsUrl = `/Events/Details?type=${encodeURIComponent(eventType)}&number=${encodeURIComponent(jamNumber)}`;
+            parts.push(`<a href="${detailsUrl}" target="_blank" rel="noopener">${jamText}</a>`);
         }
 
         if (parts.length === 0) return null;

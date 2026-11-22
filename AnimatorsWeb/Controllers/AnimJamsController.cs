@@ -22,7 +22,7 @@ namespace AnimatorsWeb.Controllers
         }
         public IActionResult Details(int number)
         {
-            return RedirectPermanent($"/Events/Details/AniJam/{number}");
+            return RedirectToAction("Details", "Events", new { type = "AniJam", number });
         }
         private static string NormalizeUrl(string url)
         {

@@ -22,6 +22,11 @@
     <link rel="stylesheet" href="~/AnimatorsWeb.styles.css" asp-append-version="true" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.youtube.com">
+    <link rel="preconnect" href="https://www.youtube-nocookie.com">
+    <link rel="preconnect" href="https://i.ytimg.com" crossorigin>
+    <link rel="dns-prefetch" href="https://www.youtube.com">
+    <link rel="dns-prefetch" href="https://www.youtube-nocookie.com">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -590,6 +595,7 @@
             .catch(() => {});
     })();
     </script>
+    <script src="~/js/network-logger.js" asp-append-version="true"></script>
     <script src="~/js/media-modal.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)

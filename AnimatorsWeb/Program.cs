@@ -187,6 +187,14 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// YouTube-embed'ы с 2025 года требуют Referer; без этого заголовка плеер
+// отдаёт «Error 153 / неправильные настройки видеопроигрывателя».
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
 app.UseStaticFiles();
 app.UseRouting();
 
