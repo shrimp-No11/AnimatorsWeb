@@ -7,6 +7,50 @@
     let previousFocus = null;
 
     let ytLoadTimer = null;
+    const ytVolumeTimers = [];
+    let ytVolumePollTimer = null;
+    let ytActiveIframe = null;
+    let ytVolumeCaptureFrom = 0;
+
+    const INITIAL_YOUTUBE_VOLUME = 30;
+
+    function getSavedYouTubeVolume() {
+        try {
+            const raw = localStorage.getItem('yt_volume');
+            if (raw !== null) {
+                const value = Number(raw);
+                if (Number.isFinite(value) && value >= 0 && value <= 100) return value;
+            }
+        } catch (e) { }
+        return INITIAL_YOUTUBE_VOLUME;
+    }
+
+    function saveYouTubeVolume(volume) {
+        try { localStorage.setItem('yt_volume', String(volume)); } catch (e) { }
+    }
+
+    // YouTube присылает infoDelivery с громкостью, если один раз отправить «listening».
+    // Первые секунды игнорируем: там плеер ещё может вернуть свою сохранённую
+    // громкость до того, как применится наша стартовая команда.
+    window.addEventListener('message', event => {
+        if (event.origin !== 'https://www.youtube-nocookie.com' &&
+            event.origin !== 'https://www.youtube.com') return;
+        if (!ytActiveIframe || event.source !== ytActiveIframe.contentWindow) return;
+        if (performance.now() < ytVolumeCaptureFrom) return;
+
+        let data;
+        try {
+            data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        } catch (e) { return; }
+        if (!data || data.event !== 'infoDelivery' || !data.info) return;
+
+        const volume = data.info.volume;
+        if (typeof volume !== 'number' || volume < 0 || volume > 100) return;
+        if (volume === getSavedYouTubeVolume()) return;
+
+        saveYouTubeVolume(volume);
+        netLog('yt-volume-saved', { volume: volume });
+    });
 
     function netLog(kind, data) {
         try {
@@ -37,21 +81,83 @@
 
     // Тестовый вариант: обычный <iframe> без YouTube IFrame API — на один
     // внешний скрипт и одну инициализацию меньше.
+    function enableYouTubeMessages(iframe) {
+        if (!iframe || !iframe.contentWindow) return;
+        try {
+            iframe.contentWindow.postMessage(
+                JSON.stringify({ event: 'listening', id: iframe.id }),
+                'https://www.youtube-nocookie.com'
+            );
+            netLog('yt-listening', { id: iframe.id });
+        } catch (e) { }
+    }
+
+    function sendYouTubeCommand(iframe, func, args) {
+        if (!iframe || !iframe.contentWindow) return;
+        try {
+            iframe.contentWindow.postMessage(
+                JSON.stringify({ event: 'command', func: func, args: args || [], id: iframe.id }),
+                'https://www.youtube-nocookie.com'
+            );
+            netLog('yt-command', { func: func, args: args || [], id: iframe.id });
+        } catch (e) {
+            netLog('yt-command-error', { func: func, error: String(e) });
+        }
+    }
+
+    function sendYouTubeVolume(iframe, volume) {
+        sendYouTubeCommand(iframe, 'setVolume', [volume]);
+    }
+
+    // YouTube не даёт задать громкость URL-параметром, но принимает команду
+    // через postMessage. Шлём её несколько раз, пока плеер инициализируется,
+    // иначе ранняя команда теряется и остаётся громкость 100%.
+    function scheduleInitialVolume(iframe) {
+        ytVolumeTimers.forEach(clearTimeout);
+        ytVolumeTimers.length = 0;
+        clearInterval(ytVolumePollTimer);
+
+        ytActiveIframe = iframe;
+        ytVolumeCaptureFrom = performance.now() + 7000;
+        const initialVolume = getSavedYouTubeVolume();
+        let hasSaved = false;
+        try { hasSaved = localStorage.getItem('yt_volume') !== null; } catch (e) { }
+        netLog('yt-volume-initial', { volume: initialVolume, hasSaved: hasSaved });
+
+        [300, 800, 1600, 2800, 4500, 6500].forEach(delay => {
+            ytVolumeTimers.push(setTimeout(() => {
+                if (iframe.isConnected) sendYouTubeVolume(iframe, initialVolume);
+            }, delay));
+        });
+
+        // Если infoDelivery не придёт сам — периодически спрашиваем текущую громкость
+        ytVolumePollTimer = setInterval(() => {
+            if (ytActiveIframe && ytActiveIframe.isConnected)
+                sendYouTubeCommand(ytActiveIframe, 'getVolume', []);
+        }, 2000);
+    }
+
     function createYouTubeIframe(container, videoId, poster) {
         clearTimeout(ytLoadTimer);
+        clearInterval(ytVolumePollTimer);
+        ytVolumeTimers.forEach(clearTimeout);
+        ytVolumeTimers.length = 0;
         let loaded = false;
         const startedAt = performance.now();
 
         const iframe = document.createElement('iframe');
         iframe.className = 'media-yt-frame';
         iframe.title = 'YouTube-видео';
+        iframe.id = `media-yt-frame-${videoId}`;
 
         // Важно: все атрибуты — ДО присваивания src. Иначе навигация начинается
         // без Referer, и YouTube возвращает «Error 153 / неправильные настройки плеера».
         iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         iframe.allowFullscreen = true;
-        iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0&playsinline=1`;
+        iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}` +
+            `?autoplay=1&rel=0&playsinline=1&enablejsapi=1` +
+            `&origin=${encodeURIComponent(window.location.origin)}`;
 
         netLog('yt-iframe-create', { videoId: videoId, src: iframe.src, href: window.location.href });
 
@@ -63,10 +169,13 @@
                 ms: Math.round(performance.now() - startedAt),
                 src: iframe.src
             });
+            // Включаем обратную связь от плеера, чтобы получать infoDelivery с громкостью
+            enableYouTubeMessages(iframe);
             if (poster && poster.isConnected) poster.remove();
         });
 
         container.insertBefore(iframe, poster);
+        scheduleInitialVolume(iframe);
 
         ytLoadTimer = setTimeout(() => {
             if (!loaded && container.isConnected) {
@@ -417,6 +526,11 @@
         if (!modal) return;
 
         clearTimeout(ytLoadTimer);
+        ytVolumeTimers.forEach(clearTimeout);
+        ytVolumeTimers.length = 0;
+        clearInterval(ytVolumePollTimer);
+        ytVolumePollTimer = null;
+        ytActiveIframe = null;
         modal.classList.remove('is-open');
         content.replaceChildren();
 
